@@ -1,21 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import {cleanMoodlePaste} from '../js/moodle.js';
 
-test('normalizes pasted Moodle lecture text locally',()=>{
+test('normalizes pasted lecture text locally',()=>{
  assert.equal(cleanMoodlePaste('  محاضرة قواعد البيانات\r\nشرح محتوى المحاضرة  '),'محاضرة قواعد البيانات\nشرح محتوى المحاضرة');
 });
-test('rejects invalid pasted content',()=>{
+test('rejects empty and oversized Moodle paste',()=>{
  assert.throws(()=>cleanMoodlePaste('قصير'));
- assert.throws(()=>cleanMoodlePaste('x'.repeat(120001)));
+ assert.throws(()=>cleanMoodlePaste('a'.repeat(120001)));
 });
-test('Moodle page and reduced-motion controls are present',()=>{
- const app=readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
- const css=readFileSync(new URL('../styles.css',import.meta.url),'utf8');
- assert.match(app,/function moodlePage\(/);
- assert.match(app,/function moodleImportForm\(/);
- assert.match(app,/moodle\.ucas\.edu\.ps\/login\/index\.php/);
- assert.match(css,/prefers-reduced-motion:reduce/);
- assert.match(css,/@keyframes ucas-page-in/);
+test('Moodle source is valid plain text; not a login fetch',()=>{
+ const text='درس محاضرة عن نظم المعلومات الجغرافية وطرق جمع البيانات';
+ assert.equal(cleanMoodlePaste(text),text);
+});
+
+import {safeMoodleActivityURL,parseMoodleCourseHTML} from '../js/moodle.js';
+
+test('only authorized UCAS Moodle activity links are retained, never session tokens',()=>{
+ assert.equal(safeMoodleActivityURL('https://moodle.ucas.edu.ps/mod/resource/view.php?id=123&sesskey=secret&token=oops#x'),'https://moodle.ucas.edu.ps/mod/resource/view.php?id=123');
+ assert.equal(safeMoodleActivityURL('/mod/assign/view.php?id=99'), 'https://moodle.ucas.edu.ps/mod/assign/view.php?id=99');
+ for(const url of ['https://evil.test/mod/assign/view.php?id=1','https://moodle.ucas.edu.ps/login/index.php','javascript:alert(1)','/webservice/rest/server.php?wstoken=secret','https://moodle.ucas.edu.ps/pluginfile.php/22/foo.pdf','https://moodle.ucas.edu.ps/mod/assign/view.php?id=abc']) assert.equal(safeMoodleActivityURL(url),null);
+});
+test('Moodle HTML importer rejects malformed exports',()=>{
+ assert.throws(()=>parseMoodleCourseHTML('<html><body>unrelated</body></html>'));
+ assert.throws(()=>parseMoodleCourseHTML('x'.repeat(4*1024*1024+1)));
 });

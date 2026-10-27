@@ -38,3 +38,16 @@ button:not(:disabled):active{transform:scale(.975);transition-duration:.09s}
 .moodle-import-form .notice{margin:12px 0 18px}
 @media(max-width:700px){.moodle-steps{grid-template-columns:1fr}.moodle-shortcut,.moodle-status{flex-wrap:wrap}.moodle-status .pill{margin-inline-start:0}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important;filter:none!important}.page-stage{will-change:auto}}
+/* v0.4: student-authorized Moodle HTML export workflow */
+.moodle-html-import{display:grid;gap:16px}
+.moodle-html-import .notice p{margin-top:7px}
+.moodle-html-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:13px}
+.moodle-preview{border:1px solid var(--line);border-radius:var(--radius);padding:18px;background:var(--soft);display:grid;gap:12px}
+.moodle-preview-list{max-height:340px;overflow-y:auto;display:grid;gap:7px;padding:3px}
+.moodle-preview-item{display:flex;align-items:flex-start;gap:11px;padding:11px 13px;background:var(--surface);border:1px solid var(--line);border-radius:11px;cursor:pointer}
+.moodle-preview-item input{margin-top:4px;accent-color:#27629c;flex-shrink:0}
+.moodle-preview-item strong{display:block;font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.moodle-preview-item small{display:block;font-size:11px;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
+.moodle-empty{padding:20px;background:var(--soft);border:1px dashed var(--line);border-radius:12px;text-align:center;display:grid;gap:7px}
+.moodle-empty strong{font-size:13px}
+@media(max-width:700px){.moodle-html-grid{grid-template-columns:1fr}.moodle-preview{padding:12px}}

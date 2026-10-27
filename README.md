@@ -66,10 +66,12 @@ Automated browser tests provided in `tests/smoke.py`; run after starting server 
 Limitations: Office preview needs browser support for deflate-raw; encrypted/ZIP64 Office files and large parts are not supported. User data remains local and backups must be kept. There is no live Moodle, Google Drive OAuth or external AI integration.
 
 
-## v0.3.0 — Animations and Moodle-first student import
+## v0.3.0 — Motion and Moodle-first import
 
-- Soft fade and blur transitions; button and card hover/press states; blurred modal backdrop; reduced-motion fallback.
-- Dedicated Moodle UCAS screen and official-login link. The student may paste permitted lecture text into their local library and import files/links/ICS using existing tools.
-- Moodle is **not connected automatically**. This website does not request credentials, read protected pages or synchronize a session.
-- No AI key, student data or passwords are uploaded to this public code repository. Personal study resources remain in local browser storage.
-- Versioned PWA shell updates to v3; browser refresh may be needed to receive new assets.
+- Light fade-in and blur between sections, interactive button/card hover and press states, modal backdrop blur, and toast fade-out. `prefers-reduced-motion` is honored.
+- Dedicated **Moodle UCAS** page with official login link, explicit steps and a local-only form to paste *course content the student is allowed to copy*. Saves the text as a `.txt` resource for its selected course, with duplicate detection.
+- Moodle tab is the default in Import Center; shortcuts to file, ICS and links remain available.
+- **No direct Moodle authentication, scraping or automatic synchronization.** This is a student-controlled import path, not a claim of direct API access. Never paste passwords, access tokens or other students' private data.
+- Static PWA cache version bumped to v3; user files remain in the same IndexedDB database.
+
+The website's GitHub Pages code is public. IndexedDB study notes stay locally in each browser profile, but anyone with access to that profile can read them. Back up before clearing website storage.
