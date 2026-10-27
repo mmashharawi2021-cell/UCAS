@@ -35,3 +35,10 @@ Execute browser QA locally, address issues, then migrate the verified components
 
 ## v0.2 milestone
 Office DOCX/PPTX text preview, saved quiz drafts and local question bank, detailed per-course progress, cache update. Deployment depends on GitHub commit and Pages build.
+
+
+### v0.3.0 — UI transitions and Moodle priority
+- Implemented: page fade/blur, microinteractions on buttons/cards, backdrop blur and reduced-motion support.
+- Implemented: Moodle page, clipboard-based local study-content import, shortcuts to file/ICS/link import, and duplicate checks.
+- Automated Node tests: 9 passed locally. Browser automation on localhost blocked by environment policy; device verification remains necessary.
+- Not included: direct Moodle API, auto-sync, account login or remote AI backend.
