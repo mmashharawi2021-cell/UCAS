@@ -13,7 +13,7 @@ function fmtDate(x){if(!x)return 'بدون موعد';const raw=String(x);const n
 function fmtTime(x){if(!x) return '';const d=new Date(x);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('ar-PS',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Hebron'}).format(d);}
 function formatSize(n){return n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB`:`${Math.max(1,Math.round(n/1024))} KB`}
 function safeUrl(str){try{let u=new URL(str);return (u.protocol==='https:' || u.protocol==='http:')?u.href:null;}catch{return null}}
-const state={page:'home',courses:[],resources:[],tasks:[],events:[],attempts:[],progress:[],settings:[],courseId:null,courseTab:'lessons',importTab:'moodle',collapsed:false,mobileMenu:false,query:'',activeQuiz:null,quizDraft:null,questionBank:[],notice:null,mode:'auto',moodlePreview:null,moodleSelectedCourseId:null};
+const state={page:'home',courses:[],resources:[],tasks:[],events:[],attempts:[],progress:[],settings:[],courseId:null,courseTab:'lessons',importTab:'moodle',collapsed:false,mobileMenu:false,query:'',activeQuiz:null,quizDraft:null,questionBank:[],notice:null,mode:'auto',moodlePreview:null,moodleSelectedCourseId:null,moodleImportFile:null,moodleImportError:null};
 let viewURL=null;
 function courseName(id){return state.courses.find(c=>c.id===id)?.title||'غير مصنّف';}
 function courseOption(selected){return state.courses.map(c=>`<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(c.title)}</option>`).join('');}
@@ -54,7 +54,8 @@ function moodleHTMLForm(){
  const p=state.moodlePreview;
  const selected=state.moodleSelectedCourseId||state.courseId||'';
  return `<div class="moodle-html-import"><div class="notice info"><strong>استيراد صفحة مساق Moodle (MHT / MHTML / HTML)</strong><p>افتح المساق على موقع الجامعة بعد تسجيل الدخول هناك، واحفظ الصفحة من Chrome بصيغة MHT أو MHTML، أو بصيغة HTML من الحاسوب، ثم اختر الملف هنا. نفحص الصفحة محليًا ونستخرج أسماء الأنشطة والروابط الآمنة فقط؛ لا نحفظ نسخة HTML الخام أو رموز الجلسة. هذه ليست مزامنة تلقائية.</p></div>
- <div class="moodle-html-grid"><div class="field"><label for="moodle-html-file">ملف صفحة المساق (MHT أو HTML)</label><input class="input" type="file" id="moodle-html-file" accept=".html,.htm,.mht,.mhtml,text/html,multipart/related"/></div><div class="field"><label for="moodle-html-course">المساق المراد الربط به</label><select id="moodle-html-course" class="select"><option value="">اختر المساق</option>${courseOption(selected)}</select></div></div>
+ <div class="moodle-html-grid"><div class="field"><label for="moodle-html-file">ملف صفحة المساق (MHT أو HTML)</label><input class="input" type="file" id="moodle-html-file" accept=".html,.htm,.mht,.mhtml,text/html,multipart/related"/>${state.moodleImportFile?`<p class="muted tiny">آخر ملف تم فحصه: ${esc(state.moodleImportFile)}</p>`:""}</div><div class="field"><label for="moodle-html-course">المساق المراد الربط به</label><select id="moodle-html-course" class="select"><option value="">اختر المساق</option>${courseOption(selected)}</select></div></div>
+ ${state.moodleImportError?`<div class="notice info" role="alert"><strong>تعذر استيراد الملف:</strong> ${esc(state.moodleImportError)}<p>تأكد من فتح صفحة المساق نفسه بعد تسجيل الدخول وظهور المحاضرات، ثم احفظها من Chrome. يمكنك إعادة اختيار الملف هنا.</p></div>`:""}
  ${p?`<div class="moodle-preview" aria-live="polite"><div class="panel-heading"><h3>معاينة المستخرج: ${esc(p.courseTitle)}</h3><span class="pill">${p.resources.length} عنصر</span></div><p class="muted tiny">راجع العناصر قبل استيرادها. العناصر دون رابط ستُحفظ كملاحظات نصية، ولن تُحمّل صفحات Moodle المحمية تلقائيًا.</p><div class="moodle-preview-list">${p.resources.map((item,i)=>`<label class="moodle-preview-item"><input type="checkbox" data-moodle-item="${i}" checked/><span><strong>${esc(item.title)}</strong><small>${esc(item.module)} · ${item.kind==='link'?'رابط نشاط Moodle':item.kind==='summary'?'ملخص وحدة':'ملاحظة'}</small></span></label>`).join('')}</div><button class="primary-btn" type="button" data-action="moodle-import-preview">${ic('upload')} استيراد العناصر المحددة إلى المساق</button></div>`:`<div class="moodle-empty"><strong>لم تختر ملف MHT أو HTML بعد</strong><p class="muted tiny">يمكنك أيضًا استخدام نسخ النصوص أو استيراد الملفات وICS بالطريقة المعتادة.</p></div>`}
  </div>`;
 }
@@ -174,11 +175,13 @@ async function handleChange(e){const el=e.target;
 if(el.id==='moodle-html-course'){state.moodleSelectedCourseId=el.value;return;}
 if(el.id==='moodle-html-file'&&el.files?.length){
  const file=el.files[0];
+ state.moodleImportFile=file.name;
+ state.moodleImportError=null;
  try{
   state.moodlePreview=await readMoodleCourseFile(file);
   if(!state.moodleSelectedCourseId){const needle=state.moodlePreview.courseTitle.trim();const similar=state.courses.find(c=>needle.includes(c.title)||c.title.includes(needle));state.moodleSelectedCourseId=similar?.id||state.courseId||null;}
   render();toast(`تم فحص الصفحة: ${state.moodlePreview.resources.length} عنصر قابل للمراجعة`);
- }catch(err){state.moodlePreview=null;render();toast(err.message||'تعذر تحليل ملف المساق',true);}
+ }catch(err){state.moodlePreview=null;state.moodleImportError=err?.message||'تعذر تحليل ملف المساق';render();toast('تعذر استيراد الملف، راجع رسالة الخطأ داخل الصفحة',true);}
  return;
 }
 
