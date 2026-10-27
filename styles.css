@@ -11,3 +11,30 @@ html[data-theme="dark"]{color-scheme:dark;--navy:#789fdd;--navy-deep:#162e52;--n
 .course-progress-card{padding:17px 0;border-bottom:1px solid var(--line)}.course-progress-card:last-child{border-bottom:0}.metrics-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 16px;font-size:12px;color:var(--muted);margin-top:12px}
 .draft-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;border-right:4px solid var(--navy)}.quiz-panel{max-width:760px;margin:auto}.quiz-panel .quiz-nav{justify-content:space-between;margin-top:20px;margin-bottom:10px}.quiz-options{border:0;padding:0}.result-panel{text-align:center;max-width:700px;margin:auto}.result-score{font-size:48px;color:var(--navy)}.review-answer{text-align:right;padding:15px 0;border-bottom:1px solid var(--line)}.review-answer:last-of-type{margin-bottom:17px}.correct-text{color:var(--success)}.wrong-text{color:var(--danger)}
 @media(max-width:560px){.metrics-row{grid-template-columns:1fr}.office-text{padding:12px;font-size:13px}.draft-panel .row-actions{justify-content:flex-start}.quiz-panel .row-actions{width:100%}}
+
+/* v0.3: motion system. Disabled globally for reduced-motion preferences. */
+@keyframes ucas-page-in{from{opacity:0;filter:blur(7px);transform:translateY(11px)}to{opacity:1;filter:blur(0);transform:translateY(0)}}
+@keyframes ucas-modal-in{from{opacity:0;filter:blur(6px);transform:translateY(10px) scale(.975)}to{opacity:1;filter:blur(0);transform:translateY(0) scale(1)}}
+@keyframes ucas-overlay-in{from{opacity:0}to{opacity:1}}
+@keyframes ucas-toast-out{to{opacity:0;filter:blur(4px);transform:translateY(8px)}}
+.page-stage{animation:ucas-page-in .36s cubic-bezier(.2,.7,.2,1) both;will-change:opacity,transform}
+.page-stage.is-leaving{animation:none;opacity:0;filter:blur(4px);transform:translateY(-6px);transition:opacity .13s ease,filter .13s ease,transform .13s ease;pointer-events:none}
+button,.course-card,.quick-action,.stat-card,.task-card{transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .2s ease,transform .2s cubic-bezier(.2,.8,.2,1)}
+@media (hover:hover){button:not(:disabled):hover{filter:brightness(1.055)}.primary-btn:hover,.outline-btn:hover,.quick-action:hover,.course-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(23,58,104,.12)}}
+button:not(:disabled):active{transform:scale(.975);transition-duration:.09s}
+.modal-backdrop{animation:ucas-overlay-in .2s ease both;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+.modal{animation:ucas-modal-in .27s cubic-bezier(.2,.7,.2,1) both}
+.toast.is-hiding{animation:ucas-toast-out .23s ease forwards}
+.moodle-shortcut{display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--soft);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin:18px 0}
+.moodle-shortcut strong{display:flex;gap:9px;align-items:center;color:var(--navy)}.moodle-shortcut p{color:var(--muted);font-size:12px;margin-top:4px}
+.moodle-status{display:flex;align-items:center;gap:14px;background:var(--soft);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin:0 0 22px}
+.moodle-status p{font-size:12px;color:var(--muted);margin-top:5px}.moodle-status .pill{margin-inline-start:auto;white-space:nowrap}
+.moodle-status-icon{display:grid;place-items:center;min-width:48px;height:48px;border-radius:14px;background:var(--surface);color:var(--navy)}
+.moodle-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.moodle-steps>div{background:var(--surface);padding:20px;border:1px solid var(--line);border-radius:var(--radius)}
+.moodle-steps span{display:grid;place-items:center;width:32px;height:32px;background:var(--soft);color:var(--navy);border-radius:50%;font-weight:700;margin-bottom:12px}
+.moodle-steps strong{display:block;font-size:14px}.moodle-steps p{font-size:12px;color:var(--muted);margin-top:5px}
+.moodle-import-form .textarea{width:100%;min-height:150px;resize:vertical}
+.moodle-import-form .notice{margin:12px 0 18px}
+@media(max-width:700px){.moodle-steps{grid-template-columns:1fr}.moodle-shortcut,.moodle-status{flex-wrap:wrap}.moodle-status .pill{margin-inline-start:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important;filter:none!important}.page-stage{will-change:auto}}
