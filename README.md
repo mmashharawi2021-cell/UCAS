@@ -53,3 +53,14 @@ Reason for no Next.js compile at this stage: dependency registry was unreachable
 ## Testing
 
 Automated browser tests provided in `tests/smoke.py`; run after starting server and installing Playwright and Chromium. This v0.1 does not constitute production security or accessibility certification.
+
+
+## v0.2 improvements (2026-10-27)
+
+- Local DOCX/PPTX text preview in supported browsers using ZIP/XML + DecompressionStream (not original Office layout). Extracted document text is not sent to a server.
+- Local editable question bank for all courses, optional answer explanation and cited lecture reference, and one-question-at-a-time quizzes.
+- Quiz draft persistence across reloads, answer retention on Previous/Next, resume/discard, saved results linked to courses.
+- Per-course progress metrics: completed resources, tasks, quiz attempts and average practice score (not official grades).
+- Cache version v2 and network-first navigation to propagate GitHub Pages updates while keeping offline shell fallback.
+
+Limitations: Office preview needs browser support for deflate-raw; encrypted/ZIP64 Office files and large parts are not supported. User data remains local and backups must be kept. There is no live Moodle, Google Drive OAuth or external AI integration.

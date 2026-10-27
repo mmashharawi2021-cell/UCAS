@@ -32,3 +32,6 @@ Project source is prepared for publication to the user-provided public GitHub so
 ## Next approved milestone
 
 Execute browser QA locally, address issues, then migrate the verified components to Next.js once dependencies are installable. Do not deploy or activate paid APIs without separate authorization.
+
+## v0.2 milestone
+Office DOCX/PPTX text preview, saved quiz drafts and local question bank, detailed per-course progress, cache update. Deployment depends on GitHub commit and Pages build.
