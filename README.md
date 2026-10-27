@@ -64,3 +64,12 @@ Automated browser tests provided in `tests/smoke.py`; run after starting server 
 - Cache version v2 and network-first navigation to propagate GitHub Pages updates while keeping offline shell fallback.
 
 Limitations: Office preview needs browser support for deflate-raw; encrypted/ZIP64 Office files and large parts are not supported. User data remains local and backups must be kept. There is no live Moodle, Google Drive OAuth or external AI integration.
+
+
+## v0.3.0 — Animations and Moodle-first student import
+
+- Soft fade and blur transitions; button and card hover/press states; blurred modal backdrop; reduced-motion fallback.
+- Dedicated Moodle UCAS screen and official-login link. The student may paste permitted lecture text into their local library and import files/links/ICS using existing tools.
+- Moodle is **not connected automatically**. This website does not request credentials, read protected pages or synchronize a session.
+- No AI key, student data or passwords are uploaded to this public code repository. Personal study resources remain in local browser storage.
+- Versioned PWA shell updates to v3; browser refresh may be needed to receive new assets.
