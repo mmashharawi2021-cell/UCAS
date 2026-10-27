@@ -1,3 +1,10 @@
+## v0.4.1 — Moodle MHT/MHTML import from mobile Chrome
+
+- Accepts `.mht` and `.mhtml` plus `.html` and `.htm`.
+- Parses multipart Chrome snapshots in-browser and discards raw archives.
+- Adds MIME extraction unit tests and PWA cache v5.
+- Direct Moodle API connection is still not available.
+
 # Development status — 27 October 2026
 
 ## Completed — implementation batch 1
