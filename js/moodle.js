@@ -1,3 +1,5 @@
+import {extractMoodleHTMLFromMHTML,MAX_MHTML} from './mhtml.js';
+export {extractMoodleHTMLFromMHTML} from './mhtml.js';
 // Student-owned Moodle exports only. Runs offline in the browser; no login, cookies or tokens.
 const UCAS = 'moodle.ucas.edu.ps';
 const MAX_HTML = 4 * 1024 * 1024;
@@ -82,4 +84,15 @@ export function parseMoodleCourseHTML(source){
  }
  if(!resources.length&&!summaries.length)throw new Error('لم يتم العثور على أنشطة أو ملخصات مساق. جرّب حفظ صفحة المساق الكاملة بصيغة HTML.');
  return {courseTitle,sections:[...sections].slice(0,45),resources:[...resources,...summaries].slice(0,220),activityCount:resources.length,summaryCount:summaries.length};
+}
+
+
+// Chrome Android saves course pages as .mht or .mhtml. The archive never leaves the browser.
+export async function readMoodleCourseFile(file){
+ if(!file||typeof file.name!=="string"||typeof file.text!=="function")throw new Error("اختر ملف صفحة Moodle");
+ const isMHT=/\.mht(?:ml)?$/i.test(file.name);
+ if(!isMHT&&!/\.html?$/i.test(file.name))throw new Error("الأنواع المقبولة HTML وMHT وMHTML فقط");
+ if(file.size>(isMHT?MAX_MHTML:4*1024*1024))throw new Error(isMHT?"ملف MHT يتجاوز 25 MB":"ملف HTML يتجاوز 4 MB");
+ const source=await file.text();
+ return parseMoodleCourseHTML(isMHT?extractMoodleHTMLFromMHTML(source):source);
 }
