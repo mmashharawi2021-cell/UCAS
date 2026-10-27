@@ -75,3 +75,11 @@ Limitations: Office preview needs browser support for deflate-raw; encrypted/ZIP
 - Static PWA cache version bumped to v3; user files remain in the same IndexedDB database.
 
 The website's GitHub Pages code is public. IndexedDB study notes stay locally in each browser profile, but anyone with access to that profile can read them. Back up before clearing website storage.
+
+
+## Chrome Android: import Moodle MHT / MHTML (v0.4.1)
+
+- On your phone, open a **course page** in the official Moodle site and use Chrome **Save page**. Chrome may save `.mht` or `.mhtml` instead of `.html`.
+- In UCAS Academic Bridge, open **Moodle UCAS → Import course page**, select that file, review the extracted activities, choose the target course and import.
+- Only the HTML component is decoded in the browser. Raw MHT, embedded images, passwords and session tokens are **not** saved or uploaded. Activity links are limited to approved UCAS URLs with only numeric activity IDs.
+- Maximum MHT file: 25 MB, extracted HTML: 4 MB. This is a local manual import, not automatic Moodle syncing or access to protected attachments.
