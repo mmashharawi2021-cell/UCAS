@@ -22,6 +22,14 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js sw.js; do node --check "$file"; done
+      - name: Show Companion formatter differences
+        run: |
+          for f in js/companion.js js/app.js; do
+            echo "START_FORMAT_DIFF:$f"
+            npx prettier "$f" > /tmp/ucas-prettier
+            diff -u "$f" /tmp/ucas-prettier || true
+            echo "END_FORMAT_DIFF:$f"
+          done
       - name: Check formatting
         run: npm run format:check
       - name: Lint
