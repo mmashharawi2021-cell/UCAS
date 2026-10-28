@@ -264,9 +264,10 @@ try {
   await click(phone, '[data-course="course-2"]');
   await click(phone, '[data-tab="ai"]');
   await phone.waitForSelector('#ai-source');
+  assert.ok(await phone.locator('.ai-studio-layout').count());
   await phone.selectOption('#ai-source', 'lec-1');
   await click(phone, '[data-act="ai-summarize"]');
-  await phone.waitForSelector('.ai-panel + .notice.warn');
+  await phone.waitForSelector('.ai-panel .notice.warn');
   assert.equal(server.aiCalls.length, 0, 'AI must not receive lecture text without consent');
   await phone.check('#ai-cloud-consent');
   await click(phone, '[data-act="ai-summarize"]');
