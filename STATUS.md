@@ -72,3 +72,10 @@ Office DOCX/PPTX text preview, saved quiz drafts and local question bank, detail
 - PDF.js v4.10.38 is loaded from a pinned third-party CDN when first needed; offline-first PDF search is not yet guaranteed.
 - GitHub Actions includes a real PDF browser extraction smoke test and unit tests for no-text scanned PDFs, bounds, and course isolation.
 - Scanned PDFs/OCR and AI-generated answers remain unsupported. The secure AI integration boundary is documented at `docs/SECURE_AI_GATEWAY.md`; no gateway or credential has been configured.
+
+## v0.7.3 — experimental OCR recovery
+
+- Optional Arabic+English OCR for first 3 PDF pages on-device when normal text extraction fails.
+- The browser loads the engine and language packs from pinned Tesseract CDNs; user-initiated only, no automatic network upload of PDF data.
+- OCR passages are marked unverified and excluded from definition-based answer keys.
+- Unit tests and Chrome UI smoke test validate fallback controls. Real-world recognition on the user's Arabic summary PDF remains unverified because the original PDF was not uploaded.
