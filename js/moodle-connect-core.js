@@ -5,8 +5,16 @@ export function safeMoodleEndpoint(path, origin = MOODLE_ORIGIN) {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return null;
   try {
     const u = new URL(path, origin);
-    if (u.origin !== MOODLE_ORIGIN || u.protocol !== 'https:' ||
-        u.username || u.password || u.hash || u.search || !u.pathname.startsWith('/')) return null;
+    if (
+      u.origin !== MOODLE_ORIGIN ||
+      u.protocol !== 'https:' ||
+      u.username ||
+      u.password ||
+      u.hash ||
+      u.search ||
+      !u.pathname.startsWith('/')
+    )
+      return null;
     return u.href;
   } catch {
     return null;
@@ -14,13 +22,16 @@ export function safeMoodleEndpoint(path, origin = MOODLE_ORIGIN) {
 }
 
 export function configReady(c) {
-  return !!(c && c.origin === MOODLE_ORIGIN &&
+  return !!(
+    c &&
+    c.origin === MOODLE_ORIGIN &&
     /^[a-zA-Z0-9_.-]{4,180}$/.test(c.clientId || '') &&
     safeMoodleEndpoint(c.authorizePath, c.origin) &&
     safeMoodleEndpoint(c.tokenPath, c.origin) &&
     safeMoodleEndpoint(c.coursesPath, c.origin) &&
     typeof c.scopes === 'string' &&
-    /^[a-zA-Z0-9:_ .-]{3,250}$/.test(c.scopes.trim()));
+    /^[a-zA-Z0-9:_ .-]{3,250}$/.test(c.scopes.trim())
+  );
 }
 
 export function base64url(bytes) {
@@ -63,8 +74,12 @@ export function normalizeMoodleCourses(payload) {
   return rows.flatMap(item => {
     if (!item || typeof item !== 'object') return [];
     const id = String(item.id ?? item.courseid ?? '');
-    const name = String(item.fullname ?? item.fullName ?? item.name ?? '').trim().slice(0, 160);
-    const code = String(item.shortname ?? item.shortName ?? item.code ?? '').trim().slice(0, 60);
+    const name = String(item.fullname ?? item.fullName ?? item.name ?? '')
+      .trim()
+      .slice(0, 160);
+    const code = String(item.shortname ?? item.shortName ?? item.code ?? '')
+      .trim()
+      .slice(0, 60);
     if (!/^\d{1,12}$/.test(id) || !name || seen.has(id)) return [];
     seen.add(id);
     return [{ moodleId: id, title: name, code }];
@@ -73,8 +88,15 @@ export function normalizeMoodleCourses(payload) {
 
 export function planCourseImport(remote, local) {
   const all = Array.isArray(local) ? local : [];
-  return remote.filter(item => !all.some(existing =>
-    existing.moodleId === item.moodleId ||
-    (existing.code && item.code && existing.code.trim().toLowerCase() === item.code.toLowerCase()) ||
-    (existing.title && existing.title.trim() === item.title)));
+  return remote.filter(
+    item =>
+      !all.some(
+        existing =>
+          existing.moodleId === item.moodleId ||
+          (existing.code &&
+            item.code &&
+            existing.code.trim().toLowerCase() === item.code.toLowerCase()) ||
+          (existing.title && existing.title.trim() === item.title),
+      ),
+  );
 }
