@@ -130,3 +130,12 @@ The per-course study assistant now searches imported **text PDFs** as well as TX
 On first PDF search, the browser downloads a **pinned Mozilla PDF.js v4.10.38** library from Cloudflare cdnjs, so internet access is required for first use and when not cached. The selected PDF content is supplied to PDF.js in memory and is **not uploaded to a website or AI provider**. There is no paid OpenAI integration. Source text is treated as untrusted, and browsing/course files stay in local IndexedDB. The source is under `js/pdf-text.js`, with test coverage in `tests/pdf.test.mjs` and `tests/pdf-browser.mjs`.
 
 **Future AI gateway:** read `docs/SECURE_AI_GATEWAY.md`. A static public GitHub Pages website must not hold an OpenAI API key or expose an unrestricted paid endpoint. No authorization mechanism or backend was deployed.
+
+## v0.7.3 — Experimental Arabic/English OCR recovery (28 Oct 2026)
+
+- If text extraction fails or the PDF contains no readable text, the study panel now offers **تجربة OCR للملف** after checking the course's imported documents. OCR runs **only on user request**. It renders up to three PDF pages in memory on the device and passes canvases to Tesseract.js 7.0.0 in-browser.
+- The browser downloads the pinned OCR engine and Arabic/English language packs from public CDNs. These downloads require internet, can be large, may take time and use battery; the PDF bytes/canvases are not sent to those CDNs.
+- Results are **unverified** and labeled as such. They are **never used to automatically generate correct answers for multiple-choice tests**. The user must compare the extracted text with the original file.
+- OCR data is temporary in the current study session, not uploaded or saved as a new source. Use the normal downloaded/original files for long-term accuracy.
+- OCR is experimental on Android and requires a browser with Canvas/WebWorkers/WebAssembly. A positive browser smoke test covers **button availability and safety**; unit tests simulate OCR recognition. The exact Arabic PDF shown in the user's screenshots has not been tested as an uploaded file.
+- There is no new login and no paid AI service.
