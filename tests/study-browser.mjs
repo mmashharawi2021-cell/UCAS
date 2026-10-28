@@ -48,6 +48,7 @@ try {
  assert.ok(studyText.includes('مقتطفات حرفية'),studyText);
  await page.locator('[data-action="study-reveal"]').first().click();
  assert.ok((await page.locator('.study-answer').first().innerText()).includes('Geographical information systems'));
+ assert.equal(await page.locator('.study-answer').first().getAttribute('dir'),'auto','English study passages must use automatic text direction');
  assert.equal(await page.locator('[data-action="study-copy"]').isDisabled(),false);
  assert.equal(errors.length,0,errors.join('\n'));
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
