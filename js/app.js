@@ -5,6 +5,7 @@ import {cleanMoodlePaste,readMoodleCourseFile} from './moodle.js';
 import {validateStudyFiles,parseDriveReference,normalizeDriveTitle} from './drive.js';
 import {loadCourseText,searchStudySources,extractReviewCards,extractPassageCards,buildDefinitionQuiz,formatChatGPTStudyPrompt} from './study.js';
 import {extractPdfText} from './pdf-text.js';
+import {readPDFWithOCR} from './ocr.js';
 
 const titles={home:'الرئيسية',courses:'مساقاتي',moodle:'ربط Moodle',import:'مركز الاستيراد',quizzes:'الاختبارات التدريبية',tasks:'التكليفات والتقويم',progress:'التقدم الدراسي',settings:'الإعدادات',search:'نتائج البحث'};
 const coursesSymbols=['database','layers','globe','map','lightbulb','briefcase','code'];
@@ -110,13 +111,13 @@ if(/\.(docx|pptx)$/i.test(r.name)){
 function addTaskModal(){modal('تكليف جديد',`<form id="task-form"><div class="field"><label>عنوان التكليف</label><input class="input" name="title" maxlength="180" required placeholder="عنوان المهمة"/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label>موعد التسليم</label><input class="input" type="datetime-local" name="due"/></div></div><div class="field"><label>ملاحظات (اختياري)</label><textarea class="textarea" name="notes"></textarea></div><button class="primary-btn" type="submit">${ic('check')} حفظ التكليف</button></form>`)}
 function addCourseModal(){modal('إضافة مساق',`<form id="course-form"><div class="field"><label>اسم المساق</label><input class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`)}
 
-const studySession={courseId:null,documents:[],matches:[],cards:[],question:''};
+const studySession={courseId:null,documents:[],matches:[],cards:[],question:'',ocrBusy:false};
 function assistantModal(){
  const c=state.courses.find(x=>x.id===state.courseId);
  if(!c)return toast('اختر مساقًا أولًا',true);
- Object.assign(studySession,{courseId:c.id,documents:[],matches:[],cards:[],question:'',lastLoad:null});
+ Object.assign(studySession,{courseId:c.id,documents:[],matches:[],cards:[],question:'',lastLoad:null,ocrBusy:false});
  const html=[
-  '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF، مع الحفاظ على لغة النص الأصلية الإنجليزية أو العربية. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. الملفات المصورة تحتاج OCR منفصلًا.</p></div>',
+  '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF، مع الحفاظ على لغة النص الأصلية الإنجليزية أو العربية. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. إذا لم تُقرأ حروف PDF العربية بصورة سليمة، يمكنك اختيار OCR لأول ثلاث صفحات؛ يتطلب تنزيل حزم اللغة ويعمل محليًا على جهازك، وقد يستغرق وقتًا. راجع النتائج قبل الاعتماد عليها.</p></div>',
   '<form id="study-search-form" class="study-search-form"><div class="field"><label for="study-query">ما الموضوع الذي تريد مراجعته؟</label><input class="input" id="study-query" name="query" maxlength="200" placeholder="مثال: إدارة المشاريع" required></div><button type="submit" class="primary-btn">البحث في ملفات المساق</button></form>',
   '<div id="study-results" class="study-results" aria-live="polite"><p class="muted tiny">اكتب كلمة أو سؤالًا لعرض المقتطفات التي تتضمنه.</p></div>',
   '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من المحاضرات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
@@ -135,6 +136,49 @@ async function loadStudyDocumentsForCurrentCourse(){
 function appendStudyNotice(target,message){
  const element=document.createElement('p');element.className='muted tiny';element.textContent=message;target.appendChild(element);
 }
+function appendOCROptions(slot){
+ if(!slot||studySession.ocrBusy)return;
+ const available=state.resources.filter(r=>r.courseId===studySession.courseId&&r.kind==='file'&&/\.pdf$/i.test(r.name||'')&&r.blob);
+ const missing=available.filter(r=>!studySession.documents.some(d=>d.id===r.id)).slice(0,3);
+ if(!missing.length)return;
+ const panel=document.createElement('div');panel.className='study-ocr-options';
+ const title=document.createElement('strong');title.textContent='ملفات PDF تحتاج قراءة بديلة';
+ const note=document.createElement('p');note.className='muted tiny';note.textContent='OCR اختياري على هذا الجهاز لأول 3 صفحات من كل ملف. يحتاج الإنترنت لتنزيل مكتبات العربية والإنجليزية وقد يستهلك البطارية. النتائج غير مدققة ولن تُستخدم تلقائيًا لإجابات الاختبارات.';
+ panel.append(title,note);
+ for(const file of missing){
+  const button=document.createElement('button');button.type='button';button.className='outline-btn';
+  button.dataset.action='study-ocr';button.dataset.id=file.id;
+  button.textContent='تجربة OCR للملف: '+file.name;panel.appendChild(button);
+ }
+ slot.appendChild(panel);
+}
+async function runStudyOCR(resourceId){
+ if(studySession.ocrBusy)return;
+ const r=state.resources.find(x=>x.id===resourceId&&x.courseId===studySession.courseId&&x.kind==='file'&&/\.pdf$/i.test(x.name||'')&&x.blob);
+ if(!r)return toast('ملف PDF غير متاح أو لا يخص هذا المساق',true);
+ studySession.ocrBusy=true;
+ const slot=document.getElementById('study-results');
+ const progress=document.createElement('div');progress.className='notice info';progress.setAttribute('role','status');progress.textContent='جاري تجهيز OCR…';
+ slot?.prepend(progress);
+ const buttons=[...document.querySelectorAll('[data-action="study-ocr"]')];
+ buttons.forEach(b=>b.disabled=true);
+ try{
+  const result=await readPDFWithOCR(r.blob,{onProgress:message=>{if(progress.isConnected)progress.textContent=message;}});
+  const doc={id:r.id,name:r.name,module:r.module||'مصادر المساق',text:result.text,pages:result.pages,needsReview:true};
+  studySession.documents=studySession.documents.filter(d=>d.id!==r.id).concat([doc]);
+  if(studySession.lastLoad?.errors)studySession.lastLoad.errors=studySession.lastLoad.errors.filter(e=>!e.startsWith(r.name+' ('));
+  const question=studySession.question;
+  studySession.ocrBusy=false;
+  if(question)await runStudySearch(question);else await renderStudyCards();
+  const current=document.getElementById('study-results');
+  if(current)appendStudyNotice(current,'نجح استخراج OCR من '+result.pages.length+' صفحة من '+r.name+'، لكن النص قد يحتوي أخطاء؛ راجعه مقابل صفحات الملف الأصلي.');
+ }catch(err){
+  progress.textContent='تعذر OCR: '+String(err?.message||err);
+  buttons.forEach(b=>b.disabled=false);
+  studySession.ocrBusy=false;
+ }
+}
+
 async function runStudySearch(query){
  const slot=document.getElementById('study-results');
  if(!slot)return;
@@ -152,12 +196,14 @@ async function runStudySearch(query){
    const source=document.createElement('strong');source.dir='auto';source.textContent='['+(i+1)+'] '+m.source;
    const module=document.createElement('small');module.className='muted';module.textContent=m.module+(m.page?' · صفحة '+m.page:'');
    const excerpt=document.createElement('p');excerpt.dir='auto';excerpt.textContent=m.excerpt;
+   if(m.needsReview){const note=document.createElement('small');note.textContent='OCR — نص غير مدقق';article.appendChild(note);}
    article.append(source,module,excerpt);slot.appendChild(article);
   }
   const data=studySession.lastLoad;
   if(data?.unsupported.length)appendStudyNotice(slot,'لم يتم تحليل نص '+data.unsupported.length+' ملف بصيغة غير مدعومة؛ يمكن عرضها من مكتبة المساق.');
   if(data?.errors.length)appendStudyNotice(slot,'تعذرت قراءة بعض الملفات: '+data.errors.slice(0,2).join('، '));
   if(data?.totalFileCount>data?.limit)appendStudyNotice(slot,'تم فحص أول '+data.limit+' مصدر فقط لتقليل استهلاك الذاكرة على الهاتف.');
+  appendOCROptions(slot);
   const copy=document.querySelector('[data-action="study-copy"]');
   if(copy)copy.disabled=!matches.length;
  }catch(error){studySession.matches=[];slot.textContent='تعذر البحث: '+String(error?.message||error);}
@@ -182,6 +228,7 @@ async function renderStudyCards(){
    appendStudyNotice(slot,'لم نجد نصوصًا كافية لإعداد بطاقات. استورد PDF نصيًا أو ملف TXT أو Word أو PowerPoint، وتأكد من ربطه بهذا المساق.');
    const details=studySession.lastLoad;
    if(details?.errors?.length)appendStudyNotice(slot,'تعذرت قراءة بعض الملفات: '+details.errors.slice(0,2).join('، '));
+   appendOCROptions(slot);
    return;
   }
   if(fallback)appendStudyNotice(slot,'لم تظهر تعريفات صريحة، لذا هذه بطاقات مقتطفات حرفية من المحاضرة وليست تعريفات أو ملخصات منشأة بالذكاء الاصطناعي.');
@@ -192,8 +239,9 @@ async function renderStudyCards(){
    const source=document.createElement('small');source.className='muted';source.dir='auto';source.textContent=c.source+' / '+c.module+(c.page?' · صفحة '+c.page:'');
    const button=document.createElement('button');button.type='button';button.className='outline-btn';button.dataset.action='study-reveal';button.dataset.index=String(i);button.setAttribute('aria-expanded','false');button.textContent=fallback?'عرض المقتطف':'إظهار التعريف';
    const answer=document.createElement('p');answer.className='study-answer';answer.dir='auto';answer.hidden=true;
-   article.append(title,source,button,answer);slot.appendChild(article);
+   article.append(title,source,button,answer);if(c.needsReview){const warning=document.createElement('small');warning.textContent='OCR — راجع النص مقابل الملف الأصلي';article.appendChild(warning);}slot.appendChild(article);
   }
+  appendOCROptions(slot);
  }catch(error){slot.textContent='تعذر إعداد بطاقات المراجعة: '+String(error?.message||error);}
 }
 async function startStudyDefinitionQuiz(){
@@ -249,6 +297,7 @@ case 'add-course':addCourseModal();break;
 case 'add-task':addTaskModal();break;
 case 'assistant':assistantModal();break;
 case 'study-cards':await renderStudyCards();break;
+case 'study-ocr':await runStudyOCR(d.id);break;
 case 'study-start-quiz':await startStudyDefinitionQuiz();break;
 case 'study-copy':await copyStudyPrompt();break;
 case 'study-reveal':{const card=studySession.cards[Number(d.index)];if(!card)break;const answer=link.parentElement.querySelector('.study-answer');if(!answer)break;const show=answer.hidden;answer.hidden=!show;answer.textContent=show?card.definition:'';link.setAttribute('aria-expanded',String(show));link.textContent=show?(card.kind==='passage'?'إخفاء المقتطف':'إخفاء التعريف'):(card.kind==='passage'?'عرض المقتطف':'إظهار التعريف');break;}
