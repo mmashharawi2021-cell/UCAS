@@ -1,371 +1,1742 @@
-import {initialize,all,get,put,remove,makeId,backup,restore} from './store.js';
-import {parseICS} from './ics.js';
-import {previewOffice} from './office.js';
-import {cleanMoodlePaste,readMoodleCourseFile} from './moodle.js';
-import {validateStudyFiles,parseDriveReference,normalizeDriveTitle} from './drive.js';
-import {loadCourseText,searchStudySources,extractReviewCards,extractPassageCards,buildDefinitionQuiz,formatChatGPTStudyPrompt} from './study.js';
-import {extractPdfText} from './pdf-text.js';
-import {readPDFWithOCR} from './ocr.js';
+import { initialize, all, get, put, remove, makeId, backup, restore } from './store.js';
+import { parseICS } from './ics.js';
+import { previewOffice } from './office.js';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js';
+import {
+  loadCourseText,
+  searchStudySources,
+  extractReviewCards,
+  extractPassageCards,
+  buildDefinitionQuiz,
+  formatChatGPTStudyPrompt,
+} from './study.js';
+import { extractPdfText } from './pdf-text.js';
+import { readPDFWithOCR } from './ocr.js';
 
-const titles={home:'الرئيسية',courses:'مساقاتي',moodle:'ربط Moodle',import:'مركز الاستيراد',quizzes:'الاختبارات التدريبية',tasks:'التكليفات والتقويم',progress:'التقدم الدراسي',settings:'الإعدادات',search:'نتائج البحث'};
-const coursesSymbols=['database','layers','globe','map','lightbulb','briefcase','code'];
-const iconPath={
- menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',home:'<path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/>',book:'<path d="M4 5c3-1 6 0 8 2 2-2 5-3 8-2v15c-3-1-6 0-8 2-2-2-5-3-8-2zM12 7v15"/>',upload:'<path d="M12 16V4m-5 5 5-5 5 5M4 17v4h16v-4"/>',quiz:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 13h6M9 18h3"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',chart:'<path d="M4 20V9m5 11V4m6 16v-7m5 7V7M2 20h20"/>',settings:'<path d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.4-6.4-2.1 2.1M7.7 16.3l-2.1 2.1m12.8 0-2.1-2.1M7.7 7.7 5.6 5.6"/><circle cx="12" cy="12" r="4"/>',bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/>',search:'<circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/>',chevron:'<path d="m15 5-7 7 7 7"/>',arrow:'<path d="m16 4-9 8 9 8"/>',check:'<path d="m5 12 5 5 9-10"/>',file:'<path d="M6 2h8l5 5v15H6zM14 2v6h5M9 13h7M9 17h7"/>',database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/>',layers:'<path d="m12 3 10 5-10 5L2 8zm-10 10 10 5 10-5M2 18l10 5 10-5"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-7 6-7 12 0 18M12 3c7 6 7 12 0 18"/>',map:'<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16"/>',lightbulb:'<path d="M9 18h6M10 21h4M8 15a7 7 0 1 1 8 0l-1 2H9z"/>',briefcase:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 12c4 4 14 4 18 0"/>',code:'<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 3"/>',spark:'<path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/>',link:'<path d="m10 13 4-4M8 15H7a4 4 0 0 1 0-8h4m2 0h4a4 4 0 0 1 0 8h-4"/>',trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/>',download:'<path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/>',folder:'<path d="M3 6h6l2 3h10v12H3z"/>',cloud:'<path d="M7 19H6a5 5 0 1 1 1-10 7 7 0 0 1 13 2 4 4 0 0 1-1 8h-2"/>',moon:'<path d="M20 15a8 8 0 0 1-11-11 8 8 0 1 0 11 11"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/>',bot:'<rect x="3" y="7" width="18" height="14" rx="4"/><path d="M12 7V3m-4 10h.01M16 13h.01M8 17h8"/>',plus:'<path d="M12 4v16M4 12h16"/>',close:'<path d="m5 5 14 14M19 5 5 19"/>',alert:'<path d="M12 3 2 21h20zM12 9v5m0 3v.1"/>',more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',rotate:'<path d="M4 5v6h6M5 11a8 8 0 1 1 2 7"/>',shield:'<path d="m12 2 8 4v6c0 6-3 9-8 10-5-1-8-4-8-10V6z"/>',external:'<path d="M13 4h7v7m0-7-9 9M20 14v6H4V4h6"/>'};
-function ic(name,size=20){return `<svg class="svg-icon" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${iconPath[name]||iconPath.file}</svg>`}
-function esc(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function fmtDate(x){if(!x)return 'بدون موعد';const raw=String(x);const naive=/^\d{4}-\d{2}-\d{2}T[0-9:]+$/.test(raw);const d=new Date(raw);return Number.isNaN(d.getTime())?esc(raw):new Intl.DateTimeFormat('ar-PS',{day:'numeric',month:'long',year:'numeric',timeZone:naive?'UTC':'Asia/Hebron'}).format(naive?new Date(raw+'Z'):d);}
-function fmtTime(x){if(!x) return '';const d=new Date(x);return Number.isNaN(d.getTime())?'':new Intl.DateTimeFormat('ar-PS',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Hebron'}).format(d);}
-function formatSize(n){return n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB`:`${Math.max(1,Math.round(n/1024))} KB`}
-function safeUrl(str){try{let u=new URL(str);return (u.protocol==='https:' || u.protocol==='http:')?u.href:null;}catch{return null}}
-const state={page:'home',courses:[],resources:[],tasks:[],events:[],attempts:[],progress:[],settings:[],courseId:null,courseTab:'lessons',importTab:'drive',collapsed:false,mobileMenu:false,query:'',activeQuiz:null,quizDraft:null,questionBank:[],notice:null,mode:'auto',moodlePreview:null,moodleSelectedCourseId:null,moodleImportFile:null,moodleImportError:null};
-let viewURL=null;
-function courseName(id){return state.courses.find(c=>c.id===id)?.title||'غير مصنّف';}
-function courseOption(selected){return state.courses.map(c=>`<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(c.title)}</option>`).join('');}
-function completedResources(courseId){return state.resources.filter(r=>r.courseId===courseId && r.completed).length}
-function progressForCourse(id){const total=state.resources.filter(r=>r.courseId===id).length; return total?Math.round(completedResources(id)*100/total):0}
-function taskDone(){return state.tasks.filter(t=>t.done).length}
-function courseAttempts(id){return state.attempts.filter(a=>a.courseId===id || (!a.courseId && a.title?.includes(courseName(id))))}
-function avgScore(attempts){const valid=attempts.filter(a=>a.total>0);return valid.length?Math.round(valid.reduce((sum,a)=>sum+(a.correct/a.total*100),0)/valid.length):null}
-function sampleAndPersonalQuestions(courseIndex){return [...questions.filter(q=>q.courseIndex===courseIndex),...state.questionBank.filter(q=>q.courseId===state.courses[courseIndex]?.id)];}
-function quizDraftValid(draft){return !!(draft && Array.isArray(draft.questions) && draft.questions.length>0 && Number.isInteger(draft.pos) && draft.pos>=0 && draft.pos<draft.questions.length && draft.answers && typeof draft.answers==='object');}
+const titles = {
+  home: 'الرئيسية',
+  courses: 'مساقاتي',
+  moodle: 'ربط Moodle',
+  import: 'مركز الاستيراد',
+  quizzes: 'الاختبارات التدريبية',
+  tasks: 'التكليفات والتقويم',
+  progress: 'التقدم الدراسي',
+  settings: 'الإعدادات',
+  search: 'نتائج البحث',
+};
+const coursesSymbols = ['database', 'layers', 'globe', 'map', 'lightbulb', 'briefcase', 'code'];
+const iconPath = {
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  home: '<path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/>',
+  book: '<path d="M4 5c3-1 6 0 8 2 2-2 5-3 8-2v15c-3-1-6 0-8 2-2-2-5-3-8-2zM12 7v15"/>',
+  upload: '<path d="M12 16V4m-5 5 5-5 5 5M4 17v4h16v-4"/>',
+  quiz: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 13h6M9 18h3"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
+  chart: '<path d="M4 20V9m5 11V4m6 16v-7m5 7V7M2 20h20"/>',
+  settings:
+    '<path d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.4-6.4-2.1 2.1M7.7 16.3l-2.1 2.1m12.8 0-2.1-2.1M7.7 7.7 5.6 5.6"/><circle cx="12" cy="12" r="4"/>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/>',
+  search: '<circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/>',
+  chevron: '<path d="m15 5-7 7 7 7"/>',
+  arrow: '<path d="m16 4-9 8 9 8"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  file: '<path d="M6 2h8l5 5v15H6zM14 2v6h5M9 13h7M9 17h7"/>',
+  database:
+    '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/>',
+  layers: '<path d="m12 3 10 5-10 5L2 8zm-10 10 10 5 10-5M2 18l10 5 10-5"/>',
+  globe:
+    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-7 6-7 12 0 18M12 3c7 6 7 12 0 18"/>',
+  map: '<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16"/>',
+  lightbulb: '<path d="M9 18h6M10 21h4M8 15a7 7 0 1 1 8 0l-1 2H9z"/>',
+  briefcase:
+    '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 12c4 4 14 4 18 0"/>',
+  code: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 3"/>',
+  spark: '<path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/>',
+  link: '<path d="m10 13 4-4M8 15H7a4 4 0 0 1 0-8h4m2 0h4a4 4 0 0 1 0 8h-4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/>',
+  download: '<path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/>',
+  folder: '<path d="M3 6h6l2 3h10v12H3z"/>',
+  cloud: '<path d="M7 19H6a5 5 0 1 1 1-10 7 7 0 0 1 13 2 4 4 0 0 1-1 8h-2"/>',
+  moon: '<path d="M20 15a8 8 0 0 1-11-11 8 8 0 1 0 11 11"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/>',
+  bot: '<rect x="3" y="7" width="18" height="14" rx="4"/><path d="M12 7V3m-4 10h.01M16 13h.01M8 17h8"/>',
+  plus: '<path d="M12 4v16M4 12h16"/>',
+  close: '<path d="m5 5 14 14M19 5 5 19"/>',
+  alert: '<path d="M12 3 2 21h20zM12 9v5m0 3v.1"/>',
+  more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  rotate: '<path d="M4 5v6h6M5 11a8 8 0 1 1 2 7"/>',
+  shield: '<path d="m12 2 8 4v6c0 6-3 9-8 10-5-1-8-4-8-10V6z"/>',
+  external: '<path d="M13 4h7v7m0-7-9 9M20 14v6H4V4h6"/>',
+};
+function ic(name, size = 20) {
+  return `<svg class="svg-icon" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${iconPath[name] || iconPath.file}</svg>`;
+}
+function esc(x) {
+  return String(x ?? '').replace(
+    /[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+}
+function fmtDate(x) {
+  if (!x) return 'بدون موعد';
+  const raw = String(x);
+  const naive = /^\d{4}-\d{2}-\d{2}T[0-9:]+$/.test(raw);
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime())
+    ? esc(raw)
+    : new Intl.DateTimeFormat('ar-PS', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: naive ? 'UTC' : 'Asia/Hebron',
+      }).format(naive ? new Date(raw + 'Z') : d);
+}
+function fmtTime(x) {
+  if (!x) return '';
+  const d = new Date(x);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : new Intl.DateTimeFormat('ar-PS', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Hebron',
+      }).format(d);
+}
+function formatSize(n) {
+  return n >= 1024 * 1024
+    ? `${(n / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(n / 1024))} KB`;
+}
+function safeUrl(str) {
+  try {
+    let u = new URL(str);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+const state = {
+  page: 'home',
+  courses: [],
+  resources: [],
+  tasks: [],
+  events: [],
+  attempts: [],
+  progress: [],
+  settings: [],
+  courseId: null,
+  courseTab: 'lessons',
+  importTab: 'drive',
+  collapsed: false,
+  mobileMenu: false,
+  query: '',
+  activeQuiz: null,
+  quizDraft: null,
+  questionBank: [],
+  notice: null,
+  mode: 'auto',
+  moodlePreview: null,
+  moodleSelectedCourseId: null,
+  moodleImportFile: null,
+  moodleImportError: null,
+};
+let viewURL = null;
+function courseName(id) {
+  return state.courses.find(c => c.id === id)?.title || 'غير مصنّف';
+}
+function courseOption(selected) {
+  return state.courses
+    .map(
+      c =>
+        `<option value="${esc(c.id)}" ${c.id === selected ? 'selected' : ''}>${esc(c.title)}</option>`,
+    )
+    .join('');
+}
+function completedResources(courseId) {
+  return state.resources.filter(r => r.courseId === courseId && r.completed).length;
+}
+function progressForCourse(id) {
+  const total = state.resources.filter(r => r.courseId === id).length;
+  return total ? Math.round((completedResources(id) * 100) / total) : 0;
+}
+function taskDone() {
+  return state.tasks.filter(t => t.done).length;
+}
+function courseAttempts(id) {
+  return state.attempts.filter(
+    a => a.courseId === id || (!a.courseId && a.title?.includes(courseName(id))),
+  );
+}
+function avgScore(attempts) {
+  const valid = attempts.filter(a => a.total > 0);
+  return valid.length
+    ? Math.round(valid.reduce((sum, a) => sum + (a.correct / a.total) * 100, 0) / valid.length)
+    : null;
+}
+function sampleAndPersonalQuestions(courseIndex) {
+  return [
+    ...questions.filter(q => q.courseIndex === courseIndex),
+    ...state.questionBank.filter(q => q.courseId === state.courses[courseIndex]?.id),
+  ];
+}
+function quizDraftValid(draft) {
+  return !!(
+    draft &&
+    Array.isArray(draft.questions) &&
+    draft.questions.length > 0 &&
+    Number.isInteger(draft.pos) &&
+    draft.pos >= 0 &&
+    draft.pos < draft.questions.length &&
+    draft.answers &&
+    typeof draft.answers === 'object'
+  );
+}
 
-function pending(){return state.tasks.filter(t=>!t.done)}
-async function refresh(){[state.courses,state.resources,state.tasks,state.events,state.attempts,state.progress,state.settings]=await Promise.all(['courses','resources','tasks','events','attempts','progress','settings'].map(all));state.questionBank=Array.isArray(state.settings.find(s=>s.id==='question-bank')?.value)?state.settings.find(s=>s.id==='question-bank').value:[];const draft=state.settings.find(s=>s.id==='quiz-draft')?.value;state.quizDraft=quizDraftValid(draft)?draft:null;render();}
-function navItems(){return [{id:'home',icon:'home',label:'الرئيسية'},{id:'courses',icon:'book',label:'مساقاتي'},{id:'moodle',icon:'cloud',label:'Moodle UCAS'},{id:'import',icon:'upload',label:'مركز الاستيراد'},{id:'quizzes',icon:'quiz',label:'اختباراتي'},{id:'tasks',icon:'calendar',label:'التكليفات والتقويم'},{id:'progress',icon:'chart',label:'التقدم الدراسي'},{id:'settings',icon:'settings',label:'الإعدادات'}];}
-function layout(content){const selected=state.page==='course'?'courses':state.page;return `<div class="shell ${state.collapsed?'collapsed':''} ${state.mobileMenu?'mobile-open':''}">
-<aside class="sidebar" aria-label="التنقل الرئيسي"><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS Academic Bridge</div><div class="logo-sub">مركزك الأكاديمي الشخصي</div></div></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems().map(n=>`<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected===n.id?'active':''}" ${selected===n.id?'aria-current="page"':''}>${ic(n.icon)}<span>${n.label}</span></button>`).join('')}</nav><div class="nav-footer">${ic('shield',15)}<br>بياناتك محفوظة على هذا الجهاز<br>لا يتطلب الموقع تسجيل دخول</div></aside>
-${state.mobileMenu?`<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>`:''}
-<div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page==='course'?'تفاصيل المساق':titles[state.page]||'المركز الأكاديمي'}</h2><p>UCAS Academic Bridge</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode==='dark'?'sun':'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[{id:'home',icon:'home',label:'الرئيسية'},{id:'courses',icon:'book',label:'مساقاتي'},{id:'quizzes',icon:'quiz',label:'اختباراتي'},{id:'more',icon:'menu',label:'المزيد'}].map(n=>`<button class="${selected===n.id?'active':''}" data-${n.id==='more'?'action="toggle-menu"':`go="${n.id}"`}>${ic(n.icon)}<span>${n.label}</span></button>`).join('')}</nav></div>`;}
-function intro(title,subtitle,right=''){return `<div class="page-intro"><div><div class="eyebrow">UCAS ACADEMIC BRIDGE</div><h1>${title}</h1><p>${subtitle}</p></div>${right}</div>`;}
-function sectionHead(title,action=''){return `<div class="section-head"><h2>${title}</h2>${action}</div>`;}
-function stat(icon,value,label){return `<div class="stat-card"><div class="stat-icon">${ic(icon)}</div><div><div class="val">${value}</div><div class="desc">${label}</div></div></div>`;}
-function courseCard(c,i){const resources=state.resources.filter(r=>r.courseId===c.id);const done=resources.filter(r=>r.completed).length;const pct=progressForCourse(c.id);return `<article class="course-card"><div class="course-top"><div class="course-symbol">${ic(coursesSymbols[i%coursesSymbols.length])}</div><span class="pill">${resources.length} مصدر</span></div><h3>${esc(c.title)}</h3><div class="course-meta">${resources.length?`${done} من ${resources.length} مصدر مكتمل`:'جاهز لإضافة المحاضرات'}</div><div class="progress-track" aria-label="التقدم ${pct}%"><div style="width:${pct}%"></div></div><div class="course-top"><span class="course-meta">${pct}% إنجاز</span><button class="card-arrow" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">${ic('chevron')}</button></div></article>`;}
-function noData(title,subtitle,icon='folder'){return `<div class="empty-state">${ic(icon,31)}<strong>${title}</strong><p>${subtitle}</p></div>`;}
-function weekly(){const today=new Date();const first=new Date(today);first.setDate(today.getDate()-today.getDay());const names=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];return `<div class="week-grid">${names.map((n,i)=>{const d=new Date(first);d.setDate(first.getDate()+i);const ymd=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;const count=state.events.filter(e=>(e.date||'').startsWith(ymd)).length+state.tasks.filter(t=>(t.due||'').startsWith(ymd)&&!t.done).length;return `<div class="week-day ${d.toDateString()===today.toDateString()?'today':''} ${count?'events':''}"><span>${n}</span><strong>${d.getDate()}</strong><span>${count?`${count} حدث`:'—'}</span></div>`}).join('')}</div>`;}
-function homePage(){const upcoming=pending().filter(t=>t.due).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,3);const recent=state.resources.slice().sort((a,b)=>b.addedAt.localeCompare(a.addedAt)).slice(0,3);return `<div class="hero"><div><div class="eyebrow">لوحة التحكم الأكاديمية</div><h1>كل دراستك في مكان واحد</h1><p>نظّم مساقاتك، تابع تكليفاتك، واستعد لاختباراتك من لوحة واحدة</p><div class="hero-actions"><button class="primary-btn" data-go="import">${ic('upload')} استيراد مصادر جديدة</button><button class="outline-btn" data-go="quizzes">${ic('quiz')} اختبار تدريبي</button></div></div><div class="hero-art"><svg viewBox="0 0 120 120"><path d="M15 34 60 12l45 22-45 22zM28 47v28c18 19 46 19 64 0V47M105 36v36M23 94h74"/></svg></div></div>
-<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron',14)}</button></div><div class="stats-grid">${stat('book',state.courses.length,'مساقات دراسية')}${stat('file',state.resources.length,'مصادر مستوردة')}${stat('calendar',pending().length,'تكليفات غير مكتملة')}${stat('quiz',state.attempts.length,'اختبارات تم حلها')}</div>
-${sectionHead('مساقاتي',`<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron',14)}</button>`)}<div class="course-grid">${state.courses.slice(0,6).map(courseCard).join('')}</div>
-<div class="split-layout"><div>${sectionHead('المواعيد والتكليفات',`<button class="link" data-go="tasks">عرض التقويم</button>`)}<div class="panel">${upcoming.length?upcoming.map(t=>`<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join(''):noData('لا توجد مواعيد قريبة','أضف تكليفًا أو استورد ملف تقويم ICS','calendar')}</div></div><div>${sectionHead('التقويم الأسبوعي')}
+function pending() {
+  return state.tasks.filter(t => !t.done);
+}
+async function refresh() {
+  [
+    state.courses,
+    state.resources,
+    state.tasks,
+    state.events,
+    state.attempts,
+    state.progress,
+    state.settings,
+  ] = await Promise.all(
+    ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'].map(all),
+  );
+  state.questionBank = Array.isArray(state.settings.find(s => s.id === 'question-bank')?.value)
+    ? state.settings.find(s => s.id === 'question-bank').value
+    : [];
+  const draft = state.settings.find(s => s.id === 'quiz-draft')?.value;
+  state.quizDraft = quizDraftValid(draft) ? draft : null;
+  render();
+}
+function navItems() {
+  return [
+    { id: 'home', icon: 'home', label: 'الرئيسية' },
+    { id: 'courses', icon: 'book', label: 'مساقاتي' },
+    { id: 'moodle', icon: 'cloud', label: 'Moodle UCAS' },
+    { id: 'import', icon: 'upload', label: 'مركز الاستيراد' },
+    { id: 'quizzes', icon: 'quiz', label: 'اختباراتي' },
+    { id: 'tasks', icon: 'calendar', label: 'التكليفات والتقويم' },
+    { id: 'progress', icon: 'chart', label: 'التقدم الدراسي' },
+    { id: 'settings', icon: 'settings', label: 'الإعدادات' },
+  ];
+}
+function layout(content) {
+  const selected = state.page === 'course' ? 'courses' : state.page;
+  return `<div class="shell ${state.collapsed ? 'collapsed' : ''} ${state.mobileMenu ? 'mobile-open' : ''}">
+<aside class="sidebar" aria-label="التنقل الرئيسي"><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS Academic Bridge</div><div class="logo-sub">مركزك الأكاديمي الشخصي</div></div></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
+    .map(
+      n =>
+        `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}>${ic(n.icon)}<span>${n.label}</span></button>`,
+    )
+    .join(
+      '',
+    )}</nav><div class="nav-footer">${ic('shield', 15)}<br>بياناتك محفوظة على هذا الجهاز<br>لا يتطلب الموقع تسجيل دخول</div></aside>
+${state.mobileMenu ? `<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>` : ''}
+<div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS Academic Bridge</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
+    { id: 'home', icon: 'home', label: 'الرئيسية' },
+    { id: 'courses', icon: 'book', label: 'مساقاتي' },
+    { id: 'quizzes', icon: 'quiz', label: 'اختباراتي' },
+    { id: 'more', icon: 'menu', label: 'المزيد' },
+  ]
+    .map(
+      n =>
+        `<button class="${selected === n.id ? 'active' : ''}" data-${n.id === 'more' ? 'action="toggle-menu"' : `go="${n.id}"`}>${ic(n.icon)}<span>${n.label}</span></button>`,
+    )
+    .join('')}</nav></div>`;
+}
+function intro(title, subtitle, right = '') {
+  return `<div class="page-intro"><div><div class="eyebrow">UCAS ACADEMIC BRIDGE</div><h1>${title}</h1><p>${subtitle}</p></div>${right}</div>`;
+}
+function sectionHead(title, action = '') {
+  return `<div class="section-head"><h2>${title}</h2>${action}</div>`;
+}
+function stat(icon, value, label) {
+  return `<div class="stat-card"><div class="stat-icon">${ic(icon)}</div><div><div class="val">${value}</div><div class="desc">${label}</div></div></div>`;
+}
+function courseCard(c, i) {
+  const resources = state.resources.filter(r => r.courseId === c.id);
+  const done = resources.filter(r => r.completed).length;
+  const pct = progressForCourse(c.id);
+  return `<article class="course-card"><div class="course-top"><div class="course-symbol">${ic(coursesSymbols[i % coursesSymbols.length])}</div><span class="pill">${resources.length} مصدر</span></div><h3>${esc(c.title)}</h3><div class="course-meta">${resources.length ? `${done} من ${resources.length} مصدر مكتمل` : 'جاهز لإضافة المحاضرات'}</div><div class="progress-track" aria-label="التقدم ${pct}%"><div style="width:${pct}%"></div></div><div class="course-top"><span class="course-meta">${pct}% إنجاز</span><button class="card-arrow" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">${ic('chevron')}</button></div></article>`;
+}
+function noData(title, subtitle, icon = 'folder') {
+  return `<div class="empty-state">${ic(icon, 31)}<strong>${title}</strong><p>${subtitle}</p></div>`;
+}
+function weekly() {
+  const today = new Date();
+  const first = new Date(today);
+  first.setDate(today.getDate() - today.getDay());
+  const names = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  return `<div class="week-grid">${names
+    .map((n, i) => {
+      const d = new Date(first);
+      d.setDate(first.getDate() + i);
+      const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const count =
+        state.events.filter(e => (e.date || '').startsWith(ymd)).length +
+        state.tasks.filter(t => (t.due || '').startsWith(ymd) && !t.done).length;
+      return `<div class="week-day ${d.toDateString() === today.toDateString() ? 'today' : ''} ${count ? 'events' : ''}"><span>${n}</span><strong>${d.getDate()}</strong><span>${count ? `${count} حدث` : '—'}</span></div>`;
+    })
+    .join('')}</div>`;
+}
+function homePage() {
+  const upcoming = pending()
+    .filter(t => t.due)
+    .sort((a, b) => a.due.localeCompare(b.due))
+    .slice(0, 3);
+  const recent = state.resources
+    .slice()
+    .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
+    .slice(0, 3);
+  return `<div class="hero"><div><div class="eyebrow">لوحة التحكم الأكاديمية</div><h1>كل دراستك في مكان واحد</h1><p>نظّم مساقاتك، تابع تكليفاتك، واستعد لاختباراتك من لوحة واحدة</p><div class="hero-actions"><button class="primary-btn" data-go="import">${ic('upload')} استيراد مصادر جديدة</button><button class="outline-btn" data-go="quizzes">${ic('quiz')} اختبار تدريبي</button></div></div><div class="hero-art"><svg viewBox="0 0 120 120"><path d="M15 34 60 12l45 22-45 22zM28 47v28c18 19 46 19 64 0V47M105 36v36M23 94h74"/></svg></div></div>
+<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>
+${sectionHead('مساقاتي', `<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron', 14)}</button>`)}<div class="course-grid">${state.courses.slice(0, 6).map(courseCard).join('')}</div>
+<div class="split-layout"><div>${sectionHead('المواعيد والتكليفات', `<button class="link" data-go="tasks">عرض التقويم</button>`)}<div class="panel">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف تكليفًا أو استورد ملف تقويم ICS', 'calendar')}</div></div><div>${sectionHead('التقويم الأسبوعي')}
 <div class="panel">${weekly()}</div></div></div>
-${sectionHead('أحدث المصادر',`<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel">${recent.length?recent.map(r=>resourceRow(r,true)).join(''):noData('مكتبتك جاهزة','ابدأ بإضافة أول ملف PDF أو رابط محاضرة','folder')}</div>
-${sectionHead('إنجازك الدراسي')}<div class="panel">${progressBars()}</div>`;}
-function progressBars(){const total=state.resources.length;const completed=state.resources.filter(r=>r.completed).length;const pct=total?Math.round(completed/total*100):0;const taskPct=state.tasks.length?Math.round(taskDone()/state.tasks.length*100):0;const quizPct=state.attempts.length?Math.round(state.attempts.reduce((s,a)=>s+a.correct/a.total*100,0)/state.attempts.length):0;return `<div class="bar-graph">${[['المحاضرات والمصادر',pct,`${completed}/${total}`],['التكليفات المكتملة',taskPct,`${taskDone()}/${state.tasks.length}`],['متوسط الاختبارات التدريبية',quizPct,`${state.attempts.length} محاولة`]].map(([title,value,desc])=>`<div><div class="bar-row"><strong>${title}</strong><span class="muted">${desc} — ${value}%</span></div><div class="progress-track"><div style="width:${value}%"></div></div></div>`).join('')}</div><div class="notice" style="margin-top:16px">هذه مؤشرات للنشاط داخل المنصة، وليست علامات جامعية رسمية.</div>`;}
-function coursesPage(){return `${intro('مساقاتي','اختر المساق لاستعراض وحداته ومحاضراته ومهامه',`<button class="primary-btn" data-action="add-course">${ic('plus')} إضافة مساق</button>`)}<div class="course-grid">${state.courses.map(courseCard).join('')}</div>`}
-function resourceRow(r,compact=false){const mime=r.type||'';const type=r.kind==='link'?'link':mime.includes('pdf')?'file':r.name?.toLowerCase().endsWith('.pptx')?'layers':'file';return `<div class="item-row"><div style="display:flex;gap:11px;align-items:center;min-width:0"><span class="file-badge">${ic(type)}</span><div style="min-width:0"><h4 style="overflow-wrap:anywhere">${esc(r.name)}</h4><p>${esc(courseName(r.courseId))} · ${r.kind==='link'?'رابط':`${formatSize(r.size||0)} · ملف محلي`}</p></div></div><div class="row-actions">${!compact?`<label class="toggle tiny"><input type="checkbox" data-complete-resource="${esc(r.id)}" ${r.completed?'checked':''}/> أنجزت</label>`:''}<button class="btn-mini" data-view-resource="${esc(r.id)}">${r.kind==='link'?'فتح الرابط':'عرض'}</button>${!compact?`<button class="btn-mini" data-delete-resource="${esc(r.id)}" aria-label="حذف">${ic('trash',15)}</button>`:''}</div></div>`;}
-function coursePage(){const c=state.courses.find(c=>c.id===state.courseId);if(!c)return coursesPage();const idx=state.courses.indexOf(c);const resources=state.resources.filter(r=>r.courseId===c.id);const tasks=state.tasks.filter(t=>t.courseId===c.id);const groups=Object.groupBy?Object.groupBy(resources,r=>r.module||'مصادر المساق'):resources.reduce((a,r)=>((a[r.module||'مصادر المساق']??=[]).push(r),a),{});const tab=state.courseTab;return `<button class="back-line" data-go="courses">${ic('arrow',15)} العودة للمساقات</button><div class="course-detail-hero"><div class="course-symbol">${ic(coursesSymbols[idx%coursesSymbols.length])}</div><div class="grow"><div class="breadcrumbs">المساقات / تفاصيل المساق</div><h1>${esc(c.title)}</h1><p class="muted tiny">${resources.length} مصدر · ${tasks.length} تكليف · ${progressForCourse(c.id)}% إنجاز</p></div></div><div class="tabs"><button class="tab ${tab==='lessons'?'active':''}" data-tab="lessons">المحاضرات والملفات</button><button class="tab ${tab==='tasks'?'active':''}" data-tab="tasks">التكليفات</button><button class="tab ${tab==='about'?'active':''}" data-tab="about">نظرة عامة</button></div>${tab==='lessons'?`<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div><button class="primary-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div>${Object.keys(groups).length?Object.entries(groups).map(([module,items],i)=>`<details class="accordion" ${i===0?'open':''}><summary>${ic('folder')} ${esc(module)} <span class="pill">${items.length} مصدر</span> <span class="chevron">${ic('chevron',16)}</span></summary><div class="accordion-body">${items.map(r=>resourceRow(r)).join('')}</div></details>`).join(''):noData('لا توجد محاضرات مستوردة','انتقل إلى مركز الاستيراد وأضف مصادر هذا المساق','folder')}`:tab==='tasks'?`<div class="page-intro"><div><h2>تكليفات هذا المساق</h2></div><button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button></div>${tasks.length?tasks.map(taskRow).join(''):noData('لا توجد تكليفات','يمكنك إضافة تكليف يدويًا','calendar')}`:`<div class="panel">${progressBars()}<div class="divider"></div><p class="muted tiny">لا يوجد ربط مباشر بجلسة Moodle. محتوى هذه الصفحة مما استوردته أنت فقط.</p></div>`}<button class="ai-fab" data-action="assistant">${ic('bot')} المساعد الذكي</button>`;}
+${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'ابدأ بإضافة أول ملف PDF أو رابط محاضرة', 'folder')}</div>
+${sectionHead('إنجازك الدراسي')}<div class="panel">${progressBars()}</div>`;
+}
+function progressBars() {
+  const total = state.resources.length;
+  const completed = state.resources.filter(r => r.completed).length;
+  const pct = total ? Math.round((completed / total) * 100) : 0;
+  const taskPct = state.tasks.length ? Math.round((taskDone() / state.tasks.length) * 100) : 0;
+  const quizPct = state.attempts.length
+    ? Math.round(
+        state.attempts.reduce((s, a) => s + (a.correct / a.total) * 100, 0) / state.attempts.length,
+      )
+    : 0;
+  return `<div class="bar-graph">${[
+    ['المحاضرات والمصادر', pct, `${completed}/${total}`],
+    ['التكليفات المكتملة', taskPct, `${taskDone()}/${state.tasks.length}`],
+    ['متوسط الاختبارات التدريبية', quizPct, `${state.attempts.length} محاولة`],
+  ]
+    .map(
+      ([title, value, desc]) =>
+        `<div><div class="bar-row"><strong>${title}</strong><span class="muted">${desc} — ${value}%</span></div><div class="progress-track"><div style="width:${value}%"></div></div></div>`,
+    )
+    .join(
+      '',
+    )}</div><div class="notice" style="margin-top:16px">هذه مؤشرات للنشاط داخل المنصة، وليست علامات جامعية رسمية.</div>`;
+}
+function coursesPage() {
+  return `${intro('مساقاتي', 'اختر المساق لاستعراض وحداته ومحاضراته ومهامه', `<button class="primary-btn" data-action="add-course">${ic('plus')} إضافة مساق</button>`)}<div class="course-grid">${state.courses.map(courseCard).join('')}</div>`;
+}
+function resourceRow(r, compact = false) {
+  const mime = r.type || '';
+  const type =
+    r.kind === 'link'
+      ? 'link'
+      : mime.includes('pdf')
+        ? 'file'
+        : r.name?.toLowerCase().endsWith('.pptx')
+          ? 'layers'
+          : 'file';
+  return `<div class="item-row"><div style="display:flex;gap:11px;align-items:center;min-width:0"><span class="file-badge">${ic(type)}</span><div style="min-width:0"><h4 style="overflow-wrap:anywhere">${esc(r.name)}</h4><p>${esc(courseName(r.courseId))} · ${r.kind === 'link' ? 'رابط' : `${formatSize(r.size || 0)} · ملف محلي`}</p></div></div><div class="row-actions">${!compact ? `<label class="toggle tiny"><input type="checkbox" data-complete-resource="${esc(r.id)}" ${r.completed ? 'checked' : ''}/> أنجزت</label>` : ''}<button class="btn-mini" data-view-resource="${esc(r.id)}">${r.kind === 'link' ? 'فتح الرابط' : 'عرض'}</button>${!compact ? `<button class="btn-mini" data-delete-resource="${esc(r.id)}" aria-label="حذف">${ic('trash', 15)}</button>` : ''}</div></div>`;
+}
+function coursePage() {
+  const c = state.courses.find(c => c.id === state.courseId);
+  if (!c) return coursesPage();
+  const idx = state.courses.indexOf(c);
+  const resources = state.resources.filter(r => r.courseId === c.id);
+  const tasks = state.tasks.filter(t => t.courseId === c.id);
+  const groups = Object.groupBy
+    ? Object.groupBy(resources, r => r.module || 'مصادر المساق')
+    : resources.reduce((a, r) => ((a[r.module || 'مصادر المساق'] ??= []).push(r), a), {});
+  const tab = state.courseTab;
+  return `<button class="back-line" data-go="courses">${ic('arrow', 15)} العودة للمساقات</button><div class="course-detail-hero"><div class="course-symbol">${ic(coursesSymbols[idx % coursesSymbols.length])}</div><div class="grow"><div class="breadcrumbs">المساقات / تفاصيل المساق</div><h1>${esc(c.title)}</h1><p class="muted tiny">${resources.length} مصدر · ${tasks.length} تكليف · ${progressForCourse(c.id)}% إنجاز</p></div></div><div class="tabs"><button class="tab ${tab === 'lessons' ? 'active' : ''}" data-tab="lessons">المحاضرات والملفات</button><button class="tab ${tab === 'tasks' ? 'active' : ''}" data-tab="tasks">التكليفات</button><button class="tab ${tab === 'about' ? 'active' : ''}" data-tab="about">نظرة عامة</button></div>${
+    tab === 'lessons'
+      ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div><button class="primary-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div>${
+          Object.keys(groups).length
+            ? Object.entries(groups)
+                .map(
+                  ([module, items], i) =>
+                    `<details class="accordion" ${i === 0 ? 'open' : ''}><summary>${ic('folder')} ${esc(module)} <span class="pill">${items.length} مصدر</span> <span class="chevron">${ic('chevron', 16)}</span></summary><div class="accordion-body">${items.map(r => resourceRow(r)).join('')}</div></details>`,
+                )
+                .join('')
+            : noData(
+                'لا توجد محاضرات مستوردة',
+                'انتقل إلى مركز الاستيراد وأضف مصادر هذا المساق',
+                'folder',
+              )
+        }`
+      : tab === 'tasks'
+        ? `<div class="page-intro"><div><h2>تكليفات هذا المساق</h2></div><button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button></div>${tasks.length ? tasks.map(taskRow).join('') : noData('لا توجد تكليفات', 'يمكنك إضافة تكليف يدويًا', 'calendar')}`
+        : `<div class="panel">${progressBars()}<div class="divider"></div><p class="muted tiny">لا يوجد ربط مباشر بجلسة Moodle. محتوى هذه الصفحة مما استوردته أنت فقط.</p></div>`
+  }<button class="ai-fab" data-action="assistant">${ic('bot')} المساعد الذكي</button>`;
+}
 
-function moodleHTMLForm(){
- const p=state.moodlePreview;
- const selected=state.moodleSelectedCourseId||state.courseId||'';
- return `<div class="moodle-html-import"><div class="notice info"><strong>استيراد صفحة مساق Moodle (MHT / MHTML / HTML)</strong><p>افتح المساق على موقع الجامعة بعد تسجيل الدخول هناك، واحفظ الصفحة من Chrome بصيغة MHT أو MHTML، أو بصيغة HTML من الحاسوب، ثم اختر الملف هنا. نفحص الصفحة محليًا ونستخرج أسماء الأنشطة والروابط الآمنة فقط؛ لا نحفظ نسخة HTML الخام أو رموز الجلسة. هذه ليست مزامنة تلقائية.</p></div>
- <div class="moodle-html-grid"><div class="field"><label for="moodle-html-file">ملف صفحة المساق (MHT أو HTML)</label><input class="input" type="file" id="moodle-html-file" accept=".html,.htm,.mht,.mhtml,text/html,multipart/related"/>${state.moodleImportFile?`<p class="muted tiny">آخر ملف تم فحصه: ${esc(state.moodleImportFile)}</p>`:""}</div><div class="field"><label for="moodle-html-course">المساق المراد الربط به</label><select id="moodle-html-course" class="select"><option value="">اختر المساق</option>${courseOption(selected)}</select></div></div>
- ${state.moodleImportError?`<div class="notice info" role="alert"><strong>تعذر استيراد الملف:</strong> ${esc(state.moodleImportError)}<p>تأكد من فتح صفحة المساق نفسه بعد تسجيل الدخول وظهور المحاضرات، ثم احفظها من Chrome. يمكنك إعادة اختيار الملف هنا.</p></div>`:""}
- ${p?`<div class="moodle-preview" aria-live="polite"><div class="panel-heading"><h3>معاينة المستخرج: ${esc(p.courseTitle)}</h3><span class="pill">${p.resources.length} عنصر</span></div><p class="muted tiny">راجع العناصر قبل استيرادها. العناصر دون رابط ستُحفظ كملاحظات نصية، ولن تُحمّل صفحات Moodle المحمية تلقائيًا.</p><div class="moodle-preview-list">${p.resources.map((item,i)=>`<label class="moodle-preview-item"><input type="checkbox" data-moodle-item="${i}" checked/><span><strong>${esc(item.title)}</strong><small>${esc(item.module)} · ${item.kind==='link'?'رابط نشاط Moodle':item.kind==='summary'?'ملخص وحدة':'ملاحظة'}</small></span></label>`).join('')}</div><button class="primary-btn" type="button" data-action="moodle-import-preview">${ic('upload')} استيراد العناصر المحددة إلى المساق</button></div>`:`<div class="moodle-empty"><strong>لم تختر ملف MHT أو HTML بعد</strong><p class="muted tiny">يمكنك أيضًا استخدام نسخ النصوص أو استيراد الملفات وICS بالطريقة المعتادة.</p></div>`}
+function moodleHTMLForm() {
+  const p = state.moodlePreview;
+  const selected = state.moodleSelectedCourseId || state.courseId || '';
+  return `<div class="moodle-html-import"><div class="notice info"><strong>استيراد صفحة مساق Moodle (MHT / MHTML / HTML)</strong><p>افتح المساق على موقع الجامعة بعد تسجيل الدخول هناك، واحفظ الصفحة من Chrome بصيغة MHT أو MHTML، أو بصيغة HTML من الحاسوب، ثم اختر الملف هنا. نفحص الصفحة محليًا ونستخرج أسماء الأنشطة والروابط الآمنة فقط؛ لا نحفظ نسخة HTML الخام أو رموز الجلسة. هذه ليست مزامنة تلقائية.</p></div>
+ <div class="moodle-html-grid"><div class="field"><label for="moodle-html-file">ملف صفحة المساق (MHT أو HTML)</label><input class="input" type="file" id="moodle-html-file" accept=".html,.htm,.mht,.mhtml,text/html,multipart/related"/>${state.moodleImportFile ? `<p class="muted tiny">آخر ملف تم فحصه: ${esc(state.moodleImportFile)}</p>` : ''}</div><div class="field"><label for="moodle-html-course">المساق المراد الربط به</label><select id="moodle-html-course" class="select"><option value="">اختر المساق</option>${courseOption(selected)}</select></div></div>
+ ${state.moodleImportError ? `<div class="notice info" role="alert"><strong>تعذر استيراد الملف:</strong> ${esc(state.moodleImportError)}<p>تأكد من فتح صفحة المساق نفسه بعد تسجيل الدخول وظهور المحاضرات، ثم احفظها من Chrome. يمكنك إعادة اختيار الملف هنا.</p></div>` : ''}
+ ${p ? `<div class="moodle-preview" aria-live="polite"><div class="panel-heading"><h3>معاينة المستخرج: ${esc(p.courseTitle)}</h3><span class="pill">${p.resources.length} عنصر</span></div><p class="muted tiny">راجع العناصر قبل استيرادها. العناصر دون رابط ستُحفظ كملاحظات نصية، ولن تُحمّل صفحات Moodle المحمية تلقائيًا.</p><div class="moodle-preview-list">${p.resources.map((item, i) => `<label class="moodle-preview-item"><input type="checkbox" data-moodle-item="${i}" checked/><span><strong>${esc(item.title)}</strong><small>${esc(item.module)} · ${item.kind === 'link' ? 'رابط نشاط Moodle' : item.kind === 'summary' ? 'ملخص وحدة' : 'ملاحظة'}</small></span></label>`).join('')}</div><button class="primary-btn" type="button" data-action="moodle-import-preview">${ic('upload')} استيراد العناصر المحددة إلى المساق</button></div>` : `<div class="moodle-empty"><strong>لم تختر ملف MHT أو HTML بعد</strong><p class="muted tiny">يمكنك أيضًا استخدام نسخ النصوص أو استيراد الملفات وICS بالطريقة المعتادة.</p></div>`}
  </div>`;
 }
-function moodleImportForm(){return `<form id="moodle-form" class="moodle-import-form"><div class="notice info">ألصق نص محاضرة أو تعليمات تكليف تملك صلاحية الاطلاع عليها. تُحفظ نسخة نصية في متصفحك فقط. لا تلصق كلمات مرور أو رموز وصول أو بيانات زملائك.</div><div class="form-grid"><div class="field"><label for="moodle-course">المساق</label><select id="moodle-course" class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label for="moodle-title">عنوان المادة</label><input id="moodle-title" class="input" name="title" maxlength="150" required placeholder="مثال: المحاضرة الثانية — مفهوم قواعد البيانات"/></div></div><div class="field"><label for="moodle-text">النص المنسوخ من Moodle</label><textarea id="moodle-text" name="content" class="textarea" maxlength="120000" rows="8" required placeholder="انسخ النص الدراسي من صفحة المساق أو المحاضرة في Moodle ثم ألصقه هنا..."></textarea><p class="muted tiny">لا يُجلب أي محتوى محمي تلقائيًا؛ أنت تحدد ما يُحفظ.</p></div><button class="primary-btn" type="submit">${ic('plus')} حفظ المادة داخل المساق</button></form>`;}
-function moodlePage(){const count=state.resources.filter(r=>r.origin?.startsWith('moodle')).length;return `${intro('Moodle UCAS','استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا',`<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield',24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3><button class="link" data-go="import">مركز الاستيراد ${ic('chevron',14)}</button></div>${moodleImportForm()}</div><div class="quick-actions"><button class="quick-action" data-action="moodle-files">${ic('upload')}<div><strong>ملفات المحاضرات</strong><p class="muted tiny">PDF وDOCX وPPTX</p></div></button><button class="quick-action" data-action="moodle-ics">${ic('calendar')}<div><strong>تقويم Moodle</strong><p class="muted tiny">ملف ICS من بوابة الجامعة</p></div></button><button class="quick-action" data-action="moodle-links">${ic('link')}<div><strong>روابط المواد</strong><p class="muted tiny">روابط مسموح بها</p></div></button></div>`;}
-function driveImportPanel(options){
- return "<div class='drive-import'><div class='drive-hero'><div class='drive-hero-icon'>☁</div><div><h2>مصادرك من Google Drive</h2><p>اختر ملفات مساقاتك من منتقي الملفات على الهاتف. عند ظهور Google Drive كمصدر، يمكنك اختيار الملفات منه مباشرة. لا تحتاج إلى تسجيل دخول في منصة UCAS.</p></div></div>"+
- "<div class='notice info'><strong>كيف تعمل هذه الطريقة؟</strong><p>الاستيراد يتم من الملفات التي تختارها أنت؛ لا تستطيع المنصة تصفح حساب Drive أو مزامنته تلقائيًا. إن لم يظهر Drive في منتقي ملفات Android، افتح Drive ونزّل الملف ثم حدده هنا. لا تُرسل الملفات إلى خادم.</p></div>"+
- "<a class='outline-btn drive-open-link' href='https://drive.google.com/drive/u/0/my-drive' target='_blank' rel='noopener noreferrer'>فتح Google Drive</a>"+
- "<div class='drive-panel'><div class='drive-label'>1. استيراد ملفات من Drive أو الجهاز</div><form id='drive-file-form'><div class='upload-zone'><strong>اختيار ملفات PDF وWord وPowerPoint</strong><p>الحد الأقصى 30 ملفًا في المرة الواحدة، و35 MB لكل ملف</p><input type='file' name='files' id='drive-files' accept='.pdf,.docx,.pptx,.txt,.md' multiple required></div><div class='form-grid'><div class='field'><label for='drive-course'>المساق المستهدف</label><select class='select' name='courseId' id='drive-course' required>"+options+"</select></div><div class='field'><label for='drive-module'>اسم المحاضرة / الوحدة</label><input class='input' id='drive-module' name='module' placeholder='مثال: المحاضرة الثانية'></div></div><button class='primary-btn' type='submit'>حفظ الملفات المختارة محليًا</button></form></div>"+
- "<div class='drive-panel'><div class='drive-label'>2. حفظ رابط Google Drive أو Docs</div><p class='muted tiny'>يُحفظ الرابط داخل المساق فقط؛ لا يستورد محتوى المستند أو يتجاوز صلاحيات Google.</p><form id='drive-link-form'><div class='field'><label for='drive-link-url'>رابط المستند أو الملف أو المجلد</label><input id='drive-link-url' class='input' name='url' type='url' placeholder='https://drive.google.com/file/d/...' required></div><div class='field'><label for='drive-link-name'>اسم المصدر (اختياري)</label><input id='drive-link-name' class='input' name='name' maxlength='180' placeholder='اسم المحاضرة أو المرجع'></div><div class='form-grid'><div class='field'><label for='drive-link-course'>المساق</label><select class='select' id='drive-link-course' name='courseId' required>"+options+"</select></div><div class='field'><label for='drive-link-module'>الوحدة</label><input class='input' id='drive-link-module' name='module' placeholder='مصادر Google Drive'></div></div><button class='outline-btn' type='submit'>حفظ الرابط في المساق</button></form></div></div>";
+function moodleImportForm() {
+  return `<form id="moodle-form" class="moodle-import-form"><div class="notice info">ألصق نص محاضرة أو تعليمات تكليف تملك صلاحية الاطلاع عليها. تُحفظ نسخة نصية في متصفحك فقط. لا تلصق كلمات مرور أو رموز وصول أو بيانات زملائك.</div><div class="form-grid"><div class="field"><label for="moodle-course">المساق</label><select id="moodle-course" class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label for="moodle-title">عنوان المادة</label><input id="moodle-title" class="input" name="title" maxlength="150" required placeholder="مثال: المحاضرة الثانية — مفهوم قواعد البيانات"/></div></div><div class="field"><label for="moodle-text">النص المنسوخ من Moodle</label><textarea id="moodle-text" name="content" class="textarea" maxlength="120000" rows="8" required placeholder="انسخ النص الدراسي من صفحة المساق أو المحاضرة في Moodle ثم ألصقه هنا..."></textarea><p class="muted tiny">لا يُجلب أي محتوى محمي تلقائيًا؛ أنت تحدد ما يُحفظ.</p></div><button class="primary-btn" type="submit">${ic('plus')} حفظ المادة داخل المساق</button></form>`;
 }
-function importPage(){let tab=state.importTab;let options=`<option value="">اختر المساق</option>${courseOption()}`;return `${intro('مركز الاستيراد','استورد ملفات الدراسة وروابط Google Drive إلى مساقاتك دون تسجيل دخول للمنصة')}<div class="notice info" style="margin-bottom:22px">المسار الموصى به الآن: Google Drive أو ملفات الجهاز. استيراد MHT من Moodle مؤجل مؤقتًا. جميع المصادر المستوردة تُحفظ في متصفحك، ولا تتم مزامنة الملفات تلقائيًا مع حساب Google.</div><div class="quick-actions"><button class="quick-action" data-import-tab="drive">${ic('cloud')}<div><strong>Google Drive</strong><p class="muted tiny">اختيار ملفات وحفظ الروابط</p></div></button><button class="quick-action" data-import-tab="files">${ic('upload')}<div><strong>رفع ملفات</strong><p class="muted tiny">PDF وDOCX وPPTX وTXT</p></div></button><button class="quick-action" data-import-tab="links">${ic('link')}<div><strong>روابط المحاضرات</strong><p class="muted tiny">روابط الويب والفيديو</p></div></button><button class="quick-action" data-import-tab="ics">${ic('calendar')}<div><strong>تقويم ICS</strong><p class="muted tiny">استيراد الأحداث والمواعيد</p></div></button></div><div class="tabs" style="margin-top:25px"><button class="tab ${tab==='drive'?'active':''}" data-import-tab="drive">Google Drive</button><button class="tab ${tab==='files'?'active':''}" data-import-tab="files">الملفات</button><button class="tab ${tab==='links'?'active':''}" data-import-tab="links">الروابط</button><button class="tab ${tab==='ics'?'active':''}" data-import-tab="ics">تقويم ICS</button><button class="tab ${tab==='moodle'?'active':''}" data-import-tab="moodle">Moodle</button></div><div class="panel">${tab==='moodle'?`${moodleHTMLForm()}<div class="divider"></div>${moodleImportForm()}`:tab==='files'?`<form id="file-form"><div class="upload-zone">${ic('cloud')}<strong>ارفع ملفات المحاضرات والمراجع</strong><p>تظل الملفات محفوظة محليًا في متصفح هذا الجهاز</p><input id="source-files" name="files" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md" required/></div><div class="form-grid"><div class="field"><label for="file-course">المساق</label><select class="select" id="file-course" name="courseId" required>${options}</select></div><div class="field"><label for="file-module">الوحدة / المحاضرة</label><input id="file-module" class="input" name="module" placeholder="مثال: المحاضرة الأولى"/></div></div><button class="primary-btn" type="submit">${ic('upload')} حفظ الملفات في المكتبة</button></form>`:tab==='links'?`<form id="link-form"><div class="field"><label>عنوان المحاضرة أو المصدر</label><input class="input" name="name" required maxlength="180"/></div><div class="field"><label>رابط المصدر (HTTPS)</label><input class="input" type="url" name="url" required placeholder="https://..."/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required>${options}</select></div><div class="field"><label>الوحدة / المحاضرة</label><input class="input" name="module"/></div></div><button class="primary-btn" type="submit">${ic('plus')} حفظ الرابط</button></form>`:tab==='ics'?`<form id="ics-form"><div class="field"><label>اختر ملف تقويم ICS</label><input class="input" type="file" name="calendar" accept=".ics,text/calendar" required/></div><div class="notice warn" style="margin-bottom:15px">يدعم الاستيراد الحالي الأحداث الفردية. الأحداث المتكررة RRULE والمناطق الزمنية غير القياسية تحتاج معالجة إضافية قبل الاعتماد عليها كمواعيد نهائية.</div><button class="primary-btn" type="submit">${ic('calendar')} استيراد المواعيد</button></form>`:`${driveImportPanel(options)}`}</div>${sectionHead('ملفاتي المستوردة')}<div class="panel">${state.resources.length?state.resources.slice().reverse().slice(0,7).map(r=>resourceRow(r)).join(''):noData('لا توجد ملفات بعد','المكتبة فارغة إلى حين استيراد أول مصدر','folder')}</div>`;}
-function taskRow(t){return `<article class="task-card"><label><input class="check-task" type="checkbox" data-toggle-task="${esc(t.id)}" ${t.done?'checked':''} aria-label="وضع مكتمل"/></label><div class="grow"><strong style="${t.done?'text-decoration:line-through;opacity:.6':''}">${esc(t.title)}</strong><p>${esc(courseName(t.courseId))} · ${fmtDate(t.due)}</p></div><div class="row-actions"><span class="pill ${t.done?'success':'warn'}">${t.done?'مكتمل':'قيد الإنجاز'}</span><button class="btn-mini" data-delete-task="${esc(t.id)}" aria-label="حذف">${ic('trash',16)}</button></div></article>`;}
-function tasksPage(){const taskList=state.tasks.slice().sort((a,b)=>(a.done===b.done?0:a.done?1:-1)||(a.due||'9999').localeCompare(b.due||'9999'));return `${intro('التكليفات والمواعيد','قائمة منظمة بمهامك ومواعيد التسليم',`<button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button>`)}<div class="split-layout"><div><div class="panel-heading"><h3>قائمة التكليفات</h3><span class="pill">${pending().length} غير مكتمل</span></div><div class="card-stack">${taskList.length?taskList.map(taskRow).join(''):noData('لا توجد تكليفات','أضف مهمة جديدة يدويًا أو استورد تقويم ICS','calendar')}</div></div><div><div class="panel"><div class="panel-heading"><h3>هذا الأسبوع</h3></div>${weekly()}</div><div class="panel" style="margin-top:17px"><div class="panel-heading"><h3>أحداث التقويم المستوردة</h3><span class="pill">${state.events.length}</span></div>${state.events.length?state.events.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,12).map(e=>`<div class="item-row"><div><h4>${esc(e.title)}</h4><p>${fmtDate(e.date)} ${e.recurring?'· حدث متكرر (غير موسّع)':''}</p></div>${ic('calendar',16)}</div>`).join(''):noData('لا توجد أحداث مستوردة','ارفع ملف ICS من مركز الاستيراد','calendar')}</div></div></div>`;}
-const questions=[
- {courseIndex:0,question:'أي مرحلة من مراحل إدارة المشروع تُحدَّد فيها الأهداف وأصحاب المصلحة الأساسيون؟',choices:['البدء','الإغلاق','الرقابة','التنفيذ'],answer:0,why:'تحديد الهدف وأصحاب المصلحة من أنشطة مرحلة البدء العامة.'},
- {courseIndex:0,question:'ما الغرض الأساسي من خطة المشروع؟',choices:['استبدال جمع البيانات','تحديد الأنشطة والموارد والجدول الزمني','إلغاء المتابعة','ضمان عدم حدوث أي مخاطر'],answer:1,why:'خطة المشروع تنظم الأعمال والموارد والزمن والمخاطر، ولا تضمن انعدام المشكلات.'},
- {courseIndex:1,question:'ما الوصف الأدق للمفتاح الأساسي (Primary Key) في قاعدة البيانات؟',choices:['يسمح بتكرار معرف السجل','يعرّف كل سجل بشكل فريد','يستخدم لتنسيق الخرائط فقط','يحدد لغة الواجهة'],answer:1,why:'المفتاح الأساسي يستخدم لتعريف الصفوف دون تكرار.'},
- {courseIndex:1,question:'ما المقصود بالـ Spatial Index؟',choices:['فهرسة مكانية لتحسين أداء الاستعلامات الجغرافية','تحويل جدول إلى صورة','تنسيق حجم الخط','إنشاء مستخدم جديد'],answer:0,why:'يساعد الفهرس المكاني في تسريع الاستعلامات الهندسية المكانية.'},
- {courseIndex:2,question:'ما الذي يميّز الاستشعار عن بعد عادةً؟',choices:['ضرورة الملامسة المباشرة لكل جسم','جمع بيانات عن الأهداف دون تماس مباشر','عدم استخدام الأقمار الصناعية','عدم الحاجة إلى تفسير البيانات'],answer:1,why:'الاستشعار عن بعد يجمع معلومات عبر مستشعرات دون تماس مباشر مع الهدف.'},
- {courseIndex:2,question:'ما الفائدة العامة من استخدام نطاقات طيفية متعددة؟',choices:['زيادة مساحة الشاشة','تمييز الخصائص المختلفة للأهداف','إلغاء جميع الأخطاء','تحويل كل الصور إلى متجهات تلقائيًا'],answer:1,why:'تختلف استجابة المواد الطيفية، مما يساعد على تمييزها.'}
+function moodlePage() {
+  const count = state.resources.filter(r => r.origin?.startsWith('moodle')).length;
+  return `${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3><button class="link" data-go="import">مركز الاستيراد ${ic('chevron', 14)}</button></div>${moodleImportForm()}</div><div class="quick-actions"><button class="quick-action" data-action="moodle-files">${ic('upload')}<div><strong>ملفات المحاضرات</strong><p class="muted tiny">PDF وDOCX وPPTX</p></div></button><button class="quick-action" data-action="moodle-ics">${ic('calendar')}<div><strong>تقويم Moodle</strong><p class="muted tiny">ملف ICS من بوابة الجامعة</p></div></button><button class="quick-action" data-action="moodle-links">${ic('link')}<div><strong>روابط المواد</strong><p class="muted tiny">روابط مسموح بها</p></div></button></div>`;
+}
+function driveImportPanel(options) {
+  return (
+    "<div class='drive-import'><div class='drive-hero'><div class='drive-hero-icon'>☁</div><div><h2>مصادرك من Google Drive</h2><p>اختر ملفات مساقاتك من منتقي الملفات على الهاتف. عند ظهور Google Drive كمصدر، يمكنك اختيار الملفات منه مباشرة. لا تحتاج إلى تسجيل دخول في منصة UCAS.</p></div></div>" +
+    "<div class='notice info'><strong>كيف تعمل هذه الطريقة؟</strong><p>الاستيراد يتم من الملفات التي تختارها أنت؛ لا تستطيع المنصة تصفح حساب Drive أو مزامنته تلقائيًا. إن لم يظهر Drive في منتقي ملفات Android، افتح Drive ونزّل الملف ثم حدده هنا. لا تُرسل الملفات إلى خادم.</p></div>" +
+    "<a class='outline-btn drive-open-link' href='https://drive.google.com/drive/u/0/my-drive' target='_blank' rel='noopener noreferrer'>فتح Google Drive</a>" +
+    "<div class='drive-panel'><div class='drive-label'>1. استيراد ملفات من Drive أو الجهاز</div><form id='drive-file-form'><div class='upload-zone'><strong>اختيار ملفات PDF وWord وPowerPoint</strong><p>الحد الأقصى 30 ملفًا في المرة الواحدة، و35 MB لكل ملف</p><input type='file' name='files' id='drive-files' accept='.pdf,.docx,.pptx,.txt,.md' multiple required></div><div class='form-grid'><div class='field'><label for='drive-course'>المساق المستهدف</label><select class='select' name='courseId' id='drive-course' required>" +
+    options +
+    "</select></div><div class='field'><label for='drive-module'>اسم المحاضرة / الوحدة</label><input class='input' id='drive-module' name='module' placeholder='مثال: المحاضرة الثانية'></div></div><button class='primary-btn' type='submit'>حفظ الملفات المختارة محليًا</button></form></div>" +
+    "<div class='drive-panel'><div class='drive-label'>2. حفظ رابط Google Drive أو Docs</div><p class='muted tiny'>يُحفظ الرابط داخل المساق فقط؛ لا يستورد محتوى المستند أو يتجاوز صلاحيات Google.</p><form id='drive-link-form'><div class='field'><label for='drive-link-url'>رابط المستند أو الملف أو المجلد</label><input id='drive-link-url' class='input' name='url' type='url' placeholder='https://drive.google.com/file/d/...' required></div><div class='field'><label for='drive-link-name'>اسم المصدر (اختياري)</label><input id='drive-link-name' class='input' name='name' maxlength='180' placeholder='اسم المحاضرة أو المرجع'></div><div class='form-grid'><div class='field'><label for='drive-link-course'>المساق</label><select class='select' id='drive-link-course' name='courseId' required>" +
+    options +
+    "</select></div><div class='field'><label for='drive-link-module'>الوحدة</label><input class='input' id='drive-link-module' name='module' placeholder='مصادر Google Drive'></div></div><button class='outline-btn' type='submit'>حفظ الرابط في المساق</button></form></div></div>"
+  );
+}
+function importPage() {
+  let tab = state.importTab;
+  let options = `<option value="">اختر المساق</option>${courseOption()}`;
+  return `${intro('مركز الاستيراد', 'استورد ملفات الدراسة وروابط Google Drive إلى مساقاتك دون تسجيل دخول للمنصة')}<div class="notice info" style="margin-bottom:22px">المسار الموصى به الآن: Google Drive أو ملفات الجهاز. استيراد MHT من Moodle مؤجل مؤقتًا. جميع المصادر المستوردة تُحفظ في متصفحك، ولا تتم مزامنة الملفات تلقائيًا مع حساب Google.</div><div class="quick-actions"><button class="quick-action" data-import-tab="drive">${ic('cloud')}<div><strong>Google Drive</strong><p class="muted tiny">اختيار ملفات وحفظ الروابط</p></div></button><button class="quick-action" data-import-tab="files">${ic('upload')}<div><strong>رفع ملفات</strong><p class="muted tiny">PDF وDOCX وPPTX وTXT</p></div></button><button class="quick-action" data-import-tab="links">${ic('link')}<div><strong>روابط المحاضرات</strong><p class="muted tiny">روابط الويب والفيديو</p></div></button><button class="quick-action" data-import-tab="ics">${ic('calendar')}<div><strong>تقويم ICS</strong><p class="muted tiny">استيراد الأحداث والمواعيد</p></div></button></div><div class="tabs" style="margin-top:25px"><button class="tab ${tab === 'drive' ? 'active' : ''}" data-import-tab="drive">Google Drive</button><button class="tab ${tab === 'files' ? 'active' : ''}" data-import-tab="files">الملفات</button><button class="tab ${tab === 'links' ? 'active' : ''}" data-import-tab="links">الروابط</button><button class="tab ${tab === 'ics' ? 'active' : ''}" data-import-tab="ics">تقويم ICS</button><button class="tab ${tab === 'moodle' ? 'active' : ''}" data-import-tab="moodle">Moodle</button></div><div class="panel">${tab === 'moodle' ? `${moodleHTMLForm()}<div class="divider"></div>${moodleImportForm()}` : tab === 'files' ? `<form id="file-form"><div class="upload-zone">${ic('cloud')}<strong>ارفع ملفات المحاضرات والمراجع</strong><p>تظل الملفات محفوظة محليًا في متصفح هذا الجهاز</p><input id="source-files" name="files" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md" required/></div><div class="form-grid"><div class="field"><label for="file-course">المساق</label><select class="select" id="file-course" name="courseId" required>${options}</select></div><div class="field"><label for="file-module">الوحدة / المحاضرة</label><input id="file-module" class="input" name="module" placeholder="مثال: المحاضرة الأولى"/></div></div><button class="primary-btn" type="submit">${ic('upload')} حفظ الملفات في المكتبة</button></form>` : tab === 'links' ? `<form id="link-form"><div class="field"><label>عنوان المحاضرة أو المصدر</label><input class="input" name="name" required maxlength="180"/></div><div class="field"><label>رابط المصدر (HTTPS)</label><input class="input" type="url" name="url" required placeholder="https://..."/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required>${options}</select></div><div class="field"><label>الوحدة / المحاضرة</label><input class="input" name="module"/></div></div><button class="primary-btn" type="submit">${ic('plus')} حفظ الرابط</button></form>` : tab === 'ics' ? `<form id="ics-form"><div class="field"><label>اختر ملف تقويم ICS</label><input class="input" type="file" name="calendar" accept=".ics,text/calendar" required/></div><div class="notice warn" style="margin-bottom:15px">يدعم الاستيراد الحالي الأحداث الفردية. الأحداث المتكررة RRULE والمناطق الزمنية غير القياسية تحتاج معالجة إضافية قبل الاعتماد عليها كمواعيد نهائية.</div><button class="primary-btn" type="submit">${ic('calendar')} استيراد المواعيد</button></form>` : `${driveImportPanel(options)}`}</div>${sectionHead('ملفاتي المستوردة')}<div class="panel">${
+    state.resources.length
+      ? state.resources
+          .slice()
+          .reverse()
+          .slice(0, 7)
+          .map(r => resourceRow(r))
+          .join('')
+      : noData('لا توجد ملفات بعد', 'المكتبة فارغة إلى حين استيراد أول مصدر', 'folder')
+  }</div>`;
+}
+function taskRow(t) {
+  return `<article class="task-card"><label><input class="check-task" type="checkbox" data-toggle-task="${esc(t.id)}" ${t.done ? 'checked' : ''} aria-label="وضع مكتمل"/></label><div class="grow"><strong style="${t.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(t.title)}</strong><p>${esc(courseName(t.courseId))} · ${fmtDate(t.due)}</p></div><div class="row-actions"><span class="pill ${t.done ? 'success' : 'warn'}">${t.done ? 'مكتمل' : 'قيد الإنجاز'}</span><button class="btn-mini" data-delete-task="${esc(t.id)}" aria-label="حذف">${ic('trash', 16)}</button></div></article>`;
+}
+function tasksPage() {
+  const taskList = state.tasks
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.done === b.done ? 0 : a.done ? 1 : -1) ||
+        (a.due || '9999').localeCompare(b.due || '9999'),
+    );
+  return `${intro('التكليفات والمواعيد', 'قائمة منظمة بمهامك ومواعيد التسليم', `<button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button>`)}<div class="split-layout"><div><div class="panel-heading"><h3>قائمة التكليفات</h3><span class="pill">${pending().length} غير مكتمل</span></div><div class="card-stack">${taskList.length ? taskList.map(taskRow).join('') : noData('لا توجد تكليفات', 'أضف مهمة جديدة يدويًا أو استورد تقويم ICS', 'calendar')}</div></div><div><div class="panel"><div class="panel-heading"><h3>هذا الأسبوع</h3></div>${weekly()}</div><div class="panel" style="margin-top:17px"><div class="panel-heading"><h3>أحداث التقويم المستوردة</h3><span class="pill">${state.events.length}</span></div>${
+    state.events.length
+      ? state.events
+          .slice()
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+          .slice(0, 12)
+          .map(
+            e =>
+              `<div class="item-row"><div><h4>${esc(e.title)}</h4><p>${fmtDate(e.date)} ${e.recurring ? '· حدث متكرر (غير موسّع)' : ''}</p></div>${ic('calendar', 16)}</div>`,
+          )
+          .join('')
+      : noData('لا توجد أحداث مستوردة', 'ارفع ملف ICS من مركز الاستيراد', 'calendar')
+  }</div></div></div>`;
+}
+const questions = [
+  {
+    courseIndex: 0,
+    question: 'أي مرحلة من مراحل إدارة المشروع تُحدَّد فيها الأهداف وأصحاب المصلحة الأساسيون؟',
+    choices: ['البدء', 'الإغلاق', 'الرقابة', 'التنفيذ'],
+    answer: 0,
+    why: 'تحديد الهدف وأصحاب المصلحة من أنشطة مرحلة البدء العامة.',
+  },
+  {
+    courseIndex: 0,
+    question: 'ما الغرض الأساسي من خطة المشروع؟',
+    choices: [
+      'استبدال جمع البيانات',
+      'تحديد الأنشطة والموارد والجدول الزمني',
+      'إلغاء المتابعة',
+      'ضمان عدم حدوث أي مخاطر',
+    ],
+    answer: 1,
+    why: 'خطة المشروع تنظم الأعمال والموارد والزمن والمخاطر، ولا تضمن انعدام المشكلات.',
+  },
+  {
+    courseIndex: 1,
+    question: 'ما الوصف الأدق للمفتاح الأساسي (Primary Key) في قاعدة البيانات؟',
+    choices: [
+      'يسمح بتكرار معرف السجل',
+      'يعرّف كل سجل بشكل فريد',
+      'يستخدم لتنسيق الخرائط فقط',
+      'يحدد لغة الواجهة',
+    ],
+    answer: 1,
+    why: 'المفتاح الأساسي يستخدم لتعريف الصفوف دون تكرار.',
+  },
+  {
+    courseIndex: 1,
+    question: 'ما المقصود بالـ Spatial Index؟',
+    choices: [
+      'فهرسة مكانية لتحسين أداء الاستعلامات الجغرافية',
+      'تحويل جدول إلى صورة',
+      'تنسيق حجم الخط',
+      'إنشاء مستخدم جديد',
+    ],
+    answer: 0,
+    why: 'يساعد الفهرس المكاني في تسريع الاستعلامات الهندسية المكانية.',
+  },
+  {
+    courseIndex: 2,
+    question: 'ما الذي يميّز الاستشعار عن بعد عادةً؟',
+    choices: [
+      'ضرورة الملامسة المباشرة لكل جسم',
+      'جمع بيانات عن الأهداف دون تماس مباشر',
+      'عدم استخدام الأقمار الصناعية',
+      'عدم الحاجة إلى تفسير البيانات',
+    ],
+    answer: 1,
+    why: 'الاستشعار عن بعد يجمع معلومات عبر مستشعرات دون تماس مباشر مع الهدف.',
+  },
+  {
+    courseIndex: 2,
+    question: 'ما الفائدة العامة من استخدام نطاقات طيفية متعددة؟',
+    choices: [
+      'زيادة مساحة الشاشة',
+      'تمييز الخصائص المختلفة للأهداف',
+      'إلغاء جميع الأخطاء',
+      'تحويل كل الصور إلى متجهات تلقائيًا',
+    ],
+    answer: 1,
+    why: 'تختلف استجابة المواد الطيفية، مما يساعد على تمييزها.',
+  },
 ];
-function quizzesPage(){const quiz=state.activeQuiz;if(quiz){const question=quiz.questions[quiz.pos];if(!question){const correct=quiz.questions.reduce((sum,q,i)=>sum+(q.answer===quiz.answers[i]?1:0),0);return `${intro('نتيجة الاختبار','نتائج تدريبية من أسئلة عامة أو أسئلة أضفتها بنفسك، وليست علامات UCAS')}<div class="panel result-panel"><div class="eyebrow">اكتمل الاختبار</div><h1 class="result-score">${correct} / ${quiz.questions.length}</h1><p class="muted">${Math.round(correct/quiz.questions.length*100)}% إجابات صحيحة</p><div class="divider"></div>${quiz.questions.map((q,i)=>`<div class="review-answer"><strong>${esc(q.question)}</strong><p class="tiny ${q.answer===quiz.answers[i]?'correct-text':'wrong-text'}">${q.answer===quiz.answers[i]?'إجابة صحيحة':'إجابة غير صحيحة'} · الإجابة: ${esc(q.choices[q.answer])}</p><p class="tiny muted">${esc(q.why||'لا يوجد تفسير مدخل')}</p>${q.source?`<p class="tiny muted">المرجع: ${esc(q.source)}</p>`:''}</div>`).join('')}<button class="primary-btn" data-action="finish-quiz">العودة للاختبارات</button></div>`;}
-return `${intro('اختبار تدريبي','تُحفظ إجاباتك محليًا أثناء التقدم بالسؤال، ويمكنك استكمال الاختبار لاحقًا')}<div class="panel quiz-panel"><div class="panel-heading"><h3>${esc(quiz.title)}</h3><span class="pill">السؤال ${quiz.pos+1} من ${quiz.questions.length}</span></div><div class="progress-track"><div style="width:${quiz.pos/quiz.questions.length*100}%"></div></div><div class="quiz-question">${esc(question.question)}</div><fieldset class="quiz-options"><legend class="tiny muted">اختر إجابة واحدة</legend>${question.choices.map((ch,i)=>`<label class="answer-choice"><input type="radio" name="quiz-answer" value="${i}" ${quiz.answers[quiz.pos]===i?'checked':''}/><span>${esc(ch)}</span></label>`).join('')}</fieldset><div class="row-actions quiz-nav"><button class="outline-btn" data-action="prev-question" ${quiz.pos===0?'disabled':''}>السابق</button><button class="primary-btn" data-action="next-question">${quiz.pos===quiz.questions.length-1?'إظهار النتائج':'السؤال التالي'} ${ic('chevron',15)}</button></div><p class="tiny muted">الإجابات محفوظة محليًا بعد اختيارها. يمكنك الرجوع دون فقد الاختيار.</p></div>`;}
-return `${intro('الاختبارات التدريبية','اختبر معلوماتك في كل مساق باستخدام الأسئلة المتوفرة أو أسئلتك الخاصة')}<div class="notice info" style="margin-bottom:23px">الأسئلة العامة أمثلة تدريبية مستقلة عن Moodle. ويمكنك إضافة أسئلة من مراجع المحاضرات بنفسك، دون إرسال أي معلومات لخادم خارجي.</div>${quizDraftValid(state.quizDraft)?`<div class="panel draft-panel"><div><strong>لديك اختبار غير مكتمل</strong><p class="muted tiny">${esc(state.quizDraft.title)} — السؤال ${state.quizDraft.pos+1} من ${state.quizDraft.questions.length}</p></div><div class="row-actions"><button class="primary-btn" data-action="resume-quiz">متابعة الاختبار</button><button class="outline-btn" data-action="discard-quiz">حذف المسودة</button></div></div>`:''}<div class="course-grid">${state.courses.map((c,i)=>{const count=sampleAndPersonalQuestions(i).length;return `<div class="course-card"><div class="course-symbol">${ic(coursesSymbols[i%coursesSymbols.length])}</div><h3>${esc(c.title)}</h3><p class="muted tiny">${count} سؤال متاح · ${courseAttempts(c.id).length} محاولة محفوظة</p><div class="row-actions"><button class="primary-btn" data-start-quiz="${i}" ${count?'':'disabled'}>بدء الاختبار ${ic('chevron',16)}</button><button class="outline-btn" data-add-question="${esc(c.id)}">${ic('plus',14)} إضافة سؤال</button></div></div>`;}).join('')}</div>${sectionHead('سجل المحاولات')}<div class="panel">${state.attempts.length?state.attempts.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(a=>`<div class="item-row"><div><h4>${esc(a.title)}</h4><p>${fmtDate(a.date)}</p></div><span class="pill success">${a.correct}/${a.total}</span></div>`).join(''):noData('لم تُجرَ اختبارات بعد','ابدأ أحد الاختبارات التدريبية لحفظ نتيجته','quiz')}</div>`;}
-function progressPage(){return `${intro('التقدم الدراسي','قياسات نشاطك داخل المنصة فقط')}<div class="stats-grid">${stat('book',state.courses.length,'مساقات مسجلة')}${stat('check',state.resources.filter(r=>r.completed).length,'مصادر مكتملة')}${stat('calendar',taskDone(),'تكليفات مكتملة')}${stat('quiz',state.attempts.length,'اختبارات تدريبية')}</div><div class="panel"><h2 style="margin-bottom:20px">مؤشرات الإنجاز</h2>${progressBars()}</div>${sectionHead('التقدم بحسب المساق')}<div class="panel">${state.courses.map(c=>{const resources=state.resources.filter(r=>r.courseId===c.id),done=resources.filter(r=>r.completed).length;const tasks=state.tasks.filter(t=>t.courseId===c.id),taskDoneCount=tasks.filter(t=>t.done).length;const attempts=courseAttempts(c.id),score=avgScore(attempts);return `<div class="course-progress-card"><div class="bar-row"><strong>${esc(c.title)}</strong><span>${progressForCourse(c.id)}%</span></div><div class="progress-track"><div style="width:${progressForCourse(c.id)}%"></div></div><div class="metrics-row"><span>المصادر المكتملة: ${done}/${resources.length}</span><span>المهام المنجزة: ${taskDoneCount}/${tasks.length}</span><span>الاختبارات: ${attempts.length} محاولة</span><span>متوسط الإجابات الصحيحة: ${score===null?'لا توجد نتائج':score+'%'}</span></div></div>`;}).join('')}</div>`;}
-function settingsPage(){return `${intro('الإعدادات','التحكم في المظهر والنسخ الاحتياطي والخصوصية')}<div class="card-stack"><div class="panel"><h2>المظهر</h2><p class="muted tiny" style="margin:9px 0">اختر الوضع المناسب لك. سيُحفظ التفضيل على الجهاز.</p><div class="tabs">${[['auto','حسب الجهاز'],['light','فاتح'],['dark','داكن']].map(([v,t])=>`<button data-set-theme="${v}" class="tab ${state.mode===v?'active':''}">${t}</button>`).join('')}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="panel"><h2>الإشعارات</h2><p class="muted tiny" style="margin:10px 0">التنبيهات داخل التطبيق متاحة للمواعيد المستوردة عند فتح لوحة التحكم. الإشعارات المجدولة خارج التطبيق غير منفّذة بعد.</p><button class="outline-btn" data-action="request-notifications">${ic('bell')} طلب إذن إشعارات المتصفح</button></div><div class="notice">الإصدار الحالي: 0.7.3 — بحث محلي في PDF النصي وOffice مع مراجع صفحات PDF، دون اتصال AI خارجي أو مزامنة MoodleAS.</div></div>`;}
-function searchPage(){const q=state.query.trim().toLowerCase();const cc=state.courses.filter(c=>c.title.toLowerCase().includes(q));const rr=state.resources.filter(r=>r.name.toLowerCase().includes(q));const tt=state.tasks.filter(t=>t.title.toLowerCase().includes(q));return `${intro('نتائج البحث',`البحث عن: ${esc(state.query)}`)}${sectionHead(`المساقات (${cc.length})`)}<div class="course-grid">${cc.map(courseCard).join('')||noData('لا يوجد تطابق','جرّب كلمة أخرى','search')}</div>${sectionHead(`المصادر (${rr.length})`)}<div class="panel">${rr.map(r=>resourceRow(r)).join('')||noData('لا يوجد تطابق','لا توجد ملفات مطابقة','search')}</div>${sectionHead(`التكليفات (${tt.length})`)}<div class="card-stack">${tt.map(taskRow).join('')||noData('لا يوجد تطابق','لا توجد مهام مطابقة','search')}</div>`}
-function render(){let content=state.page==='home'?homePage():state.page==='courses'?coursesPage():state.page==='moodle'?moodlePage():state.page==='course'?coursePage():state.page==='import'?importPage():state.page==='tasks'?tasksPage():state.page==='quizzes'?quizzesPage():state.page==='progress'?progressPage():state.page==='settings'?settingsPage():searchPage();document.getElementById('app').innerHTML=layout(content);}
-let pendingNavigation=null;
-function changeView(update){if(pendingNavigation!==null)clearTimeout(pendingNavigation);const stage=document.querySelector('.page-stage');if(!stage||matchMedia('(prefers-reduced-motion: reduce)').matches){update();return;}stage.classList.add('is-leaving');pendingNavigation=setTimeout(()=>{pendingNavigation=null;update();},135);}
-function go(page){changeView(()=>{state.page=page;state.mobileMenu=false;state.activeQuiz=null;state.query='';render();scrollTo({top:0,behavior:'instant'});});}
-function toast(msg,error=false){document.querySelector('.toast')?.remove();let box=document.createElement('div');box.className=`toast ${error?'error':''}`;box.setAttribute('role','status');box.textContent=msg;document.body.appendChild(box);setTimeout(()=>{box.classList.add('is-hiding');setTimeout(()=>box.remove(),240)},3950)}
-function modal(title,body,wide=false){document.querySelector('.modal-backdrop')?.remove();const backdrop=document.createElement('div');backdrop.className='modal-backdrop';backdrop.innerHTML=`<div class="modal ${wide?'wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="إغلاق">${ic('close')}</button></div>${body}</div>`;backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.remove()});document.body.appendChild(backdrop);backdrop.querySelector('input:not([type="hidden"]),textarea,select,button')?.focus();}
-async function displayResource(id){const r=await get('resources',id);if(!r)return toast('المصدر غير موجود',true);if(r.kind==='link'){const link=safeUrl(r.url);if(link) window.open(link,'_blank','noopener,noreferrer');return;}if(!r.blob)return toast('لا يوجد ملف محفوظ لهذا المصدر',true);if(viewURL)URL.revokeObjectURL(viewURL);viewURL=URL.createObjectURL(r.blob);const isPdf=r.name.toLowerCase().endsWith('.pdf');const isText=r.name.toLowerCase().endsWith('.txt')||r.name.toLowerCase().endsWith('.md');let markup=`<div class="row-actions" style="margin-bottom:15px"><button class="outline-btn" data-action="download-resource" data-id="${esc(id)}">${ic('download')} تنزيل الملف</button><button class="outline-btn" data-action="open-resource" data-id="${esc(id)}">${ic('external')} فتح في تبويب جديد</button></div>`;if(isPdf) markup+=`<iframe class="file-frame" title="${esc(r.name)}" src="${esc(viewURL)}"></iframe>`;else if(isText)markup+=`<pre style="white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow:auto;font-family:inherit" id="text-preview"></pre>`;else if(/\.(docx|pptx)$/i.test(r.name)) markup+=`<div class="office-preview" id="office-preview" role="status">جاري استخراج معاينة النص من المستند محليًا…</div>`;
-else markup+=`<div class="notice info">معاينة هذه الصيغة غير مدعومة. يمكنك تنزيل الملف أو فتحه في تطبيق مناسب.</div>`;
-modal(r.name,markup,true);
-if(isText)document.getElementById('text-preview').textContent=(await r.blob.text()).slice(0,150000);
-if(/\.(docx|pptx)$/i.test(r.name)){
- const slot=document.getElementById('office-preview');
- try{const preview=await previewOffice(r.blob instanceof File?r.blob:new File([r.blob],r.name,{type:r.type}));
- if(!slot?.isConnected)return;
- slot.replaceChildren();const note=document.createElement('p');note.className='muted tiny';note.textContent=preview.truncated?'تم عرض أول 120 ألف حرف فقط من الملف.':'معاينة نصية فقط؛ قد تختلف عن تنسيق المستند الأصلي.';
- const pre=document.createElement('pre');pre.className='office-text';pre.textContent=preview.text||'لم يُعثر على نص داخل المستند.';
- slot.append(note,pre);
- }catch(err){if(slot?.isConnected){slot.textContent='تعذرت المعاينة: '+err.message+' — يمكنك تنزيل الملف وفتحه بالتطبيق المناسب.';slot.classList.add('notice','warn');}}}
-}
-function addTaskModal(){modal('تكليف جديد',`<form id="task-form"><div class="field"><label>عنوان التكليف</label><input class="input" name="title" maxlength="180" required placeholder="عنوان المهمة"/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label>موعد التسليم</label><input class="input" type="datetime-local" name="due"/></div></div><div class="field"><label>ملاحظات (اختياري)</label><textarea class="textarea" name="notes"></textarea></div><button class="primary-btn" type="submit">${ic('check')} حفظ التكليف</button></form>`)}
-function addCourseModal(){modal('إضافة مساق',`<form id="course-form"><div class="field"><label>اسم المساق</label><input class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`)}
-
-const studySession={courseId:null,documents:[],matches:[],cards:[],question:'',ocrBusy:false};
-function assistantModal(){
- const c=state.courses.find(x=>x.id===state.courseId);
- if(!c)return toast('اختر مساقًا أولًا',true);
- Object.assign(studySession,{courseId:c.id,documents:[],matches:[],cards:[],question:'',lastLoad:null,ocrBusy:false});
- const html=[
-  '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF، مع الحفاظ على لغة النص الأصلية الإنجليزية أو العربية. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. إذا لم تُقرأ حروف PDF العربية بصورة سليمة، يمكنك اختيار OCR لأول ثلاث صفحات؛ يتطلب تنزيل حزم اللغة ويعمل محليًا على جهازك، وقد يستغرق وقتًا. راجع النتائج قبل الاعتماد عليها.</p></div>',
-  '<form id="study-search-form" class="study-search-form"><div class="field"><label for="study-query">ما الموضوع الذي تريد مراجعته؟</label><input class="input" id="study-query" name="query" maxlength="200" placeholder="مثال: إدارة المشاريع" required></div><button type="submit" class="primary-btn">البحث في ملفات المساق</button></form>',
-  '<div id="study-results" class="study-results" aria-live="polite"><p class="muted tiny">اكتب كلمة أو سؤالًا لعرض المقتطفات التي تتضمنه.</p></div>',
-  '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من المحاضرات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
-  '<p class="muted tiny">النسخ إلى ChatGPT لا يحدث إلا عند ضغطك على الزر. الاختبارات محلية ومبنية على التعريفات النصية؛ راجع صحتها من المصدر.</p>'
- ].join('');
- modal('مساعد الدراسة — '+c.title,html,true);
-}
-async function loadStudyDocumentsForCurrentCourse(){
- if(!state.courseId||studySession.courseId!==state.courseId)throw new Error('افتح المساق المطلوب أولًا');
- if(studySession.documents.length)return studySession.documents;
- const data=await loadCourseText(state.resources,state.courseId,previewOffice,{pdfPreview:extractPdfText});
- studySession.documents=data.documents;
- studySession.lastLoad=data;
- return data.documents;
-}
-function appendStudyNotice(target,message){
- const element=document.createElement('p');element.className='muted tiny';element.textContent=message;target.appendChild(element);
-}
-function appendOCROptions(slot){
- if(!slot||studySession.ocrBusy)return;
- const available=state.resources.filter(r=>r.courseId===studySession.courseId&&r.kind==='file'&&/\.pdf$/i.test(r.name||'')&&r.blob);
- const missing=available.filter(r=>!studySession.documents.some(d=>d.id===r.id)).slice(0,3);
- if(!missing.length)return;
- const panel=document.createElement('div');panel.className='study-ocr-options';
- const title=document.createElement('strong');title.textContent='ملفات PDF تحتاج قراءة بديلة';
- const note=document.createElement('p');note.className='muted tiny';note.textContent='OCR اختياري على هذا الجهاز لأول 3 صفحات من كل ملف. يحتاج الإنترنت لتنزيل مكتبات العربية والإنجليزية وقد يستهلك البطارية. النتائج غير مدققة ولن تُستخدم تلقائيًا لإجابات الاختبارات.';
- panel.append(title,note);
- for(const file of missing){
-  const button=document.createElement('button');button.type='button';button.className='outline-btn';
-  button.dataset.action='study-ocr';button.dataset.id=file.id;
-  button.textContent='تجربة OCR للملف: '+file.name;panel.appendChild(button);
- }
- slot.appendChild(panel);
-}
-async function runStudyOCR(resourceId){
- if(studySession.ocrBusy)return;
- const r=state.resources.find(x=>x.id===resourceId&&x.courseId===studySession.courseId&&x.kind==='file'&&/\.pdf$/i.test(x.name||'')&&x.blob);
- if(!r)return toast('ملف PDF غير متاح أو لا يخص هذا المساق',true);
- studySession.ocrBusy=true;
- const slot=document.getElementById('study-results');
- const progress=document.createElement('div');progress.className='notice info';progress.setAttribute('role','status');progress.textContent='جاري تجهيز OCR…';
- slot?.prepend(progress);
- const buttons=[...document.querySelectorAll('[data-action="study-ocr"]')];
- buttons.forEach(b=>b.disabled=true);
- try{
-  const result=await readPDFWithOCR(r.blob,{onProgress:message=>{if(progress.isConnected)progress.textContent=message;}});
-  const doc={id:r.id,name:r.name,module:r.module||'مصادر المساق',text:result.text,pages:result.pages,needsReview:true};
-  studySession.documents=studySession.documents.filter(d=>d.id!==r.id).concat([doc]);
-  if(studySession.lastLoad?.errors)studySession.lastLoad.errors=studySession.lastLoad.errors.filter(e=>!e.startsWith(r.name+' ('));
-  const question=studySession.question;
-  studySession.ocrBusy=false;
-  if(question)await runStudySearch(question);else await renderStudyCards();
-  const current=document.getElementById('study-results');
-  if(current)appendStudyNotice(current,'نجح استخراج OCR من '+result.pages.length+' صفحة من '+r.name+'، لكن النص قد يحتوي أخطاء؛ راجعه مقابل صفحات الملف الأصلي.');
- }catch(err){
-  progress.textContent='تعذر OCR: '+String(err?.message||err);
-  buttons.forEach(b=>b.disabled=false);
-  studySession.ocrBusy=false;
- }
-}
-
-async function runStudySearch(query){
- const slot=document.getElementById('study-results');
- if(!slot)return;
- slot.textContent='جاري فحص ملفات المساق المحفوظة محليًا…';
- try{
-  await loadStudyDocumentsForCurrentCourse();
-  const matches=searchStudySources(query,studySession.documents,7);
-  studySession.matches=matches;
-  studySession.question=query;
-  slot.replaceChildren();
-  if(!matches.length)appendStudyNotice(slot,'لا توجد مقتطفات مطابقة. جرّب كلمة أخرى أو استورد PDF نصيًا أو ملف Word أو PowerPoint أو TXT.');
-  for(let i=0;i<matches.length;i++){
-   const m=matches[i],article=document.createElement('article');
-   article.className='study-match';
-   const source=document.createElement('strong');source.dir='auto';source.textContent='['+(i+1)+'] '+m.source;
-   const module=document.createElement('small');module.className='muted';module.textContent=m.module+(m.page?' · صفحة '+m.page:'');
-   const excerpt=document.createElement('p');excerpt.dir='auto';excerpt.textContent=m.excerpt;
-   if(m.needsReview){const note=document.createElement('small');note.textContent='OCR — نص غير مدقق';article.appendChild(note);}
-   article.append(source,module,excerpt);slot.appendChild(article);
+function quizzesPage() {
+  const quiz = state.activeQuiz;
+  if (quiz) {
+    const question = quiz.questions[quiz.pos];
+    if (!question) {
+      const correct = quiz.questions.reduce(
+        (sum, q, i) => sum + (q.answer === quiz.answers[i] ? 1 : 0),
+        0,
+      );
+      return `${intro('نتيجة الاختبار', 'نتائج تدريبية من أسئلة عامة أو أسئلة أضفتها بنفسك، وليست علامات UCAS')}<div class="panel result-panel"><div class="eyebrow">اكتمل الاختبار</div><h1 class="result-score">${correct} / ${quiz.questions.length}</h1><p class="muted">${Math.round((correct / quiz.questions.length) * 100)}% إجابات صحيحة</p><div class="divider"></div>${quiz.questions.map((q, i) => `<div class="review-answer"><strong>${esc(q.question)}</strong><p class="tiny ${q.answer === quiz.answers[i] ? 'correct-text' : 'wrong-text'}">${q.answer === quiz.answers[i] ? 'إجابة صحيحة' : 'إجابة غير صحيحة'} · الإجابة: ${esc(q.choices[q.answer])}</p><p class="tiny muted">${esc(q.why || 'لا يوجد تفسير مدخل')}</p>${q.source ? `<p class="tiny muted">المرجع: ${esc(q.source)}</p>` : ''}</div>`).join('')}<button class="primary-btn" data-action="finish-quiz">العودة للاختبارات</button></div>`;
+    }
+    return `${intro('اختبار تدريبي', 'تُحفظ إجاباتك محليًا أثناء التقدم بالسؤال، ويمكنك استكمال الاختبار لاحقًا')}<div class="panel quiz-panel"><div class="panel-heading"><h3>${esc(quiz.title)}</h3><span class="pill">السؤال ${quiz.pos + 1} من ${quiz.questions.length}</span></div><div class="progress-track"><div style="width:${(quiz.pos / quiz.questions.length) * 100}%"></div></div><div class="quiz-question">${esc(question.question)}</div><fieldset class="quiz-options"><legend class="tiny muted">اختر إجابة واحدة</legend>${question.choices.map((ch, i) => `<label class="answer-choice"><input type="radio" name="quiz-answer" value="${i}" ${quiz.answers[quiz.pos] === i ? 'checked' : ''}/><span>${esc(ch)}</span></label>`).join('')}</fieldset><div class="row-actions quiz-nav"><button class="outline-btn" data-action="prev-question" ${quiz.pos === 0 ? 'disabled' : ''}>السابق</button><button class="primary-btn" data-action="next-question">${quiz.pos === quiz.questions.length - 1 ? 'إظهار النتائج' : 'السؤال التالي'} ${ic('chevron', 15)}</button></div><p class="tiny muted">الإجابات محفوظة محليًا بعد اختيارها. يمكنك الرجوع دون فقد الاختيار.</p></div>`;
   }
-  const data=studySession.lastLoad;
-  if(data?.unsupported.length)appendStudyNotice(slot,'لم يتم تحليل نص '+data.unsupported.length+' ملف بصيغة غير مدعومة؛ يمكن عرضها من مكتبة المساق.');
-  if(data?.errors.length)appendStudyNotice(slot,'تعذرت قراءة بعض الملفات: '+data.errors.slice(0,2).join('، '));
-  if(data?.totalFileCount>data?.limit)appendStudyNotice(slot,'تم فحص أول '+data.limit+' مصدر فقط لتقليل استهلاك الذاكرة على الهاتف.');
-  appendOCROptions(slot);
-  const copy=document.querySelector('[data-action="study-copy"]');
-  if(copy)copy.disabled=!matches.length;
- }catch(error){studySession.matches=[];slot.textContent='تعذر البحث: '+String(error?.message||error);}
+  return `${intro('الاختبارات التدريبية', 'اختبر معلوماتك في كل مساق باستخدام الأسئلة المتوفرة أو أسئلتك الخاصة')}<div class="notice info" style="margin-bottom:23px">الأسئلة العامة أمثلة تدريبية مستقلة عن Moodle. ويمكنك إضافة أسئلة من مراجع المحاضرات بنفسك، دون إرسال أي معلومات لخادم خارجي.</div>${quizDraftValid(state.quizDraft) ? `<div class="panel draft-panel"><div><strong>لديك اختبار غير مكتمل</strong><p class="muted tiny">${esc(state.quizDraft.title)} — السؤال ${state.quizDraft.pos + 1} من ${state.quizDraft.questions.length}</p></div><div class="row-actions"><button class="primary-btn" data-action="resume-quiz">متابعة الاختبار</button><button class="outline-btn" data-action="discard-quiz">حذف المسودة</button></div></div>` : ''}<div class="course-grid">${state.courses
+    .map((c, i) => {
+      const count = sampleAndPersonalQuestions(i).length;
+      return `<div class="course-card"><div class="course-symbol">${ic(coursesSymbols[i % coursesSymbols.length])}</div><h3>${esc(c.title)}</h3><p class="muted tiny">${count} سؤال متاح · ${courseAttempts(c.id).length} محاولة محفوظة</p><div class="row-actions"><button class="primary-btn" data-start-quiz="${i}" ${count ? '' : 'disabled'}>بدء الاختبار ${ic('chevron', 16)}</button><button class="outline-btn" data-add-question="${esc(c.id)}">${ic('plus', 14)} إضافة سؤال</button></div></div>`;
+    })
+    .join('')}</div>${sectionHead('سجل المحاولات')}<div class="panel">${
+    state.attempts.length
+      ? state.attempts
+          .slice()
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+          .map(
+            a =>
+              `<div class="item-row"><div><h4>${esc(a.title)}</h4><p>${fmtDate(a.date)}</p></div><span class="pill success">${a.correct}/${a.total}</span></div>`,
+          )
+          .join('')
+      : noData('لم تُجرَ اختبارات بعد', 'ابدأ أحد الاختبارات التدريبية لحفظ نتيجته', 'quiz')
+  }</div>`;
 }
-async function renderStudyCards(){
- const slot=document.getElementById('study-results');if(!slot)return;
- slot.textContent='جاري إعداد بطاقات المراجعة من الملفات…';
- try{
-  await loadStudyDocumentsForCurrentCourse();
-  const definitions=extractReviewCards(studySession.documents,12);
-  const fallback=definitions.length===0;
-  const cards=fallback?extractPassageCards(studySession.documents,10):definitions;
-  studySession.cards=cards;
-  slot.replaceChildren();
-  const copy=document.querySelector('[data-action="study-copy"]');
-  if(fallback){
-   studySession.matches=cards.map(c=>({sourceId:null,source:c.source,module:c.module,excerpt:c.definition,page:c.page}));
-   studySession.question='اشرح أفكار المقتطفات التالية من المحاضرة، ثم اقترح أسئلة تدريبية مع الاستشهاد بالمصادر.';
-   if(copy)copy.disabled=!cards.length;
+function progressPage() {
+  return `${intro('التقدم الدراسي', 'قياسات نشاطك داخل المنصة فقط')}<div class="stats-grid">${stat('book', state.courses.length, 'مساقات مسجلة')}${stat('check', state.resources.filter(r => r.completed).length, 'مصادر مكتملة')}${stat('calendar', taskDone(), 'تكليفات مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تدريبية')}</div><div class="panel"><h2 style="margin-bottom:20px">مؤشرات الإنجاز</h2>${progressBars()}</div>${sectionHead('التقدم بحسب المساق')}<div class="panel">${state.courses
+    .map(c => {
+      const resources = state.resources.filter(r => r.courseId === c.id),
+        done = resources.filter(r => r.completed).length;
+      const tasks = state.tasks.filter(t => t.courseId === c.id),
+        taskDoneCount = tasks.filter(t => t.done).length;
+      const attempts = courseAttempts(c.id),
+        score = avgScore(attempts);
+      return `<div class="course-progress-card"><div class="bar-row"><strong>${esc(c.title)}</strong><span>${progressForCourse(c.id)}%</span></div><div class="progress-track"><div style="width:${progressForCourse(c.id)}%"></div></div><div class="metrics-row"><span>المصادر المكتملة: ${done}/${resources.length}</span><span>المهام المنجزة: ${taskDoneCount}/${tasks.length}</span><span>الاختبارات: ${attempts.length} محاولة</span><span>متوسط الإجابات الصحيحة: ${score === null ? 'لا توجد نتائج' : score + '%'}</span></div></div>`;
+    })
+    .join('')}</div>`;
+}
+function settingsPage() {
+  return `${intro('الإعدادات', 'التحكم في المظهر والنسخ الاحتياطي والخصوصية')}<div class="card-stack"><div class="panel"><h2>المظهر</h2><p class="muted tiny" style="margin:9px 0">اختر الوضع المناسب لك. سيُحفظ التفضيل على الجهاز.</p><div class="tabs">${[
+    ['auto', 'حسب الجهاز'],
+    ['light', 'فاتح'],
+    ['dark', 'داكن'],
+  ]
+    .map(
+      ([v, t]) =>
+        `<button data-set-theme="${v}" class="tab ${state.mode === v ? 'active' : ''}">${t}</button>`,
+    )
+    .join(
+      '',
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="panel"><h2>الإشعارات</h2><p class="muted tiny" style="margin:10px 0">التنبيهات داخل التطبيق متاحة للمواعيد المستوردة عند فتح لوحة التحكم. الإشعارات المجدولة خارج التطبيق غير منفّذة بعد.</p><button class="outline-btn" data-action="request-notifications">${ic('bell')} طلب إذن إشعارات المتصفح</button></div><div class="notice">الإصدار الحالي: 0.7.3 — بحث محلي في PDF النصي وOffice مع مراجع صفحات PDF، دون اتصال AI خارجي أو مزامنة MoodleAS.</div></div>`;
+}
+function searchPage() {
+  const q = state.query.trim().toLowerCase();
+  const cc = state.courses.filter(c => c.title.toLowerCase().includes(q));
+  const rr = state.resources.filter(r => r.name.toLowerCase().includes(q));
+  const tt = state.tasks.filter(t => t.title.toLowerCase().includes(q));
+  return `${intro('نتائج البحث', `البحث عن: ${esc(state.query)}`)}${sectionHead(`المساقات (${cc.length})`)}<div class="course-grid">${cc.map(courseCard).join('') || noData('لا يوجد تطابق', 'جرّب كلمة أخرى', 'search')}</div>${sectionHead(`المصادر (${rr.length})`)}<div class="panel">${rr.map(r => resourceRow(r)).join('') || noData('لا يوجد تطابق', 'لا توجد ملفات مطابقة', 'search')}</div>${sectionHead(`التكليفات (${tt.length})`)}<div class="card-stack">${tt.map(taskRow).join('') || noData('لا يوجد تطابق', 'لا توجد مهام مطابقة', 'search')}</div>`;
+}
+function render() {
+  let content =
+    state.page === 'home'
+      ? homePage()
+      : state.page === 'courses'
+        ? coursesPage()
+        : state.page === 'moodle'
+          ? moodlePage()
+          : state.page === 'course'
+            ? coursePage()
+            : state.page === 'import'
+              ? importPage()
+              : state.page === 'tasks'
+                ? tasksPage()
+                : state.page === 'quizzes'
+                  ? quizzesPage()
+                  : state.page === 'progress'
+                    ? progressPage()
+                    : state.page === 'settings'
+                      ? settingsPage()
+                      : searchPage();
+  document.getElementById('app').innerHTML = layout(content);
+}
+let pendingNavigation = null;
+function changeView(update) {
+  if (pendingNavigation !== null) clearTimeout(pendingNavigation);
+  const stage = document.querySelector('.page-stage');
+  if (!stage || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update();
+    return;
   }
-  if(!cards.length){
-   appendStudyNotice(slot,'لم نجد نصوصًا كافية لإعداد بطاقات. استورد PDF نصيًا أو ملف TXT أو Word أو PowerPoint، وتأكد من ربطه بهذا المساق.');
-   const details=studySession.lastLoad;
-   if(details?.errors?.length)appendStudyNotice(slot,'تعذرت قراءة بعض الملفات: '+details.errors.slice(0,2).join('، '));
-   appendOCROptions(slot);
-   return;
+  stage.classList.add('is-leaving');
+  pendingNavigation = setTimeout(() => {
+    pendingNavigation = null;
+    update();
+  }, 135);
+}
+function go(page) {
+  changeView(() => {
+    state.page = page;
+    state.mobileMenu = false;
+    state.activeQuiz = null;
+    state.query = '';
+    render();
+    scrollTo({ top: 0, behavior: 'instant' });
+  });
+}
+function toast(msg, error = false) {
+  document.querySelector('.toast')?.remove();
+  let box = document.createElement('div');
+  box.className = `toast ${error ? 'error' : ''}`;
+  box.setAttribute('role', 'status');
+  box.textContent = msg;
+  document.body.appendChild(box);
+  setTimeout(() => {
+    box.classList.add('is-hiding');
+    setTimeout(() => box.remove(), 240);
+  }, 3950);
+}
+function modal(title, body, wide = false) {
+  document.querySelector('.modal-backdrop')?.remove();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `<div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="إغلاق">${ic('close')}</button></div>${body}</div>`;
+  backdrop.addEventListener('click', e => {
+    if (e.target === backdrop) backdrop.remove();
+  });
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('input:not([type="hidden"]),textarea,select,button')?.focus();
+}
+async function displayResource(id) {
+  const r = await get('resources', id);
+  if (!r) return toast('المصدر غير موجود', true);
+  if (r.kind === 'link') {
+    const link = safeUrl(r.url);
+    if (link) window.open(link, '_blank', 'noopener,noreferrer');
+    return;
   }
-  if(fallback)appendStudyNotice(slot,'لم تظهر تعريفات صريحة، لذا هذه بطاقات مقتطفات حرفية من المحاضرة وليست تعريفات أو ملخصات منشأة بالذكاء الاصطناعي.');
-  for(let i=0;i<cards.length;i++){
-   const c=cards[i],article=document.createElement('article');
-   article.className='study-match';
-   const title=document.createElement('strong');title.dir='auto';title.textContent=c.term;
-   const source=document.createElement('small');source.className='muted';source.dir='auto';source.textContent=c.source+' / '+c.module+(c.page?' · صفحة '+c.page:'');
-   const button=document.createElement('button');button.type='button';button.className='outline-btn';button.dataset.action='study-reveal';button.dataset.index=String(i);button.setAttribute('aria-expanded','false');button.textContent=fallback?'عرض المقتطف':'إظهار التعريف';
-   const answer=document.createElement('p');answer.className='study-answer';answer.dir='auto';answer.hidden=true;
-   article.append(title,source,button,answer);if(c.needsReview){const warning=document.createElement('small');warning.textContent='OCR — راجع النص مقابل الملف الأصلي';article.appendChild(warning);}slot.appendChild(article);
+  if (!r.blob) return toast('لا يوجد ملف محفوظ لهذا المصدر', true);
+  if (viewURL) URL.revokeObjectURL(viewURL);
+  viewURL = URL.createObjectURL(r.blob);
+  const isPdf = r.name.toLowerCase().endsWith('.pdf');
+  const isText = r.name.toLowerCase().endsWith('.txt') || r.name.toLowerCase().endsWith('.md');
+  let markup = `<div class="row-actions" style="margin-bottom:15px"><button class="outline-btn" data-action="download-resource" data-id="${esc(id)}">${ic('download')} تنزيل الملف</button><button class="outline-btn" data-action="open-resource" data-id="${esc(id)}">${ic('external')} فتح في تبويب جديد</button></div>`;
+  if (isPdf)
+    markup += `<iframe class="file-frame" title="${esc(r.name)}" src="${esc(viewURL)}"></iframe>`;
+  else if (isText)
+    markup += `<pre style="white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow:auto;font-family:inherit" id="text-preview"></pre>`;
+  else if (/\.(docx|pptx)$/i.test(r.name))
+    markup += `<div class="office-preview" id="office-preview" role="status">جاري استخراج معاينة النص من المستند محليًا…</div>`;
+  else
+    markup += `<div class="notice info">معاينة هذه الصيغة غير مدعومة. يمكنك تنزيل الملف أو فتحه في تطبيق مناسب.</div>`;
+  modal(r.name, markup, true);
+  if (isText)
+    document.getElementById('text-preview').textContent = (await r.blob.text()).slice(0, 150000);
+  if (/\.(docx|pptx)$/i.test(r.name)) {
+    const slot = document.getElementById('office-preview');
+    try {
+      const preview = await previewOffice(
+        r.blob instanceof File ? r.blob : new File([r.blob], r.name, { type: r.type }),
+      );
+      if (!slot?.isConnected) return;
+      slot.replaceChildren();
+      const note = document.createElement('p');
+      note.className = 'muted tiny';
+      note.textContent = preview.truncated
+        ? 'تم عرض أول 120 ألف حرف فقط من الملف.'
+        : 'معاينة نصية فقط؛ قد تختلف عن تنسيق المستند الأصلي.';
+      const pre = document.createElement('pre');
+      pre.className = 'office-text';
+      pre.textContent = preview.text || 'لم يُعثر على نص داخل المستند.';
+      slot.append(note, pre);
+    } catch (err) {
+      if (slot?.isConnected) {
+        slot.textContent =
+          'تعذرت المعاينة: ' + err.message + ' — يمكنك تنزيل الملف وفتحه بالتطبيق المناسب.';
+        slot.classList.add('notice', 'warn');
+      }
+    }
   }
-  appendOCROptions(slot);
- }catch(error){slot.textContent='تعذر إعداد بطاقات المراجعة: '+String(error?.message||error);}
 }
-async function startStudyDefinitionQuiz(){
- try{
-  await loadStudyDocumentsForCurrentCourse();
-  const questions=buildDefinitionQuiz(extractReviewCards(studySession.documents,24),8);
-  if(questions.length<4){const slot=document.getElementById('study-results');if(slot)appendStudyNotice(slot,'لا يمكن إعداد اختبار اختيار من متعدد موثوق من النصوص الحالية؛ يتطلب 4 تعريفات صريحة على الأقل. يمكنك عرض بطاقات المقتطفات والبحث في المحاضرة بدلًا من ذلك.');return toast('تحتاج إلى 4 تعريفات صريحة على الأقل لإنشاء اختبار الاختيار من متعدد.',true);}
-  if(quizDraftValid(state.quizDraft)&&!confirm('سيتم استبدال مسودة اختبارك الحالي. هل تتابع؟'))return;
-  state.activeQuiz={courseId:state.courseId,title:'مراجعة تعريفات المساق — '+courseName(state.courseId),questions,pos:0,answers:{}};
-  state.page='quizzes';document.querySelector('.modal-backdrop')?.remove();await saveQuizDraft();render();scrollTo(0,0);
- }catch(error){toast('تعذر إعداد الاختبار: '+String(error?.message||error),true);}
+function addTaskModal() {
+  modal(
+    'تكليف جديد',
+    `<form id="task-form"><div class="field"><label>عنوان التكليف</label><input class="input" name="title" maxlength="180" required placeholder="عنوان المهمة"/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label>موعد التسليم</label><input class="input" type="datetime-local" name="due"/></div></div><div class="field"><label>ملاحظات (اختياري)</label><textarea class="textarea" name="notes"></textarea></div><button class="primary-btn" type="submit">${ic('check')} حفظ التكليف</button></form>`,
+  );
 }
-async function copyStudyPrompt(){
- if(!studySession.matches.length)return toast('ابحث عن موضوع أولًا',true);
- const prompt=formatChatGPTStudyPrompt(courseName(studySession.courseId),studySession.question,studySession.matches);
- try{await navigator.clipboard.writeText(prompt);toast('تم نسخ المقتطفات. يمكنك لصقها بنفسك في ChatGPT.');}
- catch{toast('المتصفح لم يسمح بالنسخ؛ جرّب Chrome أو HTTPS.',true);}
-}
-
-function dueNotifications(){let now=Date.now();let due=pending().filter(t=>t.due && new Date(t.due).getTime()-now>=0 && new Date(t.due).getTime()-now<7*86400000);let events=state.events.filter(e=>e.date && new Date(e.date).getTime()-now>=0 && new Date(e.date).getTime()-now<7*86400000);modal('التنبيهات داخل الموقع',`<div class="notice info">المواعيد المعروضة مستوردة أو مدخلة يدويًا، ويجب مراجعتها في Moodle قبل التسليم.</div>${due.map(t=>`<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${fmtDate(t.due)}</p></div>${ic('calendar')}</div>`).join('')}${events.map(e=>`<div class="item-row"><div><h4>${esc(e.title)}</h4><p>${fmtDate(e.date)}</p></div>${ic('calendar')}</div>`).join('')}${due.length+events.length?'':noData('لا توجد مواعيد خلال الأسبوع القادم','يمكنك إضافة مهام أو استيراد تقويم','bell')}`)}
-async function saveQuizDraft(){if(!state.activeQuiz || state.activeQuiz.pos>=state.activeQuiz.questions.length)return;state.quizDraft=structuredClone(state.activeQuiz);await put('settings',{id:'quiz-draft',value:state.quizDraft});}
-async function startQuiz(courseIndex){const qs=sampleAndPersonalQuestions(courseIndex);const c=state.courses[courseIndex];if(!qs.length)return toast('أضف سؤالًا إلى هذا المساق أولًا',true);if(quizDraftValid(state.quizDraft) && !confirm('هناك اختبار غير مكتمل. بدء اختبار جديد سيستبدل مسودته. هل تريد المتابعة؟'))return;state.activeQuiz={courseId:c?.id,title:`تدريب — ${c?.title||'GIS'}`,questions:qs,pos:0,answers:{}};state.page='quizzes';await saveQuizDraft();render();}
-async function nextQuestion(){const quiz=state.activeQuiz;if(!quiz)return;const selected=document.querySelector('input[name="quiz-answer"]:checked');if(!selected)return toast('اختر إجابة أولًا',true);quiz.answers[quiz.pos]=Number(selected.value);quiz.pos++;if(quiz.pos===quiz.questions.length){const correct=quiz.questions.reduce((sum,q,i)=>sum+(q.answer===quiz.answers[i]?1:0),0);await put('attempts',{id:makeId(),courseId:quiz.courseId,title:quiz.title,date:new Date().toISOString(),correct,total:quiz.questions.length,answers:quiz.answers});await remove('settings','quiz-draft');state.quizDraft=null;state.attempts=await all('attempts');}else await saveQuizDraft();render();}
-function addQuestionModal(courseId){modal('إضافة سؤال تدريبي',`<form id="question-form"><input type="hidden" name="courseId" value="${esc(courseId)}"/><div class="field"><label>نص السؤال</label><textarea class="textarea" name="question" maxlength="600" required></textarea></div><div class="form-grid">${[0,1,2,3].map(i=>`<div class="field"><label>الخيار ${i+1}</label><input class="input" name="choice${i}" maxlength="300" required/></div>`).join('')}</div><div class="field"><label>الإجابة الصحيحة</label><select class="select" name="answer">${[0,1,2,3].map(i=>`<option value="${i}">الخيار ${i+1}</option>`).join('')}</select></div><div class="field"><label>تفسير الإجابة (اختياري)</label><textarea class="textarea" name="why" maxlength="700"></textarea></div><div class="field"><label>مرجع السؤال (اختياري)</label><input class="input" name="source" maxlength="220" placeholder="اسم المحاضرة والصفحة"/></div><button class="primary-btn" type="submit">حفظ السؤال في بنك الأسئلة المحلي</button></form>`)}
-async function handleClick(e){const link=e.target.closest('[data-go],[data-course],[data-tab],[data-import-tab],[data-action],[data-view-resource],[data-delete-resource],[data-delete-task],[data-start-quiz],[data-add-question],[data-set-theme]');if(!link)return;const d=link.dataset;
-if(d.go){go(d.go);return}if(d.course){changeView(()=>{state.courseId=d.course;state.courseTab='lessons';state.page='course';render();scrollTo(0,0);});return}if(d.tab){state.courseTab=d.tab;render();return}if(d.importTab){state.importTab=d.importTab;render();return}if(d.viewResource){await displayResource(d.viewResource);return}if(d.deleteResource){if(!confirm('حذف هذا المصدر من المكتبة المحلية؟'))return;await remove('resources',d.deleteResource);await refresh();toast('حُذف المصدر');return}if(d.deleteTask){if(!confirm('حذف التكليف؟'))return;await remove('tasks',d.deleteTask);await refresh();toast('حُذف التكليف');return}if(d.startQuiz!==undefined){await startQuiz(Number(d.startQuiz));return}if(d.addQuestion){addQuestionModal(d.addQuestion);return}if(d.setTheme){setTheme(d.setTheme);return}
-switch(d.action){
-case 'toggle-menu':if(matchMedia('(max-width:860px)').matches)state.mobileMenu=!state.mobileMenu;else state.collapsed=!state.collapsed;render();break;
-case 'close-menu':state.mobileMenu=false;render();break;
-case 'moodle-import-preview':{
- const p=state.moodlePreview;const courseId=document.querySelector('#moodle-html-course')?.value;
- if(!p?.resources?.length)throw Error('اختر ملف HTML أولًا');
- if(!state.courses.some(c=>c.id===courseId))return toast('اختر المساق قبل الاستيراد',true);
- const checked=[...document.querySelectorAll('[data-moodle-item]:checked')].map(el=>Number(el.dataset.moodleItem));
- if(!checked.length)return toast('اختر نشاطًا واحدًا على الأقل',true);
- state.moodleSelectedCourseId=courseId;
- const sourceItems=checked.map(i=>p.resources[i]).filter(Boolean);
- let added=0,skipped=0;
- for(const item of sourceItems){
-  const duplicate=state.resources.some(r=>r.courseId===courseId&&r.origin==='moodle-html'&&r.module===item.module&&r.name===(item.kind==='link'?item.title:item.title+'.txt')&&(item.kind!=='link'||r.url===item.url));
-  if(duplicate){skipped++;continue;}
-  if(item.kind==='link')await put('resources',{id:makeId(),kind:'link',origin:'moodle-html',name:item.title,courseId,module:item.module,url:item.url,addedAt:new Date().toISOString(),completed:false});
-  else {const blob=new Blob([item.text],{type:'text/plain'});await put('resources',{id:makeId(),kind:'file',origin:'moodle-html',name:item.title+'.txt',courseId,module:item.module,type:'text/plain',blob,size:blob.size,addedAt:new Date().toISOString(),completed:false});}
-  added++;
- }
- state.moodlePreview=null;
- await refresh();toast(`تم استيراد ${added} مصدر، وتجاهل ${skipped} مكرر. لم يُحفظ ملف HTML الخام.`);break;
-}
-case 'moodle-files':state.importTab='files';go('import');break;
-case 'moodle-ics':state.importTab='ics';go('import');break;
-case 'moodle-links':state.importTab='links';go('import');break;
-case 'add-course':addCourseModal();break;
-case 'add-task':addTaskModal();break;
-case 'assistant':assistantModal();break;
-case 'study-cards':await renderStudyCards();break;
-case 'study-ocr':await runStudyOCR(d.id);break;
-case 'study-start-quiz':await startStudyDefinitionQuiz();break;
-case 'study-copy':await copyStudyPrompt();break;
-case 'study-reveal':{const card=studySession.cards[Number(d.index)];if(!card)break;const answer=link.parentElement.querySelector('.study-answer');if(!answer)break;const show=answer.hidden;answer.hidden=!show;answer.textContent=show?card.definition:'';link.setAttribute('aria-expanded',String(show));link.textContent=show?(card.kind==='passage'?'إخفاء المقتطف':'إخفاء التعريف'):(card.kind==='passage'?'عرض المقتطف':'إظهار التعريف');break;}
-case 'notifications':dueNotifications();break;
-case 'theme':setTheme(state.mode==='dark'?'light':'dark');break;
-case 'search':modal('البحث في المساقات والمصادر',`<form id="search-form"><div class="field"><label>كلمة البحث</label><input name="query" class="input" required placeholder="اسم مساق أو محاضرة أو تكليف" autofocus/></div><button class="primary-btn" type="submit">${ic('search')} بحث</button></form>`);break;
-case 'close-modal':document.querySelector('.modal-backdrop')?.remove();break;
-case 'resume-quiz':if(quizDraftValid(state.quizDraft)){state.activeQuiz=structuredClone(state.quizDraft);state.page='quizzes';render();}break;
-case 'discard-quiz':if(!confirm('حذف مسودة الاختبار غير المكتمل؟'))break;await remove('settings','quiz-draft');state.quizDraft=null;state.activeQuiz=null;render();break;
-case 'next-question':await nextQuestion();break;
-case 'prev-question':if(state.activeQuiz?.pos>0){state.activeQuiz.pos--;await saveQuizDraft();render()}break;
-case 'finish-quiz':state.activeQuiz=null;render();break;
-case 'download-resource':case 'open-resource':{const r=await get('resources',d.id);if(!r?.blob)return;const u=URL.createObjectURL(r.blob);const a=document.createElement('a');a.href=u;if(d.action==='download-resource')a.download=r.name;else a.target='_blank';a.rel='noopener noreferrer';a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);break;}
-case 'export':try{const data=await backup();const file=new Blob([JSON.stringify(data)],{type:'application/json'});const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=`ucas-bridge-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);toast('تم تجهيز النسخة الاحتياطية');}catch(err){toast(`تعذر النسخ الاحتياطي: ${err.message}`,true)}break;
-case 'request-notifications':if(!('Notification' in window))return toast('المتصفح لا يدعم الإشعارات',true);if(!isSecureContext)return toast('تحتاج إشعارات المتصفح إلى HTTPS أو localhost',true);{let permission=await Notification.requestPermission();toast(permission==='granted'?'تم منح إذن الإشعارات، والجدولة الخارجية غير متاحة بعد':'لم يُمنح إذن الإشعارات');}break;
-case 'clear-data':if(!confirm('سيتم حذف جميع المساقات والملفات والتكليفات والاختبارات من هذا المتصفح. هل أنشأت نسخة احتياطية؟'))return;if(!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟'))return;{const names=['courses','resources','tasks','events','attempts','progress','settings'];const {replaceAll}=await import('./store.js');for(const s of names)await replaceAll(s,[]);await initialize();await refresh();toast('تم حذف بيانات الجهاز وإعادة المساقات الافتراضية');}break;
-}}
-async function handleSubmit(e){const form=e.target;if(!['study-search-form','file-form','drive-file-form','drive-link-form','ics-form','link-form','moodle-form','course-form','task-form','search-form','question-form'].includes(form.id))return;e.preventDefault();const fd=new FormData(form);
-try{
- if(form.id==='study-search-form'){await runStudySearch(String(fd.get('query')||'').trim());return;}
- if(form.id==='moodle-form'){
- const courseId=String(fd.get('courseId')||'');const title=String(fd.get('title')||'').trim();if(!state.courses.some(c=>c.id===courseId)||!title||title.length>150)throw Error('اختر مساقًا وعنوانًا صحيحين');
- const content=cleanMoodlePaste(String(fd.get('content')||''));const blob=new Blob([content],{type:'text/plain'});const raw=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));const hash=[...new Uint8Array(raw)].map(x=>x.toString(16).padStart(2,'0')).join('');
- if(state.resources.some(r=>r.courseId===courseId&&r.hash===hash))throw Error('هذه المادة مستوردة مسبقًا في المساق');
- await put('resources',{id:makeId(),kind:'file',origin:'moodle-manual',name:title+'.txt',courseId,module:'مواد Moodle المنسوخة',hash,type:'text/plain',blob,size:blob.size,addedAt:new Date().toISOString(),completed:false});toast('حُفظ نص Moodle في مكتبة المساق محليًا');
- }
- if(form.id==='question-form'){
- const courseId=String(fd.get('courseId')||'');const question=String(fd.get('question')||'').trim();const choices=[0,1,2,3].map(i=>String(fd.get('choice'+i)||'').trim());const answer=Number(fd.get('answer'));
- if(!state.courses.some(c=>c.id===courseId)||!question||choices.some(c=>!c)||!Number.isInteger(answer)||answer<0||answer>3)throw Error('أكمل بيانات السؤال والإجابة الصحيحة');
- state.questionBank.push({id:makeId(),courseId,question,choices,answer,why:String(fd.get('why')||'').trim(),source:String(fd.get('source')||'').trim()});
- await put('settings',{id:'question-bank',value:state.questionBank});document.querySelector('.modal-backdrop')?.remove();toast('تم حفظ السؤال في بنك الأسئلة المحلي');
- }
- if(form.id==='course-form'){const title=String(fd.get('title')||'').trim();if(!title)throw Error('اسم المساق مطلوب');await put('courses',{id:makeId(),title,createdAt:new Date().toISOString()});document.querySelector('.modal-backdrop')?.remove();toast('تمت إضافة المساق');}
- if(form.id==='task-form'){const title=String(fd.get('title')||'').trim();const courseId=String(fd.get('courseId')||'');if(!title||!courseId)throw Error('أكمل الحقول المطلوبة');await put('tasks',{id:makeId(),title,courseId,due:String(fd.get('due')||''),notes:String(fd.get('notes')||''),done:false,createdAt:new Date().toISOString()});document.querySelector('.modal-backdrop')?.remove();toast('تم حفظ التكليف');}
- if(form.id==='link-form'){const name=String(fd.get('name')||'').trim();const courseId=String(fd.get('courseId')||'');const url=safeUrl(String(fd.get('url')||''));if(!name||!courseId||!url)throw Error('تحقق من اسم الرابط والمساق وصحة عنوان HTTP أو HTTPS');if(state.resources.some(r=>r.kind==='link'&&r.url===url&&r.courseId===courseId))throw Error('الرابط موجود مسبقًا في هذا المساق');await put('resources',{id:makeId(),kind:'link',name,courseId,url,module:String(fd.get('module')||'')||'مصادر المساق',addedAt:new Date().toISOString(),completed:false});toast('تم حفظ الرابط');}
- if(form.id==='drive-link-form'){
-  const courseId=String(fd.get('courseId')||'');
-  if(!state.courses.some(c=>c.id===courseId))throw Error('اختر مساقًا لحفظ رابط Drive');
-  const ref=parseDriveReference(String(fd.get('url')||''));
-  if(!ref)throw Error('الرابط غير صالح. استخدم رابط ملف أو مستند أو مجلد من Google Drive أو Google Docs');
-  if(state.resources.some(r=>r.kind==='link'&&r.url===ref.url&&r.courseId===courseId))throw Error('هذا الرابط موجود بالفعل في المساق');
-  await put('resources',{id:makeId(),kind:'link',origin:'google-drive-link',name:normalizeDriveTitle(fd.get('name'),ref),courseId,url:ref.url,module:String(fd.get('module')||'').trim()||'مصادر Google Drive',addedAt:new Date().toISOString(),completed:false});
-  toast('تم حفظ رابط Google Drive داخل المساق');
- }
- if(form.id==='file-form'||form.id==='drive-file-form'){const courseId=String(fd.get('courseId')||'');const files=[...(form.querySelector('input[type=file]')?.files||[])];if(!state.courses.some(c=>c.id===courseId))throw Error('اختر مساقًا صحيحًا');const checked=validateStudyFiles(files);if(!checked.allowed.length)throw Error('لم يتم العثور على ملف دراسي صالح، راجع نوع الملفات وحجمها');let added=0;let skipped=checked.rejected.length;for(const f of checked.allowed){const hashBuf=await crypto.subtle.digest('SHA-256',await f.arrayBuffer());const hash=[...new Uint8Array(hashBuf)].map(b=>b.toString(16).padStart(2,'0')).join('');if(state.resources.some(r=>r.hash===hash&&r.courseId===courseId)){skipped++;continue;}await put('resources',{id:makeId(),kind:'file',origin:form.id==='drive-file-form'?'device-picker-drive':'manual-upload',name:f.name,courseId,module:String(fd.get('module')||'').trim()||'مصادر المساق',hash,type:f.type||'application/octet-stream',blob:f,size:f.size,addedAt:new Date().toISOString(),completed:false});state.resources.push({hash,courseId});added++;}toast(`تم استيراد ${added} ملف، وتخطي ${skipped} ملف مكرر أو غير مدعوم`);}
- if(form.id==='ics-form'){const file=form.querySelector('input[type=file]')?.files?.[0];if(!file)throw Error('اختر ملف تقويم');const events=parseICS(await file.text());if(!events.length)throw Error('لم يتم العثور على أحداث صالحة');let count=0;for(const event of events){if(!(await get('events',event.id))){await put('events',{...event,addedAt:new Date().toISOString()});count++;}}toast(`تم استيراد ${count} حدث جديد. راجع الأحداث المتكررة والمناطق الزمنية.`);}
- if(form.id==='search-form'){const q=String(fd.get('query')||'').trim();if(!q)throw Error('اكتب عبارة للبحث');state.query=q;state.page='search';document.querySelector('.modal-backdrop')?.remove();}
- await refresh();
-}catch(error){toast(error?.message||'حدث خطأ أثناء العملية',true);console.error(error);}}
-async function handleChange(e){const el=e.target;
-if(el.id==='moodle-html-course'){state.moodleSelectedCourseId=el.value;return;}
-if(el.id==='moodle-html-file'&&el.files?.length){
- const file=el.files[0];
- state.moodleImportFile=file.name;
- state.moodleImportError=null;
- try{
-  state.moodlePreview=await readMoodleCourseFile(file);
-  if(!state.moodleSelectedCourseId){const needle=state.moodlePreview.courseTitle.trim();const similar=state.courses.find(c=>needle.includes(c.title)||c.title.includes(needle));state.moodleSelectedCourseId=similar?.id||state.courseId||null;}
-  render();toast(`تم فحص الصفحة: ${state.moodlePreview.resources.length} عنصر قابل للمراجعة`);
- }catch(err){state.moodlePreview=null;state.moodleImportError=err?.message||'تعذر تحليل ملف المساق';render();toast('تعذر استيراد الملف، راجع رسالة الخطأ داخل الصفحة',true);}
- return;
+function addCourseModal() {
+  modal(
+    'إضافة مساق',
+    `<form id="course-form"><div class="field"><label>اسم المساق</label><input class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
+  );
 }
 
-if(el.matches('input[name="quiz-answer"]') && state.activeQuiz){state.activeQuiz.answers[state.activeQuiz.pos]=Number(el.value);await saveQuizDraft();}
-if(el.matches('[data-toggle-task]')){const t=await get('tasks',el.dataset.toggleTask);if(t){t.done=el.checked;await put('tasks',t);await refresh();}}if(el.matches('[data-complete-resource]')){const r=await get('resources',el.dataset.completeResource);if(r){r.completed=el.checked;await put('resources',r);await refresh();}}if(el.id==='restore-file'&&el.files?.length){if(!confirm('استعادة النسخة ستستبدل جميع البيانات الموجودة على هذا الجهاز. هل تريد المتابعة؟'))return;try{const data=JSON.parse(await el.files[0].text());await restore(data);await refresh();toast('تمت استعادة النسخة الاحتياطية');}catch(err){toast(`تعذرت الاستعادة: ${err.message}`,true)}}}
-function setTheme(v){state.mode=v;localStorage.setItem('ucas-bridge-theme',v);document.documentElement.dataset.theme=v==='auto'?(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):v;render()}
-async function init(){try{await initialize();
-const draft=await get('settings','quiz-draft');if(quizDraftValid(draft?.value))state.quizDraft=draft.value;
-const bank=await get('settings','question-bank');state.questionBank=Array.isArray(bank?.value)?bank.value:[];
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{if(state.mode==='auto')document.documentElement.dataset.theme=e.matches?'dark':'light'});document.addEventListener('click',e=>{handleClick(e).catch(err=>{console.error(err);toast('تعذرت العملية',true)})});document.addEventListener('submit',e=>{handleSubmit(e).catch(err=>{console.error(err);toast('تعذر الحفظ',true)})});document.addEventListener('change',e=>{handleChange(e).catch(err=>{console.error(err);toast('تعذرت العملية',true)})});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelector('.modal-backdrop')?.remove();if(e.key==='Enter'&&e.target.id==='global-search'){state.query=e.target.value.trim();state.page='search';render();}});const mode=localStorage.getItem('ucas-bridge-theme')||'auto';state.mode=mode;document.documentElement.dataset.theme=mode==='auto'?(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):mode;await refresh();if('serviceWorker' in navigator && isSecureContext){navigator.serviceWorker.register('./sw.js').catch(console.warn)}}catch(err){document.getElementById('app').innerHTML=`<div class="initial-loader"><h2>تعذر تشغيل التخزين المحلي</h2><p>تأكد من فتح الموقع في متصفح يدعم IndexedDB وعبر localhost أو HTTPS.</p><p>${esc(err.message)}</p></div>`;console.error(err)}}
+const studySession = {
+  courseId: null,
+  documents: [],
+  matches: [],
+  cards: [],
+  question: '',
+  ocrBusy: false,
+};
+function assistantModal() {
+  const c = state.courses.find(x => x.id === state.courseId);
+  if (!c) return toast('اختر مساقًا أولًا', true);
+  Object.assign(studySession, {
+    courseId: c.id,
+    documents: [],
+    matches: [],
+    cards: [],
+    question: '',
+    lastLoad: null,
+    ocrBusy: false,
+  });
+  const html = [
+    '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF، مع الحفاظ على لغة النص الأصلية الإنجليزية أو العربية. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. إذا لم تُقرأ حروف PDF العربية بصورة سليمة، يمكنك اختيار OCR لأول ثلاث صفحات؛ يتطلب تنزيل حزم اللغة ويعمل محليًا على جهازك، وقد يستغرق وقتًا. راجع النتائج قبل الاعتماد عليها.</p></div>',
+    '<form id="study-search-form" class="study-search-form"><div class="field"><label for="study-query">ما الموضوع الذي تريد مراجعته؟</label><input class="input" id="study-query" name="query" maxlength="200" placeholder="مثال: إدارة المشاريع" required></div><button type="submit" class="primary-btn">البحث في ملفات المساق</button></form>',
+    '<div id="study-results" class="study-results" aria-live="polite"><p class="muted tiny">اكتب كلمة أو سؤالًا لعرض المقتطفات التي تتضمنه.</p></div>',
+    '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من المحاضرات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
+    '<p class="muted tiny">النسخ إلى ChatGPT لا يحدث إلا عند ضغطك على الزر. الاختبارات محلية ومبنية على التعريفات النصية؛ راجع صحتها من المصدر.</p>',
+  ].join('');
+  modal('مساعد الدراسة — ' + c.title, html, true);
+}
+async function loadStudyDocumentsForCurrentCourse() {
+  if (!state.courseId || studySession.courseId !== state.courseId)
+    throw new Error('افتح المساق المطلوب أولًا');
+  if (studySession.documents.length) return studySession.documents;
+  const data = await loadCourseText(state.resources, state.courseId, previewOffice, {
+    pdfPreview: extractPdfText,
+  });
+  studySession.documents = data.documents;
+  studySession.lastLoad = data;
+  return data.documents;
+}
+function appendStudyNotice(target, message) {
+  const element = document.createElement('p');
+  element.className = 'muted tiny';
+  element.textContent = message;
+  target.appendChild(element);
+}
+function appendOCROptions(slot) {
+  if (!slot || studySession.ocrBusy) return;
+  const available = state.resources.filter(
+    r =>
+      r.courseId === studySession.courseId &&
+      r.kind === 'file' &&
+      /\.pdf$/i.test(r.name || '') &&
+      r.blob,
+  );
+  const missing = available
+    .filter(r => !studySession.documents.some(d => d.id === r.id))
+    .slice(0, 3);
+  if (!missing.length) return;
+  const panel = document.createElement('div');
+  panel.className = 'study-ocr-options';
+  const title = document.createElement('strong');
+  title.textContent = 'ملفات PDF تحتاج قراءة بديلة';
+  const note = document.createElement('p');
+  note.className = 'muted tiny';
+  note.textContent =
+    'OCR اختياري على هذا الجهاز لأول 3 صفحات من كل ملف. يحتاج الإنترنت لتنزيل مكتبات العربية والإنجليزية وقد يستهلك البطارية. النتائج غير مدققة ولن تُستخدم تلقائيًا لإجابات الاختبارات.';
+  panel.append(title, note);
+  for (const file of missing) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'outline-btn';
+    button.dataset.action = 'study-ocr';
+    button.dataset.id = file.id;
+    button.textContent = 'تجربة OCR للملف: ' + file.name;
+    panel.appendChild(button);
+  }
+  slot.appendChild(panel);
+}
+async function runStudyOCR(resourceId) {
+  if (studySession.ocrBusy) return;
+  const r = state.resources.find(
+    x =>
+      x.id === resourceId &&
+      x.courseId === studySession.courseId &&
+      x.kind === 'file' &&
+      /\.pdf$/i.test(x.name || '') &&
+      x.blob,
+  );
+  if (!r) return toast('ملف PDF غير متاح أو لا يخص هذا المساق', true);
+  studySession.ocrBusy = true;
+  const slot = document.getElementById('study-results');
+  const progress = document.createElement('div');
+  progress.className = 'notice info';
+  progress.setAttribute('role', 'status');
+  progress.textContent = 'جاري تجهيز OCR…';
+  slot?.prepend(progress);
+  const buttons = [...document.querySelectorAll('[data-action="study-ocr"]')];
+  buttons.forEach(b => (b.disabled = true));
+  try {
+    const result = await readPDFWithOCR(r.blob, {
+      onProgress: message => {
+        if (progress.isConnected) progress.textContent = message;
+      },
+    });
+    const doc = {
+      id: r.id,
+      name: r.name,
+      module: r.module || 'مصادر المساق',
+      text: result.text,
+      pages: result.pages,
+      needsReview: true,
+    };
+    studySession.documents = studySession.documents.filter(d => d.id !== r.id).concat([doc]);
+    if (studySession.lastLoad?.errors)
+      studySession.lastLoad.errors = studySession.lastLoad.errors.filter(
+        e => !e.startsWith(r.name + ' ('),
+      );
+    const question = studySession.question;
+    studySession.ocrBusy = false;
+    if (question) await runStudySearch(question);
+    else await renderStudyCards();
+    const current = document.getElementById('study-results');
+    if (current)
+      appendStudyNotice(
+        current,
+        'نجح استخراج OCR من ' +
+          result.pages.length +
+          ' صفحة من ' +
+          r.name +
+          '، لكن النص قد يحتوي أخطاء؛ راجعه مقابل صفحات الملف الأصلي.',
+      );
+  } catch (err) {
+    progress.textContent = 'تعذر OCR: ' + String(err?.message || err);
+    buttons.forEach(b => (b.disabled = false));
+    studySession.ocrBusy = false;
+  }
+}
+
+async function runStudySearch(query) {
+  const slot = document.getElementById('study-results');
+  if (!slot) return;
+  slot.textContent = 'جاري فحص ملفات المساق المحفوظة محليًا…';
+  try {
+    await loadStudyDocumentsForCurrentCourse();
+    const matches = searchStudySources(query, studySession.documents, 7);
+    studySession.matches = matches;
+    studySession.question = query;
+    slot.replaceChildren();
+    if (!matches.length)
+      appendStudyNotice(
+        slot,
+        'لا توجد مقتطفات مطابقة. جرّب كلمة أخرى أو استورد PDF نصيًا أو ملف Word أو PowerPoint أو TXT.',
+      );
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i],
+        article = document.createElement('article');
+      article.className = 'study-match';
+      const source = document.createElement('strong');
+      source.dir = 'auto';
+      source.textContent = '[' + (i + 1) + '] ' + m.source;
+      const module = document.createElement('small');
+      module.className = 'muted';
+      module.textContent = m.module + (m.page ? ' · صفحة ' + m.page : '');
+      const excerpt = document.createElement('p');
+      excerpt.dir = 'auto';
+      excerpt.textContent = m.excerpt;
+      if (m.needsReview) {
+        const note = document.createElement('small');
+        note.textContent = 'OCR — نص غير مدقق';
+        article.appendChild(note);
+      }
+      article.append(source, module, excerpt);
+      slot.appendChild(article);
+    }
+    const data = studySession.lastLoad;
+    if (data?.unsupported.length)
+      appendStudyNotice(
+        slot,
+        'لم يتم تحليل نص ' +
+          data.unsupported.length +
+          ' ملف بصيغة غير مدعومة؛ يمكن عرضها من مكتبة المساق.',
+      );
+    if (data?.errors.length)
+      appendStudyNotice(slot, 'تعذرت قراءة بعض الملفات: ' + data.errors.slice(0, 2).join('، '));
+    if (data?.totalFileCount > data?.limit)
+      appendStudyNotice(
+        slot,
+        'تم فحص أول ' + data.limit + ' مصدر فقط لتقليل استهلاك الذاكرة على الهاتف.',
+      );
+    appendOCROptions(slot);
+    const copy = document.querySelector('[data-action="study-copy"]');
+    if (copy) copy.disabled = !matches.length;
+  } catch (error) {
+    studySession.matches = [];
+    slot.textContent = 'تعذر البحث: ' + String(error?.message || error);
+  }
+}
+async function renderStudyCards() {
+  const slot = document.getElementById('study-results');
+  if (!slot) return;
+  slot.textContent = 'جاري إعداد بطاقات المراجعة من الملفات…';
+  try {
+    await loadStudyDocumentsForCurrentCourse();
+    const definitions = extractReviewCards(studySession.documents, 12);
+    const fallback = definitions.length === 0;
+    const cards = fallback ? extractPassageCards(studySession.documents, 10) : definitions;
+    studySession.cards = cards;
+    slot.replaceChildren();
+    const copy = document.querySelector('[data-action="study-copy"]');
+    if (fallback) {
+      studySession.matches = cards.map(c => ({
+        sourceId: null,
+        source: c.source,
+        module: c.module,
+        excerpt: c.definition,
+        page: c.page,
+      }));
+      studySession.question =
+        'اشرح أفكار المقتطفات التالية من المحاضرة، ثم اقترح أسئلة تدريبية مع الاستشهاد بالمصادر.';
+      if (copy) copy.disabled = !cards.length;
+    }
+    if (!cards.length) {
+      appendStudyNotice(
+        slot,
+        'لم نجد نصوصًا كافية لإعداد بطاقات. استورد PDF نصيًا أو ملف TXT أو Word أو PowerPoint، وتأكد من ربطه بهذا المساق.',
+      );
+      const details = studySession.lastLoad;
+      if (details?.errors?.length)
+        appendStudyNotice(
+          slot,
+          'تعذرت قراءة بعض الملفات: ' + details.errors.slice(0, 2).join('، '),
+        );
+      appendOCROptions(slot);
+      return;
+    }
+    if (fallback)
+      appendStudyNotice(
+        slot,
+        'لم تظهر تعريفات صريحة، لذا هذه بطاقات مقتطفات حرفية من المحاضرة وليست تعريفات أو ملخصات منشأة بالذكاء الاصطناعي.',
+      );
+    for (let i = 0; i < cards.length; i++) {
+      const c = cards[i],
+        article = document.createElement('article');
+      article.className = 'study-match';
+      const title = document.createElement('strong');
+      title.dir = 'auto';
+      title.textContent = c.term;
+      const source = document.createElement('small');
+      source.className = 'muted';
+      source.dir = 'auto';
+      source.textContent = c.source + ' / ' + c.module + (c.page ? ' · صفحة ' + c.page : '');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'outline-btn';
+      button.dataset.action = 'study-reveal';
+      button.dataset.index = String(i);
+      button.setAttribute('aria-expanded', 'false');
+      button.textContent = fallback ? 'عرض المقتطف' : 'إظهار التعريف';
+      const answer = document.createElement('p');
+      answer.className = 'study-answer';
+      answer.dir = 'auto';
+      answer.hidden = true;
+      article.append(title, source, button, answer);
+      if (c.needsReview) {
+        const warning = document.createElement('small');
+        warning.textContent = 'OCR — راجع النص مقابل الملف الأصلي';
+        article.appendChild(warning);
+      }
+      slot.appendChild(article);
+    }
+    appendOCROptions(slot);
+  } catch (error) {
+    slot.textContent = 'تعذر إعداد بطاقات المراجعة: ' + String(error?.message || error);
+  }
+}
+async function startStudyDefinitionQuiz() {
+  try {
+    await loadStudyDocumentsForCurrentCourse();
+    const questions = buildDefinitionQuiz(extractReviewCards(studySession.documents, 24), 8);
+    if (questions.length < 4) {
+      const slot = document.getElementById('study-results');
+      if (slot)
+        appendStudyNotice(
+          slot,
+          'لا يمكن إعداد اختبار اختيار من متعدد موثوق من النصوص الحالية؛ يتطلب 4 تعريفات صريحة على الأقل. يمكنك عرض بطاقات المقتطفات والبحث في المحاضرة بدلًا من ذلك.',
+        );
+      return toast('تحتاج إلى 4 تعريفات صريحة على الأقل لإنشاء اختبار الاختيار من متعدد.', true);
+    }
+    if (quizDraftValid(state.quizDraft) && !confirm('سيتم استبدال مسودة اختبارك الحالي. هل تتابع؟'))
+      return;
+    state.activeQuiz = {
+      courseId: state.courseId,
+      title: 'مراجعة تعريفات المساق — ' + courseName(state.courseId),
+      questions,
+      pos: 0,
+      answers: {},
+    };
+    state.page = 'quizzes';
+    document.querySelector('.modal-backdrop')?.remove();
+    await saveQuizDraft();
+    render();
+    scrollTo(0, 0);
+  } catch (error) {
+    toast('تعذر إعداد الاختبار: ' + String(error?.message || error), true);
+  }
+}
+async function copyStudyPrompt() {
+  if (!studySession.matches.length) return toast('ابحث عن موضوع أولًا', true);
+  const prompt = formatChatGPTStudyPrompt(
+    courseName(studySession.courseId),
+    studySession.question,
+    studySession.matches,
+  );
+  try {
+    await navigator.clipboard.writeText(prompt);
+    toast('تم نسخ المقتطفات. يمكنك لصقها بنفسك في ChatGPT.');
+  } catch {
+    toast('المتصفح لم يسمح بالنسخ؛ جرّب Chrome أو HTTPS.', true);
+  }
+}
+
+function dueNotifications() {
+  let now = Date.now();
+  let due = pending().filter(
+    t =>
+      t.due &&
+      new Date(t.due).getTime() - now >= 0 &&
+      new Date(t.due).getTime() - now < 7 * 86400000,
+  );
+  let events = state.events.filter(
+    e =>
+      e.date &&
+      new Date(e.date).getTime() - now >= 0 &&
+      new Date(e.date).getTime() - now < 7 * 86400000,
+  );
+  modal(
+    'التنبيهات داخل الموقع',
+    `<div class="notice info">المواعيد المعروضة مستوردة أو مدخلة يدويًا، ويجب مراجعتها في Moodle قبل التسليم.</div>${due.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${fmtDate(t.due)}</p></div>${ic('calendar')}</div>`).join('')}${events.map(e => `<div class="item-row"><div><h4>${esc(e.title)}</h4><p>${fmtDate(e.date)}</p></div>${ic('calendar')}</div>`).join('')}${due.length + events.length ? '' : noData('لا توجد مواعيد خلال الأسبوع القادم', 'يمكنك إضافة مهام أو استيراد تقويم', 'bell')}`,
+  );
+}
+async function saveQuizDraft() {
+  if (!state.activeQuiz || state.activeQuiz.pos >= state.activeQuiz.questions.length) return;
+  state.quizDraft = structuredClone(state.activeQuiz);
+  await put('settings', { id: 'quiz-draft', value: state.quizDraft });
+}
+async function startQuiz(courseIndex) {
+  const qs = sampleAndPersonalQuestions(courseIndex);
+  const c = state.courses[courseIndex];
+  if (!qs.length) return toast('أضف سؤالًا إلى هذا المساق أولًا', true);
+  if (
+    quizDraftValid(state.quizDraft) &&
+    !confirm('هناك اختبار غير مكتمل. بدء اختبار جديد سيستبدل مسودته. هل تريد المتابعة؟')
+  )
+    return;
+  state.activeQuiz = {
+    courseId: c?.id,
+    title: `تدريب — ${c?.title || 'GIS'}`,
+    questions: qs,
+    pos: 0,
+    answers: {},
+  };
+  state.page = 'quizzes';
+  await saveQuizDraft();
+  render();
+}
+async function nextQuestion() {
+  const quiz = state.activeQuiz;
+  if (!quiz) return;
+  const selected = document.querySelector('input[name="quiz-answer"]:checked');
+  if (!selected) return toast('اختر إجابة أولًا', true);
+  quiz.answers[quiz.pos] = Number(selected.value);
+  quiz.pos++;
+  if (quiz.pos === quiz.questions.length) {
+    const correct = quiz.questions.reduce(
+      (sum, q, i) => sum + (q.answer === quiz.answers[i] ? 1 : 0),
+      0,
+    );
+    await put('attempts', {
+      id: makeId(),
+      courseId: quiz.courseId,
+      title: quiz.title,
+      date: new Date().toISOString(),
+      correct,
+      total: quiz.questions.length,
+      answers: quiz.answers,
+    });
+    await remove('settings', 'quiz-draft');
+    state.quizDraft = null;
+    state.attempts = await all('attempts');
+  } else await saveQuizDraft();
+  render();
+}
+function addQuestionModal(courseId) {
+  modal(
+    'إضافة سؤال تدريبي',
+    `<form id="question-form"><input type="hidden" name="courseId" value="${esc(courseId)}"/><div class="field"><label>نص السؤال</label><textarea class="textarea" name="question" maxlength="600" required></textarea></div><div class="form-grid">${[0, 1, 2, 3].map(i => `<div class="field"><label>الخيار ${i + 1}</label><input class="input" name="choice${i}" maxlength="300" required/></div>`).join('')}</div><div class="field"><label>الإجابة الصحيحة</label><select class="select" name="answer">${[0, 1, 2, 3].map(i => `<option value="${i}">الخيار ${i + 1}</option>`).join('')}</select></div><div class="field"><label>تفسير الإجابة (اختياري)</label><textarea class="textarea" name="why" maxlength="700"></textarea></div><div class="field"><label>مرجع السؤال (اختياري)</label><input class="input" name="source" maxlength="220" placeholder="اسم المحاضرة والصفحة"/></div><button class="primary-btn" type="submit">حفظ السؤال في بنك الأسئلة المحلي</button></form>`,
+  );
+}
+async function handleClick(e) {
+  const link = e.target.closest(
+    '[data-go],[data-course],[data-tab],[data-import-tab],[data-action],[data-view-resource],[data-delete-resource],[data-delete-task],[data-start-quiz],[data-add-question],[data-set-theme]',
+  );
+  if (!link) return;
+  const d = link.dataset;
+  if (d.go) {
+    go(d.go);
+    return;
+  }
+  if (d.course) {
+    changeView(() => {
+      state.courseId = d.course;
+      state.courseTab = 'lessons';
+      state.page = 'course';
+      render();
+      scrollTo(0, 0);
+    });
+    return;
+  }
+  if (d.tab) {
+    state.courseTab = d.tab;
+    render();
+    return;
+  }
+  if (d.importTab) {
+    state.importTab = d.importTab;
+    render();
+    return;
+  }
+  if (d.viewResource) {
+    await displayResource(d.viewResource);
+    return;
+  }
+  if (d.deleteResource) {
+    if (!confirm('حذف هذا المصدر من المكتبة المحلية؟')) return;
+    await remove('resources', d.deleteResource);
+    await refresh();
+    toast('حُذف المصدر');
+    return;
+  }
+  if (d.deleteTask) {
+    if (!confirm('حذف التكليف؟')) return;
+    await remove('tasks', d.deleteTask);
+    await refresh();
+    toast('حُذف التكليف');
+    return;
+  }
+  if (d.startQuiz !== undefined) {
+    await startQuiz(Number(d.startQuiz));
+    return;
+  }
+  if (d.addQuestion) {
+    addQuestionModal(d.addQuestion);
+    return;
+  }
+  if (d.setTheme) {
+    setTheme(d.setTheme);
+    return;
+  }
+  switch (d.action) {
+    case 'toggle-menu':
+      if (matchMedia('(max-width:860px)').matches) state.mobileMenu = !state.mobileMenu;
+      else state.collapsed = !state.collapsed;
+      render();
+      break;
+    case 'close-menu':
+      state.mobileMenu = false;
+      render();
+      break;
+    case 'moodle-import-preview': {
+      const p = state.moodlePreview;
+      const courseId = document.querySelector('#moodle-html-course')?.value;
+      if (!p?.resources?.length) throw Error('اختر ملف HTML أولًا');
+      if (!state.courses.some(c => c.id === courseId))
+        return toast('اختر المساق قبل الاستيراد', true);
+      const checked = [...document.querySelectorAll('[data-moodle-item]:checked')].map(el =>
+        Number(el.dataset.moodleItem),
+      );
+      if (!checked.length) return toast('اختر نشاطًا واحدًا على الأقل', true);
+      state.moodleSelectedCourseId = courseId;
+      const sourceItems = checked.map(i => p.resources[i]).filter(Boolean);
+      let added = 0,
+        skipped = 0;
+      for (const item of sourceItems) {
+        const duplicate = state.resources.some(
+          r =>
+            r.courseId === courseId &&
+            r.origin === 'moodle-html' &&
+            r.module === item.module &&
+            r.name === (item.kind === 'link' ? item.title : item.title + '.txt') &&
+            (item.kind !== 'link' || r.url === item.url),
+        );
+        if (duplicate) {
+          skipped++;
+          continue;
+        }
+        if (item.kind === 'link')
+          await put('resources', {
+            id: makeId(),
+            kind: 'link',
+            origin: 'moodle-html',
+            name: item.title,
+            courseId,
+            module: item.module,
+            url: item.url,
+            addedAt: new Date().toISOString(),
+            completed: false,
+          });
+        else {
+          const blob = new Blob([item.text], { type: 'text/plain' });
+          await put('resources', {
+            id: makeId(),
+            kind: 'file',
+            origin: 'moodle-html',
+            name: item.title + '.txt',
+            courseId,
+            module: item.module,
+            type: 'text/plain',
+            blob,
+            size: blob.size,
+            addedAt: new Date().toISOString(),
+            completed: false,
+          });
+        }
+        added++;
+      }
+      state.moodlePreview = null;
+      await refresh();
+      toast(`تم استيراد ${added} مصدر، وتجاهل ${skipped} مكرر. لم يُحفظ ملف HTML الخام.`);
+      break;
+    }
+    case 'moodle-files':
+      state.importTab = 'files';
+      go('import');
+      break;
+    case 'moodle-ics':
+      state.importTab = 'ics';
+      go('import');
+      break;
+    case 'moodle-links':
+      state.importTab = 'links';
+      go('import');
+      break;
+    case 'add-course':
+      addCourseModal();
+      break;
+    case 'add-task':
+      addTaskModal();
+      break;
+    case 'assistant':
+      assistantModal();
+      break;
+    case 'study-cards':
+      await renderStudyCards();
+      break;
+    case 'study-ocr':
+      await runStudyOCR(d.id);
+      break;
+    case 'study-start-quiz':
+      await startStudyDefinitionQuiz();
+      break;
+    case 'study-copy':
+      await copyStudyPrompt();
+      break;
+    case 'study-reveal': {
+      const card = studySession.cards[Number(d.index)];
+      if (!card) break;
+      const answer = link.parentElement.querySelector('.study-answer');
+      if (!answer) break;
+      const show = answer.hidden;
+      answer.hidden = !show;
+      answer.textContent = show ? card.definition : '';
+      link.setAttribute('aria-expanded', String(show));
+      link.textContent = show
+        ? card.kind === 'passage'
+          ? 'إخفاء المقتطف'
+          : 'إخفاء التعريف'
+        : card.kind === 'passage'
+          ? 'عرض المقتطف'
+          : 'إظهار التعريف';
+      break;
+    }
+    case 'notifications':
+      dueNotifications();
+      break;
+    case 'theme':
+      setTheme(state.mode === 'dark' ? 'light' : 'dark');
+      break;
+    case 'search':
+      modal(
+        'البحث في المساقات والمصادر',
+        `<form id="search-form"><div class="field"><label>كلمة البحث</label><input name="query" class="input" required placeholder="اسم مساق أو محاضرة أو تكليف" autofocus/></div><button class="primary-btn" type="submit">${ic('search')} بحث</button></form>`,
+      );
+      break;
+    case 'close-modal':
+      document.querySelector('.modal-backdrop')?.remove();
+      break;
+    case 'resume-quiz':
+      if (quizDraftValid(state.quizDraft)) {
+        state.activeQuiz = structuredClone(state.quizDraft);
+        state.page = 'quizzes';
+        render();
+      }
+      break;
+    case 'discard-quiz':
+      if (!confirm('حذف مسودة الاختبار غير المكتمل؟')) break;
+      await remove('settings', 'quiz-draft');
+      state.quizDraft = null;
+      state.activeQuiz = null;
+      render();
+      break;
+    case 'next-question':
+      await nextQuestion();
+      break;
+    case 'prev-question':
+      if (state.activeQuiz?.pos > 0) {
+        state.activeQuiz.pos--;
+        await saveQuizDraft();
+        render();
+      }
+      break;
+    case 'finish-quiz':
+      state.activeQuiz = null;
+      render();
+      break;
+    case 'download-resource':
+    case 'open-resource': {
+      const r = await get('resources', d.id);
+      if (!r?.blob) return;
+      const u = URL.createObjectURL(r.blob);
+      const a = document.createElement('a');
+      a.href = u;
+      if (d.action === 'download-resource') a.download = r.name;
+      else a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(u), 60000);
+      break;
+    }
+    case 'export':
+      try {
+        const data = await backup();
+        const file = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ucas-bridge-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        toast('تم تجهيز النسخة الاحتياطية');
+      } catch (err) {
+        toast(`تعذر النسخ الاحتياطي: ${err.message}`, true);
+      }
+      break;
+    case 'request-notifications':
+      if (!('Notification' in window)) return toast('المتصفح لا يدعم الإشعارات', true);
+      if (!isSecureContext) return toast('تحتاج إشعارات المتصفح إلى HTTPS أو localhost', true);
+      {
+        let permission = await Notification.requestPermission();
+        toast(
+          permission === 'granted'
+            ? 'تم منح إذن الإشعارات، والجدولة الخارجية غير متاحة بعد'
+            : 'لم يُمنح إذن الإشعارات',
+        );
+      }
+      break;
+    case 'clear-data':
+      if (
+        !confirm(
+          'سيتم حذف جميع المساقات والملفات والتكليفات والاختبارات من هذا المتصفح. هل أنشأت نسخة احتياطية؟',
+        )
+      )
+        return;
+      if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
+      {
+        const names = [
+          'courses',
+          'resources',
+          'tasks',
+          'events',
+          'attempts',
+          'progress',
+          'settings',
+        ];
+        const { replaceAll } = await import('./store.js');
+        for (const s of names) await replaceAll(s, []);
+        await initialize();
+        await refresh();
+        toast('تم حذف بيانات الجهاز وإعادة المساقات الافتراضية');
+      }
+      break;
+  }
+}
+async function handleSubmit(e) {
+  const form = e.target;
+  if (
+    ![
+      'study-search-form',
+      'file-form',
+      'drive-file-form',
+      'drive-link-form',
+      'ics-form',
+      'link-form',
+      'moodle-form',
+      'course-form',
+      'task-form',
+      'search-form',
+      'question-form',
+    ].includes(form.id)
+  )
+    return;
+  e.preventDefault();
+  const fd = new FormData(form);
+  try {
+    if (form.id === 'study-search-form') {
+      await runStudySearch(String(fd.get('query') || '').trim());
+      return;
+    }
+    if (form.id === 'moodle-form') {
+      const courseId = String(fd.get('courseId') || '');
+      const title = String(fd.get('title') || '').trim();
+      if (!state.courses.some(c => c.id === courseId) || !title || title.length > 150)
+        throw Error('اختر مساقًا وعنوانًا صحيحين');
+      const content = cleanMoodlePaste(String(fd.get('content') || ''));
+      const blob = new Blob([content], { type: 'text/plain' });
+      const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content));
+      const hash = [...new Uint8Array(raw)].map(x => x.toString(16).padStart(2, '0')).join('');
+      if (state.resources.some(r => r.courseId === courseId && r.hash === hash))
+        throw Error('هذه المادة مستوردة مسبقًا في المساق');
+      await put('resources', {
+        id: makeId(),
+        kind: 'file',
+        origin: 'moodle-manual',
+        name: title + '.txt',
+        courseId,
+        module: 'مواد Moodle المنسوخة',
+        hash,
+        type: 'text/plain',
+        blob,
+        size: blob.size,
+        addedAt: new Date().toISOString(),
+        completed: false,
+      });
+      toast('حُفظ نص Moodle في مكتبة المساق محليًا');
+    }
+    if (form.id === 'question-form') {
+      const courseId = String(fd.get('courseId') || '');
+      const question = String(fd.get('question') || '').trim();
+      const choices = [0, 1, 2, 3].map(i => String(fd.get('choice' + i) || '').trim());
+      const answer = Number(fd.get('answer'));
+      if (
+        !state.courses.some(c => c.id === courseId) ||
+        !question ||
+        choices.some(c => !c) ||
+        !Number.isInteger(answer) ||
+        answer < 0 ||
+        answer > 3
+      )
+        throw Error('أكمل بيانات السؤال والإجابة الصحيحة');
+      state.questionBank.push({
+        id: makeId(),
+        courseId,
+        question,
+        choices,
+        answer,
+        why: String(fd.get('why') || '').trim(),
+        source: String(fd.get('source') || '').trim(),
+      });
+      await put('settings', { id: 'question-bank', value: state.questionBank });
+      document.querySelector('.modal-backdrop')?.remove();
+      toast('تم حفظ السؤال في بنك الأسئلة المحلي');
+    }
+    if (form.id === 'course-form') {
+      const title = String(fd.get('title') || '').trim();
+      if (!title) throw Error('اسم المساق مطلوب');
+      await put('courses', { id: makeId(), title, createdAt: new Date().toISOString() });
+      document.querySelector('.modal-backdrop')?.remove();
+      toast('تمت إضافة المساق');
+    }
+    if (form.id === 'task-form') {
+      const title = String(fd.get('title') || '').trim();
+      const courseId = String(fd.get('courseId') || '');
+      if (!title || !courseId) throw Error('أكمل الحقول المطلوبة');
+      await put('tasks', {
+        id: makeId(),
+        title,
+        courseId,
+        due: String(fd.get('due') || ''),
+        notes: String(fd.get('notes') || ''),
+        done: false,
+        createdAt: new Date().toISOString(),
+      });
+      document.querySelector('.modal-backdrop')?.remove();
+      toast('تم حفظ التكليف');
+    }
+    if (form.id === 'link-form') {
+      const name = String(fd.get('name') || '').trim();
+      const courseId = String(fd.get('courseId') || '');
+      const url = safeUrl(String(fd.get('url') || ''));
+      if (!name || !courseId || !url)
+        throw Error('تحقق من اسم الرابط والمساق وصحة عنوان HTTP أو HTTPS');
+      if (state.resources.some(r => r.kind === 'link' && r.url === url && r.courseId === courseId))
+        throw Error('الرابط موجود مسبقًا في هذا المساق');
+      await put('resources', {
+        id: makeId(),
+        kind: 'link',
+        name,
+        courseId,
+        url,
+        module: String(fd.get('module') || '') || 'مصادر المساق',
+        addedAt: new Date().toISOString(),
+        completed: false,
+      });
+      toast('تم حفظ الرابط');
+    }
+    if (form.id === 'drive-link-form') {
+      const courseId = String(fd.get('courseId') || '');
+      if (!state.courses.some(c => c.id === courseId)) throw Error('اختر مساقًا لحفظ رابط Drive');
+      const ref = parseDriveReference(String(fd.get('url') || ''));
+      if (!ref)
+        throw Error(
+          'الرابط غير صالح. استخدم رابط ملف أو مستند أو مجلد من Google Drive أو Google Docs',
+        );
+      if (
+        state.resources.some(r => r.kind === 'link' && r.url === ref.url && r.courseId === courseId)
+      )
+        throw Error('هذا الرابط موجود بالفعل في المساق');
+      await put('resources', {
+        id: makeId(),
+        kind: 'link',
+        origin: 'google-drive-link',
+        name: normalizeDriveTitle(fd.get('name'), ref),
+        courseId,
+        url: ref.url,
+        module: String(fd.get('module') || '').trim() || 'مصادر Google Drive',
+        addedAt: new Date().toISOString(),
+        completed: false,
+      });
+      toast('تم حفظ رابط Google Drive داخل المساق');
+    }
+    if (form.id === 'file-form' || form.id === 'drive-file-form') {
+      const courseId = String(fd.get('courseId') || '');
+      const files = [...(form.querySelector('input[type=file]')?.files || [])];
+      if (!state.courses.some(c => c.id === courseId)) throw Error('اختر مساقًا صحيحًا');
+      const checked = validateStudyFiles(files);
+      if (!checked.allowed.length)
+        throw Error('لم يتم العثور على ملف دراسي صالح، راجع نوع الملفات وحجمها');
+      let added = 0;
+      let skipped = checked.rejected.length;
+      for (const f of checked.allowed) {
+        const hashBuf = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+        const hash = [...new Uint8Array(hashBuf)]
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+        if (state.resources.some(r => r.hash === hash && r.courseId === courseId)) {
+          skipped++;
+          continue;
+        }
+        await put('resources', {
+          id: makeId(),
+          kind: 'file',
+          origin: form.id === 'drive-file-form' ? 'device-picker-drive' : 'manual-upload',
+          name: f.name,
+          courseId,
+          module: String(fd.get('module') || '').trim() || 'مصادر المساق',
+          hash,
+          type: f.type || 'application/octet-stream',
+          blob: f,
+          size: f.size,
+          addedAt: new Date().toISOString(),
+          completed: false,
+        });
+        state.resources.push({ hash, courseId });
+        added++;
+      }
+      toast(`تم استيراد ${added} ملف، وتخطي ${skipped} ملف مكرر أو غير مدعوم`);
+    }
+    if (form.id === 'ics-form') {
+      const file = form.querySelector('input[type=file]')?.files?.[0];
+      if (!file) throw Error('اختر ملف تقويم');
+      const events = parseICS(await file.text());
+      if (!events.length) throw Error('لم يتم العثور على أحداث صالحة');
+      let count = 0;
+      for (const event of events) {
+        if (!(await get('events', event.id))) {
+          await put('events', { ...event, addedAt: new Date().toISOString() });
+          count++;
+        }
+      }
+      toast(`تم استيراد ${count} حدث جديد. راجع الأحداث المتكررة والمناطق الزمنية.`);
+    }
+    if (form.id === 'search-form') {
+      const q = String(fd.get('query') || '').trim();
+      if (!q) throw Error('اكتب عبارة للبحث');
+      state.query = q;
+      state.page = 'search';
+      document.querySelector('.modal-backdrop')?.remove();
+    }
+    await refresh();
+  } catch (error) {
+    toast(error?.message || 'حدث خطأ أثناء العملية', true);
+    console.error(error);
+  }
+}
+async function handleChange(e) {
+  const el = e.target;
+  if (el.id === 'moodle-html-course') {
+    state.moodleSelectedCourseId = el.value;
+    return;
+  }
+  if (el.id === 'moodle-html-file' && el.files?.length) {
+    const file = el.files[0];
+    state.moodleImportFile = file.name;
+    state.moodleImportError = null;
+    try {
+      state.moodlePreview = await readMoodleCourseFile(file);
+      if (!state.moodleSelectedCourseId) {
+        const needle = state.moodlePreview.courseTitle.trim();
+        const similar = state.courses.find(
+          c => needle.includes(c.title) || c.title.includes(needle),
+        );
+        state.moodleSelectedCourseId = similar?.id || state.courseId || null;
+      }
+      render();
+      toast(`تم فحص الصفحة: ${state.moodlePreview.resources.length} عنصر قابل للمراجعة`);
+    } catch (err) {
+      state.moodlePreview = null;
+      state.moodleImportError = err?.message || 'تعذر تحليل ملف المساق';
+      render();
+      toast('تعذر استيراد الملف، راجع رسالة الخطأ داخل الصفحة', true);
+    }
+    return;
+  }
+
+  if (el.matches('input[name="quiz-answer"]') && state.activeQuiz) {
+    state.activeQuiz.answers[state.activeQuiz.pos] = Number(el.value);
+    await saveQuizDraft();
+  }
+  if (el.matches('[data-toggle-task]')) {
+    const t = await get('tasks', el.dataset.toggleTask);
+    if (t) {
+      t.done = el.checked;
+      await put('tasks', t);
+      await refresh();
+    }
+  }
+  if (el.matches('[data-complete-resource]')) {
+    const r = await get('resources', el.dataset.completeResource);
+    if (r) {
+      r.completed = el.checked;
+      await put('resources', r);
+      await refresh();
+    }
+  }
+  if (el.id === 'restore-file' && el.files?.length) {
+    if (!confirm('استعادة النسخة ستستبدل جميع البيانات الموجودة على هذا الجهاز. هل تريد المتابعة؟'))
+      return;
+    try {
+      const data = JSON.parse(await el.files[0].text());
+      await restore(data);
+      await refresh();
+      toast('تمت استعادة النسخة الاحتياطية');
+    } catch (err) {
+      toast(`تعذرت الاستعادة: ${err.message}`, true);
+    }
+  }
+}
+function setTheme(v) {
+  state.mode = v;
+  localStorage.setItem('ucas-bridge-theme', v);
+  document.documentElement.dataset.theme =
+    v === 'auto' ? (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : v;
+  render();
+}
+async function init() {
+  try {
+    await initialize();
+    const draft = await get('settings', 'quiz-draft');
+    if (quizDraftValid(draft?.value)) state.quizDraft = draft.value;
+    const bank = await get('settings', 'question-bank');
+    state.questionBank = Array.isArray(bank?.value) ? bank.value : [];
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      if (state.mode === 'auto')
+        document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+    });
+    document.addEventListener('click', e => {
+      handleClick(e).catch(err => {
+        console.error(err);
+        toast('تعذرت العملية', true);
+      });
+    });
+    document.addEventListener('submit', e => {
+      handleSubmit(e).catch(err => {
+        console.error(err);
+        toast('تعذر الحفظ', true);
+      });
+    });
+    document.addEventListener('change', e => {
+      handleChange(e).catch(err => {
+        console.error(err);
+        toast('تعذرت العملية', true);
+      });
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') document.querySelector('.modal-backdrop')?.remove();
+      if (e.key === 'Enter' && e.target.id === 'global-search') {
+        state.query = e.target.value.trim();
+        state.page = 'search';
+        render();
+      }
+    });
+    const mode = localStorage.getItem('ucas-bridge-theme') || 'auto';
+    state.mode = mode;
+    document.documentElement.dataset.theme =
+      mode === 'auto'
+        ? matchMedia('(prefers-color-scheme:dark)').matches
+          ? 'dark'
+          : 'light'
+        : mode;
+    await refresh();
+    if ('serviceWorker' in navigator && isSecureContext) {
+      navigator.serviceWorker.register('./sw.js').catch(console.warn);
+    }
+  } catch (err) {
+    document.getElementById('app').innerHTML =
+      `<div class="initial-loader"><h2>تعذر تشغيل التخزين المحلي</h2><p>تأكد من فتح الموقع في متصفح يدعم IndexedDB وعبر localhost أو HTTPS.</p><p>${esc(err.message)}</p></div>`;
+    console.error(err);
+  }
+}
 init();
