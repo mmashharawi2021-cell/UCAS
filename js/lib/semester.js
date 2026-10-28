@@ -1,6 +1,6 @@
 // Semesters: the student's current UCAS plan, archiving a finished term, and the
 // cumulative average across archived terms. Pure helpers.
-import { courseMark, gpa, round } from './grades.js?v=1.2.0';
+import { courseMark, gpa, round } from './grades.js?v=1.3.0';
 
 /** Fall 2026/2027 registration (19 credit hours) with 55 hours passed before it. */
 export const UCAS_FALL_2026 = {

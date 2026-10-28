@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v1.2.0
+# UCAS Academic Bridge — v1.3.0
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
@@ -23,6 +23,11 @@ CHROME_PATH=/path/to/chrome npm run test:browser
 ```
 
 Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for how the code is organised.
+
+## Premium UI 2.0
+
+- A redesigned study home with a real completion ring and practical navigation, redesigned course library with instant filtering, and a Gemini study workspace inside each course.
+- Styles in `premium-v2.css` are versioned, cached for offline use and layered above the original `styles.css`.
 
 ## Features
 

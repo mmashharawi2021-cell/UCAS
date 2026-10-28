@@ -7,7 +7,7 @@ import {
   gpa,
   neededForTarget,
   rating,
-} from '../lib/grades.js?v=1.2.0';
+} from '../lib/grades.js?v=1.3.0';
 import {
   UCAS_FALL_2026,
   matchCourse,
@@ -15,7 +15,7 @@ import {
   combinedPrevious,
   passedHours,
   suggestNextSemester,
-} from '../lib/semester.js?v=1.2.0';
+} from '../lib/semester.js?v=1.3.0';
 
 const SETTINGS_KEY = 'gpa-settings';
 const SEMESTER_KEY = 'current-semester';
