@@ -3,6 +3,7 @@ import {parseICS} from './ics.js';
 import {previewOffice} from './office.js';
 import {cleanMoodlePaste,readMoodleCourseFile} from './moodle.js';
 import {validateStudyFiles,parseDriveReference,normalizeDriveTitle} from './drive.js';
+import {loadCourseText,searchStudySources,extractReviewCards,buildDefinitionQuiz,formatChatGPTStudyPrompt} from './study.js';
 
 const titles={home:'الرئيسية',courses:'مساقاتي',moodle:'ربط Moodle',import:'مركز الاستيراد',quizzes:'الاختبارات التدريبية',tasks:'التكليفات والتقويم',progress:'التقدم الدراسي',settings:'الإعدادات',search:'نتائج البحث'};
 const coursesSymbols=['database','layers','globe','map','lightbulb','briefcase','code'];
@@ -107,7 +108,95 @@ if(/\.(docx|pptx)$/i.test(r.name)){
 }
 function addTaskModal(){modal('تكليف جديد',`<form id="task-form"><div class="field"><label>عنوان التكليف</label><input class="input" name="title" maxlength="180" required placeholder="عنوان المهمة"/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label>موعد التسليم</label><input class="input" type="datetime-local" name="due"/></div></div><div class="field"><label>ملاحظات (اختياري)</label><textarea class="textarea" name="notes"></textarea></div><button class="primary-btn" type="submit">${ic('check')} حفظ التكليف</button></form>`)}
 function addCourseModal(){modal('إضافة مساق',`<form id="course-form"><div class="field"><label>اسم المساق</label><input class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`)}
-function assistantModal(){modal('المساعد الذكي',`<div class="notice info">واجهة المساعد جزء من التصميم المعتمد، لكن خدمة AI غير متصلة في الإصدار 0.1. لن نعرض إجابات غير مستندة إلى المصادر، ولن نطلب مفتاح OpenAI داخل المتصفح.</div><div class="empty-state">${ic('bot')}<strong>الاتصال بالذكاء الاصطناعي قيد التطوير</strong><p>سيتم تفعيله لاحقًا عبر بوابة آمنة، وبعد اختبار صلاحيات الوصول والخصوصية.</p></div>`)}
+
+const studySession={courseId:null,documents:[],matches:[],cards:[],question:''};
+function assistantModal(){
+ const c=state.courses.find(x=>x.id===state.courseId);
+ if(!c)return toast('اختر مساقًا أولًا',true);
+ Object.assign(studySession,{courseId:c.id,documents:[],matches:[],cards:[],question:''});
+ const html=[
+  '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل TXT وDOCX وPPTX. ستظهر مقتطفات بأسماء الملفات، وليس إجابات مولدة بنموذج AI. PDF متاح للعرض فقط حاليًا. لا يُرفع أي ملف إلى خادم.</p></div>',
+  '<form id="study-search-form" class="study-search-form"><div class="field"><label for="study-query">ما الموضوع الذي تريد مراجعته؟</label><input class="input" id="study-query" name="query" maxlength="200" placeholder="مثال: إدارة المشاريع" required></div><button type="submit" class="primary-btn">البحث في ملفات المساق</button></form>',
+  '<div id="study-results" class="study-results" aria-live="polite"><p class="muted tiny">اكتب كلمة أو سؤالًا لعرض المقتطفات التي تتضمنه.</p></div>',
+  '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من التعريفات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
+  '<p class="muted tiny">النسخ إلى ChatGPT لا يحدث إلا عند ضغطك على الزر. الاختبارات محلية ومبنية على التعريفات النصية؛ راجع صحتها من المصدر.</p>'
+ ].join('');
+ modal('مساعد الدراسة — '+c.title,html,true);
+}
+async function loadStudyDocumentsForCurrentCourse(){
+ if(!state.courseId||studySession.courseId!==state.courseId)throw new Error('افتح المساق المطلوب أولًا');
+ if(studySession.documents.length)return studySession.documents;
+ const data=await loadCourseText(state.resources,state.courseId,previewOffice);
+ studySession.documents=data.documents;
+ studySession.lastLoad=data;
+ return data.documents;
+}
+function appendStudyNotice(target,message){
+ const element=document.createElement('p');element.className='muted tiny';element.textContent=message;target.appendChild(element);
+}
+async function runStudySearch(query){
+ const slot=document.getElementById('study-results');
+ if(!slot)return;
+ slot.textContent='جاري فحص ملفات المساق المحفوظة محليًا…';
+ try{
+  await loadStudyDocumentsForCurrentCourse();
+  const matches=searchStudySources(query,studySession.documents,7);
+  studySession.matches=matches;
+  studySession.question=query;
+  slot.replaceChildren();
+  if(!matches.length)appendStudyNotice(slot,'لا توجد مقتطفات مطابقة. جرّب كلمة أخرى أو استورد ملف TXT أو Word أو PowerPoint يحتوي على نص.');
+  for(let i=0;i<matches.length;i++){
+   const m=matches[i],article=document.createElement('article');
+   article.className='study-match';
+   const source=document.createElement('strong');source.textContent='['+(i+1)+'] '+m.source;
+   const module=document.createElement('small');module.className='muted';module.textContent=m.module;
+   const excerpt=document.createElement('p');excerpt.textContent=m.excerpt;
+   article.append(source,module,excerpt);slot.appendChild(article);
+  }
+  const data=studySession.lastLoad;
+  if(data?.unsupported.length)appendStudyNotice(slot,'لم يتم تحليل نص '+data.unsupported.length+' ملف PDF أو صيغة أخرى؛ يمكن عرضها من مكتبة المساق.');
+  if(data?.errors.length)appendStudyNotice(slot,'تعذرت قراءة بعض الملفات: '+data.errors.slice(0,2).join('، '));
+  if(data?.totalFileCount>data?.limit)appendStudyNotice(slot,'تم فحص أول '+data.limit+' مصدر فقط لتقليل استهلاك الذاكرة على الهاتف.');
+  const copy=document.querySelector('[data-action="study-copy"]');
+  if(copy)copy.disabled=!matches.length;
+ }catch(error){studySession.matches=[];slot.textContent='تعذر البحث: '+String(error?.message||error);}
+}
+async function renderStudyCards(){
+ const slot=document.getElementById('study-results');if(!slot)return;
+ slot.textContent='جاري استخراج التعريفات…';
+ try{
+  await loadStudyDocumentsForCurrentCourse();
+  studySession.cards=extractReviewCards(studySession.documents,12);
+  slot.replaceChildren();
+  if(!studySession.cards.length){appendStudyNotice(slot,'لم تظهر تعريفات بصيغة «مصطلح: تعريف». يمكنك استخدام البحث النصي بدلًا منها.');return;}
+  for(let i=0;i<studySession.cards.length;i++){
+   const c=studySession.cards[i],article=document.createElement('article');
+   article.className='study-match';
+   const title=document.createElement('strong');title.textContent=c.term;
+   const source=document.createElement('small');source.className='muted';source.textContent=c.source+' / '+c.module;
+   const button=document.createElement('button');button.type='button';button.className='outline-btn';button.dataset.action='study-reveal';button.dataset.index=String(i);button.setAttribute('aria-expanded','false');button.textContent='إظهار التعريف';
+   const answer=document.createElement('p');answer.className='study-answer';answer.hidden=true;
+   article.append(title,source,button,answer);slot.appendChild(article);
+  }
+ }catch(error){slot.textContent='تعذر إنشاء بطاقات المراجعة: '+String(error?.message||error);}
+}
+async function startStudyDefinitionQuiz(){
+ try{
+  await loadStudyDocumentsForCurrentCourse();
+  const questions=buildDefinitionQuiz(extractReviewCards(studySession.documents,24),8);
+  if(questions.length<4)return toast('تحتاج إلى 4 تعريفات على الأقل بصيغة «مصطلح: تعريف» لإنشاء اختبار.',true);
+  if(quizDraftValid(state.quizDraft)&&!confirm('سيتم استبدال مسودة اختبارك الحالي. هل تتابع؟'))return;
+  state.activeQuiz={courseId:state.courseId,title:'مراجعة تعريفات المساق — '+courseName(state.courseId),questions,pos:0,answers:{}};
+  state.page='quizzes';document.querySelector('.modal-backdrop')?.remove();await saveQuizDraft();render();scrollTo(0,0);
+ }catch(error){toast('تعذر إعداد الاختبار: '+String(error?.message||error),true);}
+}
+async function copyStudyPrompt(){
+ if(!studySession.matches.length)return toast('ابحث عن موضوع أولًا',true);
+ const prompt=formatChatGPTStudyPrompt(courseName(studySession.courseId),studySession.question,studySession.matches);
+ try{await navigator.clipboard.writeText(prompt);toast('تم نسخ المقتطفات. يمكنك لصقها بنفسك في ChatGPT.');}
+ catch{toast('المتصفح لم يسمح بالنسخ؛ جرّب Chrome أو HTTPS.',true);}
+}
+
 function dueNotifications(){let now=Date.now();let due=pending().filter(t=>t.due && new Date(t.due).getTime()-now>=0 && new Date(t.due).getTime()-now<7*86400000);let events=state.events.filter(e=>e.date && new Date(e.date).getTime()-now>=0 && new Date(e.date).getTime()-now<7*86400000);modal('التنبيهات داخل الموقع',`<div class="notice info">المواعيد المعروضة مستوردة أو مدخلة يدويًا، ويجب مراجعتها في Moodle قبل التسليم.</div>${due.map(t=>`<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${fmtDate(t.due)}</p></div>${ic('calendar')}</div>`).join('')}${events.map(e=>`<div class="item-row"><div><h4>${esc(e.title)}</h4><p>${fmtDate(e.date)}</p></div>${ic('calendar')}</div>`).join('')}${due.length+events.length?'':noData('لا توجد مواعيد خلال الأسبوع القادم','يمكنك إضافة مهام أو استيراد تقويم','bell')}`)}
 async function saveQuizDraft(){if(!state.activeQuiz || state.activeQuiz.pos>=state.activeQuiz.questions.length)return;state.quizDraft=structuredClone(state.activeQuiz);await put('settings',{id:'quiz-draft',value:state.quizDraft});}
 async function startQuiz(courseIndex){const qs=sampleAndPersonalQuestions(courseIndex);const c=state.courses[courseIndex];if(!qs.length)return toast('أضف سؤالًا إلى هذا المساق أولًا',true);if(quizDraftValid(state.quizDraft) && !confirm('هناك اختبار غير مكتمل. بدء اختبار جديد سيستبدل مسودته. هل تريد المتابعة؟'))return;state.activeQuiz={courseId:c?.id,title:`تدريب — ${c?.title||'GIS'}`,questions:qs,pos:0,answers:{}};state.page='quizzes';await saveQuizDraft();render();}
@@ -143,6 +232,10 @@ case 'moodle-links':state.importTab='links';go('import');break;
 case 'add-course':addCourseModal();break;
 case 'add-task':addTaskModal();break;
 case 'assistant':assistantModal();break;
+case 'study-cards':await renderStudyCards();break;
+case 'study-start-quiz':await startStudyDefinitionQuiz();break;
+case 'study-copy':await copyStudyPrompt();break;
+case 'study-reveal':{const card=studySession.cards[Number(d.index)];if(!card)break;const answer=link.parentElement.querySelector('.study-answer');if(!answer)break;const show=answer.hidden;answer.hidden=!show;answer.textContent=show?card.definition:'';link.setAttribute('aria-expanded',String(show));link.textContent=show?'إخفاء التعريف':'إظهار التعريف';break;}
 case 'notifications':dueNotifications();break;
 case 'theme':setTheme(state.mode==='dark'?'light':'dark');break;
 case 'search':modal('البحث في المساقات والمصادر',`<form id="search-form"><div class="field"><label>كلمة البحث</label><input name="query" class="input" required placeholder="اسم مساق أو محاضرة أو تكليف" autofocus/></div><button class="primary-btn" type="submit">${ic('search')} بحث</button></form>`);break;
@@ -157,8 +250,9 @@ case 'export':try{const data=await backup();const file=new Blob([JSON.stringify(
 case 'request-notifications':if(!('Notification' in window))return toast('المتصفح لا يدعم الإشعارات',true);if(!isSecureContext)return toast('تحتاج إشعارات المتصفح إلى HTTPS أو localhost',true);{let permission=await Notification.requestPermission();toast(permission==='granted'?'تم منح إذن الإشعارات، والجدولة الخارجية غير متاحة بعد':'لم يُمنح إذن الإشعارات');}break;
 case 'clear-data':if(!confirm('سيتم حذف جميع المساقات والملفات والتكليفات والاختبارات من هذا المتصفح. هل أنشأت نسخة احتياطية؟'))return;if(!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟'))return;{const names=['courses','resources','tasks','events','attempts','progress','settings'];const {replaceAll}=await import('./store.js');for(const s of names)await replaceAll(s,[]);await initialize();await refresh();toast('تم حذف بيانات الجهاز وإعادة المساقات الافتراضية');}break;
 }}
-async function handleSubmit(e){const form=e.target;if(!['file-form','drive-file-form','drive-link-form','ics-form','link-form','moodle-form','course-form','task-form','search-form','question-form'].includes(form.id))return;e.preventDefault();const fd=new FormData(form);
+async function handleSubmit(e){const form=e.target;if(!['study-search-form','file-form','drive-file-form','drive-link-form','ics-form','link-form','moodle-form','course-form','task-form','search-form','question-form'].includes(form.id))return;e.preventDefault();const fd=new FormData(form);
 try{
+ if(form.id==='study-search-form'){await runStudySearch(String(fd.get('query')||'').trim());return;}
  if(form.id==='moodle-form'){
  const courseId=String(fd.get('courseId')||'');const title=String(fd.get('title')||'').trim();if(!state.courses.some(c=>c.id===courseId)||!title||title.length>150)throw Error('اختر مساقًا وعنوانًا صحيحين');
  const content=cleanMoodlePaste(String(fd.get('content')||''));const blob=new Blob([content],{type:'text/plain'});const raw=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));const hash=[...new Uint8Array(raw)].map(x=>x.toString(16).padStart(2,'0')).join('');
