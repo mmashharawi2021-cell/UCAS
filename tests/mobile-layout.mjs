@@ -33,9 +33,12 @@ try {
         header: document.querySelector('.topbar').getBoundingClientRect().height,
         hero: document.querySelector('.premium-hero').getBoundingClientRect().height,
         scrollWidth: document.documentElement.scrollWidth,
-        courses: [...document.querySelectorAll('.home-courses .premium-course-card')].filter(
-          e => getComputedStyle(e).display !== 'none',
-        ).map(e => ({ left: e.getBoundingClientRect().left, right: e.getBoundingClientRect().right })),
+        courses: [...document.querySelectorAll('.home-courses .premium-course-card')]
+          .filter(e => getComputedStyle(e).display !== 'none')
+          .map(e => ({
+            left: e.getBoundingClientRect().left,
+            right: e.getBoundingClientRect().right,
+          })),
       }));
       assert.ok(compact.header <= 66, 'Header is too tall: ' + compact.header);
       assert.ok(compact.hero <= 440, 'Hero is too tall: ' + compact.hero);
