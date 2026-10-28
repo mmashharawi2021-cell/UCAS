@@ -589,7 +589,14 @@ function companionFilesPanel() {
     <p class="muted tiny companion-files-status" role="status" aria-live="polite">${esc(state.companionFileProgress || 'لم يتم فحص ملفات المحاضرات بعد')}</p>
     <progress class="companion-files-progress" max="100" value="0" ${state.companionFileBusy ? '' : 'hidden'} aria-label="تقدم نقل ملف Moodle"></progress>
     ${state.companionFileResult ? `<div class="notice info">${esc(state.companionFileResult)}</div>` : ''}
-    ${state.companionFileFailures.length ? `<details><summary>تعذر فحص ${state.companionFileFailures.length} مساق</summary><ul>${state.companionFileFailures.slice(0,20).map(f => `<li>${esc(f.course)}: ${esc(f.reason)}</li>`).join('')}</ul></details>` : ''}
+    ${
+      state.companionFileFailures.length
+        ? `<details><summary>تعذر فحص ${state.companionFileFailures.length} مساق</summary><ul>${state.companionFileFailures
+            .slice(0, 20)
+            .map(f => `<li>${esc(f.course)}: ${esc(f.reason)}</li>`)
+            .join('')}</ul></details>`
+        : ''
+    }
     <div class="companion-file-catalog">${[...groups.values()].map(group => `<details class="companion-file-group"><summary><strong>${esc(group.title)}</strong> <span class="pill">${group.items.length} ملف</span></summary><div class="companion-file-list">${group.items.map(file => `<label class="companion-file-item"><input type="checkbox" data-companion-file="${esc(file.id)}" checked ${state.companionFileBusy ? 'disabled' : ''}><span><strong>${esc(file.name)}</strong><small>${esc(file.module)}</small></span></label>`).join('')}</div></details>`).join('')}</div>
     <p class="muted tiny">تُحفظ الملفات في IndexedDB على هذا الكمبيوتر. لا تُرفع إلى مستودع GitHub؛ لن تنتقل تلقائيًا إلى الهاتف دون تفعيل المزامنة السحابية الاختيارية على حسابك.</p>
   </section>`;
@@ -1430,11 +1437,18 @@ async function handleClick(e) {
     case 'companion-files-cancel':
       state.companionFileCancel = true;
       state.companionFileProgress = 'سيُوقف النقل بعد إنهاء الجزء الحالي…';
-      { const el = document.querySelector('.companion-files-status'); if (el) el.textContent = state.companionFileProgress; }
+      {
+        const el = document.querySelector('.companion-files-status');
+        if (el) el.textContent = state.companionFileProgress;
+      }
       break;
     case 'companion-files-import': {
       if (state.companionFileBusy) break;
-      const ids = new Set([...document.querySelectorAll('[data-companion-file]:checked')].map(el => el.dataset.companionFile));
+      const ids = new Set(
+        [...document.querySelectorAll('[data-companion-file]:checked')].map(
+          el => el.dataset.companionFile,
+        ),
+      );
       const chosen = state.companionFiles.filter(f => ids.has(f.id));
       if (!chosen.length) return toast('حدد ملفًا واحدًا على الأقل', true);
       state.companionFileBusy = true;
@@ -1443,13 +1457,17 @@ async function handleClick(e) {
       state.companionFileProgress = 'بدء استيراد الملفات إلى مكتبتك المحلية…';
       render();
       try {
-        const result = await transferCompanionFiles(chosen, progress => {
-          state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
-          const label = document.querySelector('.companion-files-status');
-          if (label) label.textContent = state.companionFileProgress;
-          const bar = document.querySelector('.companion-files-progress');
-          if (bar) bar.value = progress.percent;
-        }, () => state.companionFileCancel);
+        const result = await transferCompanionFiles(
+          chosen,
+          progress => {
+            state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
+            const label = document.querySelector('.companion-files-status');
+            if (label) label.textContent = state.companionFileProgress;
+            const bar = document.querySelector('.companion-files-progress');
+            if (bar) bar.value = progress.percent;
+          },
+          () => state.companionFileCancel,
+        );
         state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.errors.length ? ' أخطاء: ' + result.errors.slice(0, 5).join(' | ') : ''}`;
         await refresh();
       } catch (error) {
