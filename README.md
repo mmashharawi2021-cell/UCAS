@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v0.6 (local-first prototype)
+# UCAS Academic Bridge — v0.7 (local-first prototype)
 
 Arabic RTL single-user study dashboard. A **working offline-first web prototype** implementing the initial UI and local storage, **not** an integration with private Moodle sessions. No account, tracking, remote server, or API keys.
 
@@ -121,3 +121,12 @@ The central **Google Drive** tab is now usable in the browser without a UCAS acc
 
 ### Security and functional limitations
 The project is a publicly hosted static web application; **the locally imported content is not committed to the public repository**. Other people with access to the same browser profile can potentially access the local database. No automatic Moodle or Google Drive OAuth sync is implemented. Real OpenAI-generated answers would require a private, authenticated API gateway that does not expose paid service keys to visitors. The new study features deliberately do not make misleading claims about AI.
+
+
+## v0.7 — PDF source-text search (28 October 2026)
+
+The per-course study assistant now searches imported **text PDFs** as well as TXT, DOCX and PPTX. PDF extracts are processed in the browser; matches display the PDF filename and page number. Extraction is capped at **45 pages**, **120,000 characters** and a **35 MB file**. Documents with scanned images but no selectable text are not processed; OCR remains outside the release.
+
+On first PDF search, the browser downloads a **pinned Mozilla PDF.js v4.10.38** library from Cloudflare cdnjs, so internet access is required for first use and when not cached. The selected PDF content is supplied to PDF.js in memory and is **not uploaded to a website or AI provider**. There is no paid OpenAI integration. Source text is treated as untrusted, and browsing/course files stay in local IndexedDB. The source is under `js/pdf-text.js`, with test coverage in `tests/pdf.test.mjs` and `tests/pdf-browser.mjs`.
+
+**Future AI gateway:** read `docs/SECURE_AI_GATEWAY.md`. A static public GitHub Pages website must not hold an OpenAI API key or expose an unrestricted paid endpoint. No authorization mechanism or backend was deployed.
