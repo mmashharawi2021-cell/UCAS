@@ -23,5 +23,9 @@ export default [
       sourceType: 'module',
       globals: { ...globals.node, ...globals.browser },
     },
+    rules: {
+      // Test doubles often keep counters/params for readability; report, don't fail.
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
   },
 ];
