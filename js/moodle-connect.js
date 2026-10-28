@@ -1,7 +1,13 @@
 import { MOODLE_CONNECT as config } from './moodle-connect-config.js?v=1.5.0';
 import {
-  configReady, MOODLE_ORIGIN, safeMoodleEndpoint, base64url,
-  pkceChallenge, authorizationURL, normalizeMoodleCourses, planCourseImport,
+  configReady,
+  MOODLE_ORIGIN,
+  safeMoodleEndpoint,
+  base64url,
+  pkceChallenge,
+  authorizationURL,
+  normalizeMoodleCourses,
+  planCourseImport,
 } from './moodle-connect-core.js?v=1.5.0';
 import { all, put, makeId, initialize } from './store.js?v=1.5.0';
 
@@ -28,9 +34,18 @@ function render() {
   $('sync').disabled = busy;
   $('disconnect').hidden = !credentials;
   if (busy) showStatus('جاري المعالجة…', message);
-  else if (credentials) showStatus('مرتبط مؤقتًا', message || 'يمكن استيراد المساقات المتاحة ضمن صلاحيات حسابك.');
-  else if (ready) showStatus('جاهز للتفويض', message || 'لم يتم الاتصال بعد. سيُفتح تسجيل الدخول على موقع الجامعة الرسمي.');
-  else showStatus('بانتظار موافقة الجامعة', 'لم تُسجّل UCAS بعد كتطبيق OAuth معتمد لدى Moodle. تم تجهيز الربط التقني لكن لا يمكن استخدامه قبل الحصول على Client ID والمسارات والصلاحيات الرسمية.');
+  else if (credentials)
+    showStatus('مرتبط مؤقتًا', message || 'يمكن استيراد المساقات المتاحة ضمن صلاحيات حسابك.');
+  else if (ready)
+    showStatus(
+      'جاهز للتفويض',
+      message || 'لم يتم الاتصال بعد. سيُفتح تسجيل الدخول على موقع الجامعة الرسمي.',
+    );
+  else
+    showStatus(
+      'بانتظار موافقة الجامعة',
+      'لم تُسجّل UCAS بعد كتطبيق OAuth معتمد لدى Moodle. تم تجهيز الربط التقني لكن لا يمكن استخدامه قبل الحصول على Client ID والمسارات والصلاحيات الرسمية.',
+    );
   $('count').textContent = String(courses.length);
   const list = $('courses');
   list.replaceChildren();
@@ -81,7 +96,8 @@ async function exchange(values) {
     credentials: 'omit',
     referrerPolicy: 'no-referrer',
   });
-  if (!response.ok) throw Error('رفض Moodle طلب التفويض أو تعذر تبادل رمز OAuth (' + response.status + ')');
+  if (!response.ok)
+    throw Error('رفض Moodle طلب التفويض أو تعذر تبادل رمز OAuth (' + response.status + ')');
   const payload = await response.json();
   if (payload.token_type?.toLowerCase() !== 'bearer' || !payload.access_token)
     throw Error('لم يرجع Moodle رمز وصول صالحًا');
@@ -95,7 +111,11 @@ async function accessToken() {
   if (!credentials) throw Error('لم يتم ربط حساب Moodle');
   if (Date.now() < credentials.expires - 60000) return credentials.access;
   if (!credentials.refresh) throw Error('انتهت صلاحية الجلسة؛ أعد الربط');
-  await exchange({ grant_type: 'refresh_token', client_id: config.clientId, refresh_token: credentials.refresh });
+  await exchange({
+    grant_type: 'refresh_token',
+    client_id: config.clientId,
+    refresh_token: credentials.refresh,
+  });
   return credentials.access;
 }
 async function callback() {
@@ -109,11 +129,18 @@ async function callback() {
   clearPending();
   if (!stored) throw Error('جلسة OAuth غير متوقعة أو قديمة. ابدأ الربط مرة أخرى.');
   let pending;
-  try { pending = JSON.parse(stored); } catch { throw Error('طلب التفويض غير صالح'); }
-  if (!pending || Date.now() - pending.at > 600000 ||
-      !/^[A-Za-z0-9_-]{64}$/.test(pending.verifier) ||
-      !/^[A-Za-z0-9_-]+$/.test(pending.state) ||
-      url.searchParams.get('state') !== pending.state)
+  try {
+    pending = JSON.parse(stored);
+  } catch {
+    throw Error('طلب التفويض غير صالح');
+  }
+  if (
+    !pending ||
+    Date.now() - pending.at > 600000 ||
+    !/^[A-Za-z0-9_-]{64}$/.test(pending.verifier) ||
+    !/^[A-Za-z0-9_-]+$/.test(pending.state) ||
+    url.searchParams.get('state') !== pending.state
+  )
     throw Error('تعذر التحقق من حالة OAuth. لم تُقبل بيانات تسجيل الدخول.');
   if (error) throw Error('رفض Moodle التفويض أو ألغاه المستخدم.');
   if (!configReady(config)) throw Error('إعداد ربط Moodle غير مكتمل');
@@ -143,7 +170,8 @@ async function sync() {
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
     });
-    if (!resp.ok) throw Error('لا تتوفر صلاحية قراءة المساقات أو المسار غير صحيح (' + resp.status + ')');
+    if (!resp.ok)
+      throw Error('لا تتوفر صلاحية قراءة المساقات أو المسار غير صحيح (' + resp.status + ')');
     const payload = await resp.json();
     const discovered = normalizeMoodleCourses(payload);
     await initialize();
@@ -160,7 +188,12 @@ async function sync() {
       });
     }
     courses = discovered;
-    message = 'عُثر على ' + discovered.length + ' مساق؛ أُضيف ' + additions.length + ' جديد دون استبدال بيانات مساقاتك الحالية.';
+    message =
+      'عُثر على ' +
+      discovered.length +
+      ' مساق؛ أُضيف ' +
+      additions.length +
+      ' جديد دون استبدال بيانات مساقاتك الحالية.';
   } catch (err) {
     message = 'تعذرت المزامنة: ' + (err?.message || 'راجع اتصال Moodle وصلاحيات API/CORS');
   } finally {
@@ -175,18 +208,35 @@ function disconnect() {
   message = 'تم فصل الاتصال من هذه الصفحة. البيانات التي استوردتها سابقًا تبقى محليًا.';
   render();
 }
-$('connect').addEventListener('click', () => connect().catch(e => { message = e.message; render(); }));
+$('connect').addEventListener('click', () =>
+  connect().catch(e => {
+    message = e.message;
+    render();
+  }),
+);
 $('sync').addEventListener('click', () => sync());
 $('disconnect').addEventListener('click', disconnect);
 (async () => {
   // Prevent OAuth callback from being served from an unexpected origin.
   if (config.origin !== MOODLE_ORIGIN) throw Error('عنوان خدمة Moodle غير معتمد');
   render();
-  try { await callback(); } catch (e) { credentials = null; message = e.message; render(); }
-  timer = setInterval(() => {
-    if (credentials && !document.hidden && navigator.onLine) sync();
-  }, 15 * 60 * 1000);
-})().catch(e => { message = e.message; render(); });
+  try {
+    await callback();
+  } catch (e) {
+    credentials = null;
+    message = e.message;
+    render();
+  }
+  timer = setInterval(
+    () => {
+      if (credentials && !document.hidden && navigator.onLine) sync();
+    },
+    15 * 60 * 1000,
+  );
+})().catch(e => {
+  message = e.message;
+  render();
+});
 window.addEventListener('pagehide', () => {
   if (timer) clearInterval(timer);
   credentials = null;
