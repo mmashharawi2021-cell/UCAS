@@ -1,81 +1,25 @@
-# Latest: v0.7 — searchable PDF text with page references, 28 October 2026
+# Project status — v0.8.0 (28 October 2026)
 
-# Latest: v0.5 — Drive-assisted import, 28 October 2026
+Working, offline-first static web app published from `main` via GitHub Pages. Release history: [CHANGELOG.md](CHANGELOG.md).
 
-## v0.4.1 — Moodle MHT/MHTML import from mobile Chrome
+## Quality gates
 
-- Accepts `.mht` and `.mhtml` plus `.html` and `.htm`.
-- Parses multipart Chrome snapshots in-browser and discards raw archives.
-- Adds MIME extraction unit tests and PWA cache v5.
-- Direct Moodle API connection is still not available.
+- Unit tests (`npm test`): ICS, Moodle/MHTML parsing, Drive links, study search, PDF/OCR helpers, static checks, version consistency, PWA icons.
+- Browser tests (`npm run test:browser`, CI): mobile layout 320–768px, storage migration + backup round-trip + data-protection UI, study assistant, PDF search.
+- CI on every push/PR: syntax, Prettier, ESLint, unit tests; Playwright tests on PRs and relevant pushes.
 
-# Development status — 27 October 2026
+## Roadmap (suggested order)
 
-## Completed — implementation batch 1
+1. **Split `js/app.js`** into page modules (`js/pages/*.js`) and shared UI helpers; it is still ~1,900 lines.
+2. **Partial re-rendering** so typing, scroll position and focus survive state changes.
+3. **Home page on mobile**: compact horizontal course list instead of six full cards; global search across course text.
+4. **Accessibility audit** (keyboard focus in modals, contrast in dark mode, screen-reader labels for icon buttons).
+5. **Optional encrypted backup** (password-derived key with Web Crypto).
+6. **Cloud sync (opt-in)** and **AI gateway** — only with a backend; follow `docs/SECURE_AI_GATEWAY.md`. Never put keys in this repository.
 
-- Native, dependency-free browser application prototype (v0.1.0)
-- Responsive Arabic RTL shell and all agreed navigation destinations
-- Seven default course titles; real user content must be imported
-- IndexedDB local data schema, file blob persistence, structured backup and atomic restore
-- File/link/ICS imports, basic duplicate checks, PDF preview, practical task and quiz flows
-- Theme preference, progress indicators, and PWA shell
-- Six source-level/logic automated tests passed
+## Known limitations
 
-## Environment blockers
-
-- npm registry DNS/network blocked (`EAI_AGAIN`). This prevents installing Next.js/Tailwind and building the **approved production stack** now.
-- Chromium via Playwright blocked navigation to `localhost` and even `file://` (`ERR_BLOCKED_BY_ADMINISTRATOR`). Browser screenshot and end-to-end UI verification therefore **not completed** here.
-- A Playwright smoke script is supplied to rerun on a machine with browser access.
-
-## Deferred — not completed
-
-- Production migration to Next.js + TypeScript + Tailwind/shadcn/ui
-- Cloud Drive Picker OAuth, Moodle service API (not assumed available to students)
-- Secured AI backend/RAG and prompt-grounding
-- Full native Office preview, advanced ICS recurrence/timezones, actual scheduled notifications
-- Mobile Safari/Chrome and desktop browser QA + accessibility/performance audits
-- Public hosting and paid integrations (not authorized)
-
-## GitHub repository
-
-Project source is prepared for publication to the user-provided public GitHub source repository. GitHub Pages and application hosting are not enabled; repository visibility alone makes source code public, not the application website. Do not commit user-uploaded study files, backups, credentials, or API keys.
-
-## Next approved milestone
-
-Execute browser QA locally, address issues, then migrate the verified components to Next.js once dependencies are installable. Do not deploy or activate paid APIs without separate authorization.
-
-## v0.2 milestone
-Office DOCX/PPTX text preview, saved quiz drafts and local question bank, detailed per-course progress, cache update. Deployment depends on GitHub commit and Pages build.
-
-
-### v0.3.0 — motion and Moodle prioritization
-- Implemented: page Fade + Blur, click/hover effects, modals, toasts, reduced motion support.
-- Implemented: dedicated Moodle screen, manual text import into coursework, shortcuts to files/ICS/links, duplicate protection.
-- Verified: Node unit and static tests. Automated browser access to localhost blocked by environment policy (ERR_BLOCKED_BY_ADMINISTRATOR); manual phone/browser acceptance remains outstanding.
-- Not implemented: Moodle API or auto sync, remote auth, external AI integration.
-
-
-## v0.5 — Drive-assisted import: implemented
-
-- New central Google Drive tab with native Android file chooser and canonical Drive links.
-- Course-specific saving of selected PDF/DOCX/PPTX/TXT/MD files; file size/count limits, hash-based deduplication.
-- Google Drive, Docs, Slides and Sheets links can be saved as local references; URL parameters are removed.
-- Mobile-first layout; no passwords, OAuth tokens or academic files committed to GitHub.
-- New unit tests for Drive URL validation and file constraints. CI runs syntax checks and all tests.
-
-**Not implemented:** Google Drive OAuth Picker automatic browsing and cloud synchronization; AI backend/automatic quizzes from uploaded lectures; direct Moodle API. Initial v0.4 MHT importer remains but is not a development priority. Test Android system picker availability on user device; Chrome version and installed document providers affect it.
-
-
-## v0.7 verification
-
-- Added bounded, browser-side PDF text reading with cited page numbers in study excerpts.
-- PDF.js v4.10.38 is loaded from a pinned third-party CDN when first needed; offline-first PDF search is not yet guaranteed.
-- GitHub Actions includes a real PDF browser extraction smoke test and unit tests for no-text scanned PDFs, bounds, and course isolation.
-- Scanned PDFs/OCR and AI-generated answers remain unsupported. The secure AI integration boundary is documented at `docs/SECURE_AI_GATEWAY.md`; no gateway or credential has been configured.
-
-## v0.7.3 — experimental OCR recovery
-
-- Optional Arabic+English OCR for first 3 PDF pages on-device when normal text extraction fails.
-- The browser loads the engine and language packs from pinned Tesseract CDNs; user-initiated only, no automatic network upload of PDF data.
-- OCR passages are marked unverified and excluded from definition-based answer keys.
-- Unit tests and Chrome UI smoke test validate fallback controls. Real-world recognition on the user's Arabic summary PDF remains unverified because the original PDF was not uploaded.
+- First PDF search / OCR needs internet to download PDF.js / Tesseract.js (cached afterwards).
+- ICS: single events only; recurrence and arbitrary time zones are not expanded.
+- No scheduled notifications while the app is closed.
+- Storage persistence is granted at the browser's discretion; installed PWAs are usually granted it. Keep backups.
