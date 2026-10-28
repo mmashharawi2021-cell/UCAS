@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v0.1 (local-first prototype)
+# UCAS Academic Bridge — v0.5 (local-first prototype)
 
 Arabic RTL single-user study dashboard. A **working offline-first web prototype** implementing the initial UI and local storage, **not** an integration with private Moodle sessions. No account, tracking, remote server, or API keys.
 
