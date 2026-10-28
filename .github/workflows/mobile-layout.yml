@@ -8,6 +8,8 @@ on:
       - 'styles.css'
       - 'index.html'
       - 'js/app.js'
+      - 'js/companion.js'
+      - 'tests/companion-browser.mjs'
       - 'tests/mobile-layout.mjs'
       - 'tests/study-browser.mjs'
       - 'tests/pdf-browser.mjs'
@@ -50,6 +52,7 @@ jobs:
       - name: Validate mobile layout and offline study workflow
         run: |
           node tests/mobile-layout.mjs
+          node tests/companion-browser.mjs
           node tests/storage-browser.mjs
           node tests/features-browser.mjs
           node tests/groups-browser.mjs
