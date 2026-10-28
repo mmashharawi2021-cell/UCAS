@@ -22,6 +22,10 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js sw.js; do node --check "$file"; done
+      - name: Show mobile test formatter differences
+        run: |
+          npx prettier tests/mobile-layout.mjs > /tmp/mobile-formatted
+          diff -u tests/mobile-layout.mjs /tmp/mobile-formatted || true
       - name: Check formatting
         run: npm run format:check
       - name: Lint
