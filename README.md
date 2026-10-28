@@ -61,5 +61,6 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — modules, data model, service worker
 - [docs/PRIVACY_DATA_FLOWS.md](docs/PRIVACY_DATA_FLOWS.md) — data flows and controls
 - [docs/PREMIUM_BLUEPRINT.md](docs/PREMIUM_BLUEPRINT.md) — Premium roadmap and release gates
+- [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md) — AI client, agents, subagents, skills and MCP usage
 - [SECURITY.md](SECURITY.md) — security reporting and protection checklist
 - [دليل_التشغيل.md](دليل_التشغيل.md) — دليل الاستخدام بالعربية
