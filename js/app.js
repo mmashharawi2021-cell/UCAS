@@ -116,7 +116,7 @@ function assistantModal(){
  if(!c)return toast('اختر مساقًا أولًا',true);
  Object.assign(studySession,{courseId:c.id,documents:[],matches:[],cards:[],question:'',lastLoad:null});
  const html=[
-  '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. الملفات المصورة تحتاج OCR منفصلًا.</p></div>',
+  '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF، مع الحفاظ على لغة النص الأصلية الإنجليزية أو العربية. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. الملفات المصورة تحتاج OCR منفصلًا.</p></div>',
   '<form id="study-search-form" class="study-search-form"><div class="field"><label for="study-query">ما الموضوع الذي تريد مراجعته؟</label><input class="input" id="study-query" name="query" maxlength="200" placeholder="مثال: إدارة المشاريع" required></div><button type="submit" class="primary-btn">البحث في ملفات المساق</button></form>',
   '<div id="study-results" class="study-results" aria-live="polite"><p class="muted tiny">اكتب كلمة أو سؤالًا لعرض المقتطفات التي تتضمنه.</p></div>',
   '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من المحاضرات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
@@ -149,9 +149,9 @@ async function runStudySearch(query){
   for(let i=0;i<matches.length;i++){
    const m=matches[i],article=document.createElement('article');
    article.className='study-match';
-   const source=document.createElement('strong');source.textContent='['+(i+1)+'] '+m.source;
+   const source=document.createElement('strong');source.dir='auto';source.textContent='['+(i+1)+'] '+m.source;
    const module=document.createElement('small');module.className='muted';module.textContent=m.module+(m.page?' · صفحة '+m.page:'');
-   const excerpt=document.createElement('p');excerpt.textContent=m.excerpt;
+   const excerpt=document.createElement('p');excerpt.dir='auto';excerpt.textContent=m.excerpt;
    article.append(source,module,excerpt);slot.appendChild(article);
   }
   const data=studySession.lastLoad;
@@ -188,10 +188,10 @@ async function renderStudyCards(){
   for(let i=0;i<cards.length;i++){
    const c=cards[i],article=document.createElement('article');
    article.className='study-match';
-   const title=document.createElement('strong');title.textContent=c.term;
-   const source=document.createElement('small');source.className='muted';source.textContent=c.source+' / '+c.module+(c.page?' · صفحة '+c.page:'');
+   const title=document.createElement('strong');title.dir='auto';title.textContent=c.term;
+   const source=document.createElement('small');source.className='muted';source.dir='auto';source.textContent=c.source+' / '+c.module+(c.page?' · صفحة '+c.page:'');
    const button=document.createElement('button');button.type='button';button.className='outline-btn';button.dataset.action='study-reveal';button.dataset.index=String(i);button.setAttribute('aria-expanded','false');button.textContent=fallback?'عرض المقتطف':'إظهار التعريف';
-   const answer=document.createElement('p');answer.className='study-answer';answer.hidden=true;
+   const answer=document.createElement('p');answer.className='study-answer';answer.dir='auto';answer.hidden=true;
    article.append(title,source,button,answer);slot.appendChild(article);
   }
  }catch(error){slot.textContent='تعذر إعداد بطاقات المراجعة: '+String(error?.message||error);}
