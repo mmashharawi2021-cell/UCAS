@@ -1,3 +1,5 @@
+# Latest: v0.7 — searchable PDF text with page references, 28 October 2026
+
 # Latest: v0.5 — Drive-assisted import, 28 October 2026
 
 ## v0.4.1 — Moodle MHT/MHTML import from mobile Chrome
@@ -62,3 +64,11 @@ Office DOCX/PPTX text preview, saved quiz drafts and local question bank, detail
 - New unit tests for Drive URL validation and file constraints. CI runs syntax checks and all tests.
 
 **Not implemented:** Google Drive OAuth Picker automatic browsing and cloud synchronization; AI backend/automatic quizzes from uploaded lectures; direct Moodle API. Initial v0.4 MHT importer remains but is not a development priority. Test Android system picker availability on user device; Chrome version and installed document providers affect it.
+
+
+## v0.7 verification
+
+- Added bounded, browser-side PDF text reading with cited page numbers in study excerpts.
+- PDF.js v4.10.38 is loaded from a pinned third-party CDN when first needed; offline-first PDF search is not yet guaranteed.
+- GitHub Actions includes a real PDF browser extraction smoke test and unit tests for no-text scanned PDFs, bounds, and course isolation.
+- Scanned PDFs/OCR and AI-generated answers remain unsupported. The secure AI integration boundary is documented at `docs/SECURE_AI_GATEWAY.md`; no gateway or credential has been configured.
