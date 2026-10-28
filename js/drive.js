@@ -26,7 +26,7 @@ export function parseDriveReference(raw){
  if(u.protocol!=='https:'||u.username||u.password||u.port)return null;
  let id,type,url;
  if(u.hostname==='drive.google.com'){
-  let m=/^\/file\/d\/([^/]+)(?:\/.*)?$/.exec(u.pathname);
+  let m=/^\/file\/d\/([^/]+)(?:\/(?:view|preview|edit))?\/?$/.exec(u.pathname);
   if(m){id=m[1];type='file';url='https://drive.google.com/file/d/'+id+'/view';}
   else if(u.pathname==='/open'){id=u.searchParams.get('id');type='file';url='https://drive.google.com/file/d/'+id+'/view';}
   else if((m=/^\/drive\/folders\/([^/]+)\/?$/.exec(u.pathname))){id=m[1];type='folder';url='https://drive.google.com/drive/folders/'+id;}
