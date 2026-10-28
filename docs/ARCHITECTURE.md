@@ -18,7 +18,8 @@ Static site, no build step. `index.html` loads `js/app.js` as an ES module; ever
 | `js/ui.js` | Shared helpers: `esc()`, `ic()` and the icon set. |
 | `js/features/*.js` | One module per student feature (timetable, notes, focus timer, exams, grades, report, share, reminders), plugged in through `js/features/index.js`. |
 | `js/lib/*.js` | Pure logic for those features (no DOM, no storage) — this is where unit tests point. |
-| `sw.js` | Service worker: network-first pages, stale-while-revalidate static files. Caches the app shell only. |
+| `js/boot.js` | Classic script loaded before the app: if the app fails to start after an update, clears old service workers/caches and reloads once. |
+| `sw.js` | Service worker: network-first for pages and static files (cache = offline fallback). Caches the app shell only. |
 
 ## Rendering model
 

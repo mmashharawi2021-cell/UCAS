@@ -1,6 +1,6 @@
 // Phase 3 — weekly report.
-import { weeklyReport, reportText } from '../lib/report.js';
-import { formatMinutes } from '../lib/focus.js';
+import { weeklyReport, reportText } from '../lib/report.js?v=1.0.1';
+import { formatMinutes } from '../lib/focus.js?v=1.0.1';
 
 let offset = 0;
 

@@ -7,7 +7,7 @@ import {
   gpa,
   neededForTarget,
   rating,
-} from '../lib/grades.js';
+} from '../lib/grades.js?v=1.0.1';
 
 const SETTINGS_KEY = 'gpa-settings';
 

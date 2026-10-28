@@ -38,7 +38,7 @@ See "Feature modules" in `docs/ARCHITECTURE.md`: pure logic in `js/lib/` (with u
 
 ## Release checklist
 
-1. Update the version in `package.json`, `APP_VERSION` in `js/app.js`, `VERSION` in `sw.js` and both `?v=` strings in `index.html` (the unit tests fail if they differ).
+1. Update `version` in `package.json`, then run `npm run stamp` — it writes the version into every module import, `APP_VERSION`, the service worker and `index.html` (unit tests fail if anything is out of sync).
 2. If a new file is part of the app shell, add it to `SHELL` in `sw.js`.
 3. Add an entry at the top of `CHANGELOG.md`.
 4. Merge to `main`; GitHub Pages publishes automatically.

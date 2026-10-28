@@ -78,3 +78,18 @@ test('service worker caches every app module', () => {
   for (const file of walk('js'))
     assert.ok(sw.includes(`./${file}`), `${file} missing from SHELL in sw.js`);
 });
+test('every relative module import carries the release version', () => {
+  const version = JSON.parse(read('package.json')).version;
+  const walk = dir =>
+    readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap(e =>
+      e.isDirectory()
+        ? walk(`${dir}/${e.name}`)
+        : e.name.endsWith('.js')
+          ? [`${dir}/${e.name}`]
+          : [],
+    );
+  const spec = /(?:from\s+|import\s*\(\s*|import\s+)['"](\.{1,2}\/[^'"]+\.js[^'"]*)['"]/g;
+  for (const file of walk('js'))
+    for (const [, path] of read(file).matchAll(spec))
+      assert.ok(path.endsWith(`?v=${version}`), `${file}: '${path}' — run npm run stamp`);
+});
