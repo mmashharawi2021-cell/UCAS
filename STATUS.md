@@ -1,4 +1,4 @@
-# Project status — v0.9.0 (28 October 2026)
+# Project status — v1.0.0 (28 October 2026)
 
 Working, offline-first static web app published from `main` via GitHub Pages. Release history: [CHANGELOG.md](CHANGELOG.md).
 
@@ -12,7 +12,9 @@ Working, offline-first static web app published from `main` via GitHub Pages. Re
 
 Timetable, lecture notes, Pomodoro timer, exam countdown, timed mock exams, smart review, question import, grade book and average, weekly report, course packs, calendar export and in-app reminders — all offline, on the device.
 
-**Need a server (not built):** live study groups/chat, push notifications while the app is closed, sync between devices.
+**Online (v1.0, Supabase):** study groups with live chat and push notifications while the app is closed — see `supabase/README.md`.
+
+**Not built:** sync of local study data between devices.
 
 ## Technical roadmap (suggested order)
 

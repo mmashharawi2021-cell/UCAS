@@ -17,6 +17,9 @@ on:
       - 'sw.js'
       - 'tests/storage-browser.mjs'
       - 'tests/features-browser.mjs'
+      - 'tests/groups-browser.mjs'
+      - 'tests/fixtures/**'
+      - 'js/cloud/**'
       - 'js/features/**'
       - 'js/lib/**'
       - 'js/ui.js'
@@ -48,5 +51,6 @@ jobs:
           node tests/mobile-layout.mjs
           node tests/storage-browser.mjs
           node tests/features-browser.mjs
+          node tests/groups-browser.mjs
           node tests/study-browser.mjs
           node tests/pdf-browser.mjs

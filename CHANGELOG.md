@@ -1,5 +1,15 @@
 # Changelog — UCAS Academic Bridge
 
+## v1.0.0 — Study groups and push notifications (28 Oct 2026)
+
+- **مجموعات الدراسة (Study groups):** nickname-only accounts (anonymous sign-in), create a group for a course, invite classmates with an 8-character code or a `?join=` link (WhatsApp share), live chat with realtime updates, leave/delete group. Explicit consent screen lists what goes online.
+- **Push notifications while the app is closed:** opt-in from Settings; reminders for deadlines, exams (plus one day before) and lectures in the next 14 days, and new group messages. Only reminder titles/times are uploaded; reminders are re-synced automatically when local data changes; one tap disables and deletes them from the server.
+- **Backend (Supabase):** six tables with row-level security, invite/join functions, rate limits, `push` edge function (VAPID keys generated server-side, secret never leaves the database), `pg_cron` every minute. See `supabase/README.md`.
+- Security verified live with three real accounts: outsiders can't see or post to groups, can't spoof profiles or read the push secret; members see only group-mates' nicknames.
+- Service worker shows push notifications and opens the right page on tap. CSP allows only this project's Supabase origin.
+- Tests: `tests/cloud.test.mjs` (incl. a guard that no service-role key is ever in browser code) and `tests/groups-browser.mjs` (full UI flow against an in-memory Supabase stand-in).
+
+
 ## v0.9.0 — Student features (28 Oct 2026)
 
 **Daily study**
