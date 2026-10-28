@@ -300,8 +300,8 @@ function navItems() {
 }
 function layout(content) {
   const selected = state.page === 'course' ? 'courses' : state.page;
-  return `<div class="shell ${state.collapsed ? 'collapsed' : ''} ${state.mobileMenu ? 'mobile-open' : ''}">
-<aside class="sidebar" aria-label="التنقل الرئيسي"><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS Academic Bridge</div><div class="logo-sub">مركزك الأكاديمي الشخصي</div></div></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
+  return `<div data-page="${esc(state.page)}" class="shell ${state.collapsed ? 'collapsed' : ''} ${state.mobileMenu ? 'mobile-open' : ''}">
+<aside class="sidebar" aria-label="التنقل الرئيسي"><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS <span class="premium-logo-word">STUDIO</span></div><div class="logo-sub">مساحة التعلم الأكاديمي</div></div></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
     .map(
       n =>
         `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}>${ic(n.icon)}<span>${n.label}</span></button>`,
@@ -310,7 +310,7 @@ function layout(content) {
       '',
     )}</nav><div class="nav-footer">${ic('shield', 15)}<br>البيانات الدراسية محليًا افتراضيًا<br>الخدمات السحابية اختيارية</div></aside>
 ${state.mobileMenu ? `<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>` : ''}
-<div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS Academic Bridge</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
+<div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS / ACADEMIC STUDIO</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
     { id: 'home', icon: 'home', label: 'الرئيسية' },
     { id: 'schedule', icon: 'grid', label: 'جدولي' },
     { id: 'courses', icon: 'book', label: 'مساقاتي' },
@@ -336,7 +336,15 @@ function courseCard(c, i) {
   const resources = state.resources.filter(r => r.courseId === c.id);
   const done = resources.filter(r => r.completed).length;
   const pct = progressForCourse(c.id);
-  return `<article class="course-card"><div class="course-top"><div class="course-symbol">${ic(coursesSymbols[i % coursesSymbols.length])}</div><span class="pill">${resources.length} مصدر</span></div><h3>${c.code ? `<span class="code-pill">${esc(c.code)}</span> ` : ''}${esc(c.title)}</h3><div class="course-meta">${resources.length ? `${done} من ${resources.length} مصدر مكتمل` : 'جاهز لإضافة المحاضرات'}</div><div class="progress-track" aria-label="التقدم ${pct}%"><div style="width:${pct}%"></div></div><div class="course-top"><span class="course-meta">${pct}% إنجاز</span><button class="card-arrow" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">${ic('chevron')}</button></div></article>`;
+  const openTasks = state.tasks.filter(t => t.courseId === c.id && !t.done).length;
+  return `<article class="course-card premium-course-card" data-course-searchable="${esc(`${c.title} ${c.code || ''}`.toLowerCase())}">
+    <div class="premium-course-top"><span class="premium-course-index">${String(i + 1).padStart(2, '0')}</span><span class="premium-course-tag">${c.code ? esc(c.code) : 'مساق دراسي'}</span></div>
+    <div class="premium-course-symbol">${ic(coursesSymbols[i % coursesSymbols.length])}</div>
+    <h3>${esc(c.title)}</h3>
+    <p class="premium-course-meta">${resources.length} مصدر دراسي <span aria-hidden="true">·</span> ${openTasks} تكليف معلّق</p>
+    <div class="premium-course-progress"><div class="premium-course-progress-caption"><span>التقدم في المساق</span><strong>${pct}%</strong></div><div class="progress-track" role="progressbar" aria-label="إنجاز ${esc(c.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div></div>
+    <button class="premium-course-open" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">فتح مساحة المساق <span aria-hidden="true">${ic('chevron')}</span></button>
+  </article>`;
 }
 function noData(title, subtitle, icon = 'folder') {
   return `<div class="empty-state">${ic(icon, 31)}<strong>${title}</strong><p>${subtitle}</p></div>`;
@@ -422,21 +430,33 @@ function premiumOverview() {
   </section>`;
 }
 function homePage() {
-  const upcoming = pending()
-    .filter(t => t.due)
-    .sort((a, b) => a.due.localeCompare(b.due))
-    .slice(0, 3);
-  const recent = state.resources
-    .slice()
-    .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
-    .slice(0, 3);
-  return `<div class="hero"><div><div class="eyebrow">لوحة التحكم الأكاديمية</div><h1>كل دراستك في مكان واحد</h1><p>نظّم مساقاتك، تابع تكليفاتك، واستعد لاختباراتك من لوحة واحدة</p><div class="hero-actions"><button class="primary-btn" data-go="import">${ic('upload')} استيراد مصادر جديدة</button><button class="outline-btn" data-go="quizzes">${ic('quiz')} اختبار تدريبي</button></div></div><div class="hero-art"><svg viewBox="0 0 120 120"><path d="M15 34 60 12l45 22-45 22zM28 47v28c18 19 46 19 64 0V47M105 36v36M23 94h74"/></svg></div></div>
-${backupReminder()}${premiumOverview()}<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>${features.homeWidgets(ctx)}
-${sectionHead('مساقاتي', `<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron', 14)}</button>`)}<div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('')}</div>
-<div class="split-layout"><div>${sectionHead('المواعيد والتكليفات', `<button class="link" data-go="tasks">عرض التقويم</button>`)}<div class="panel">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف تكليفًا أو استورد ملف تقويم ICS', 'calendar')}</div></div><div>${sectionHead('التقويم الأسبوعي')}
-<div class="panel">${weekly()}</div></div></div>
-${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'ابدأ بإضافة أول ملف PDF أو رابط محاضرة', 'folder')}</div>
-${sectionHead('إنجازك الدراسي')}<div class="panel">${progressBars()}</div>`;
+  const upcoming = pending().filter(t => t.due).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3);
+  const recent = state.resources.slice().sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || ''))).slice(0, 3);
+  const date = new Date().toLocaleDateString('ar-PS', { weekday: 'long', day: 'numeric', month: 'long' });
+  const total = state.resources.length;
+  const done = state.resources.filter(r => r.completed).length;
+  const percentage = total ? Math.round((done / total) * 100) : 0;
+  return `<section class="hero premium-hero" aria-labelledby="premium-hero-title">
+    <div class="premium-hero-copy"><div class="premium-hero-date">${ic('calendar', 15)} ${esc(date)} <span class="premium-hero-divider" aria-hidden="true"></span> مساحة دراستك</div><div class="premium-hero-eyebrow">UCAS · YOUR ACADEMIC SPACE</div><h1 id="premium-hero-title">كل خطوة اليوم<br><em>تقرّبك من هدفك</em></h1><p>مساقاتك ومحاضراتك وتكليفاتك في مساحة هادئة، مصممة للتركيز والإنجاز</p>
+    <div class="premium-hero-buttons"><button class="primary-btn" data-go="courses">${ic('book')} متابعة المساقات</button><button class="outline-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div></div>
+    <div class="premium-hero-score" aria-label="إنجاز المصادر ${percentage}%"><div class="premium-score-ring" style="--score:${percentage}%"><div><strong>${percentage}%</strong><span>إنجاز المصادر</span></div></div><p>${done} من ${total} مصدر مكتمل</p><span>تقدمك محسوب من بياناتك</span></div>
+  </section>
+  <div class="premium-action-bar" aria-label="إجراءات سريعة">
+    <button data-go="schedule">${ic('calendar')} <span>جدولي</span></button>
+    <button data-go="quizzes">${ic('quiz')} <span>اختبار سريع</span></button>
+    <button data-go="tasks">${ic('check')} <span>التكليفات</span></button>
+    <button data-go="progress">${ic('chart')} <span>إنجازي</span></button>
+  </div>
+  ${backupReminder()}
+  <div class="stats-grid premium-stats">${stat('book', state.courses.length, 'مساق دراسي')}${stat('file', state.resources.length, 'مصدر ومحاضرة')}${stat('calendar', pending().length, 'تكليف قيد المتابعة')}${stat('quiz', state.attempts.length, 'محاولة اختبار')}</div>
+  ${sectionHead('مساحة الأولويات', '<span class="premium-section-hint">ابدأ بالأهم</span>')}${premiumOverview()}
+  ${sectionHead('مساقاتي', `<button class="link" data-go="courses">جميع المساقات ${ic('chevron', 14)}</button>`)}
+  <div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('') || noData('ابدأ مساقك الأول', 'أضف مساقًا لتنظيم محاضراتك', 'book')}</div>
+  <div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
+  <div>${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
+  ${features.homeWidgets(ctx)}
+  <div class="premium-footer-grid"><div>${sectionHead('تقويمي الأسبوعي')}<div class="panel">${weekly()}</div></div><div>${sectionHead('نظرة على تقدمي')}<div class="panel">${progressBars()}</div></div></div>
+  <div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>يمكنك استيراد المصادر يدويًا دون مشاركة كلمة مرور الجامعة.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div>`;
 }
 function progressBars() {
   const total = state.resources.length;
@@ -462,7 +482,12 @@ function progressBars() {
     )}</div><div class="notice" style="margin-top:16px">هذه مؤشرات للنشاط داخل المنصة، وليست علامات جامعية رسمية.</div>`;
 }
 function coursesPage() {
-  return `${intro('مساقاتي', 'اختر المساق لاستعراض وحداته ومحاضراته ومهامه', `<button class="primary-btn" data-action="add-course">${ic('plus')} إضافة مساق</button>`)}<div class="course-grid">${state.courses.map(courseCard).join('')}</div>`;
+  const totalResources = state.resources.filter(r => state.courses.some(c => c.id === r.courseId)).length;
+  return `<section class="premium-library-intro"><div class="premium-library-copy"><span class="premium-kicker">MY LEARNING LIBRARY</span><h1>مكتبة مساقاتي</h1><p>مساحة واحدة لجميع محاضراتك وملاحظاتك وملفاتك الدراسية</p><div class="premium-library-counters"><span><strong>${state.courses.length}</strong> مساقات</span><span><strong>${totalResources}</strong> مصادر محفوظة</span></div></div><div class="premium-library-art" aria-hidden="true">${ic('book', 70)}</div></section>
+  <div class="premium-library-toolbar"><label class="premium-library-search">${ic('search', 17)}<input id="course-filter" type="search" placeholder="ابحث باسم المساق أو رمزه..." autocomplete="off" aria-label="تصفية المساقات"/></label><button class="primary-btn" data-action="add-course">${ic('plus')} إضافة مساق</button></div>
+  <div class="premium-library-label"><h2>جميع المساقات</h2><span id="course-filter-count" role="status">${state.courses.length} مساقات</span></div>
+  <div class="course-grid premium-library-grid">${state.courses.map(courseCard).join('')}</div>
+  <p class="premium-library-empty" id="course-filter-empty" hidden>لا توجد مساقات تطابق البحث</p>`;
 }
 function resourceRow(r, compact = false) {
   const mime = r.type || '';
@@ -1911,6 +1936,19 @@ async function init() {
         console.error(err);
         toast('تعذرت العملية', true);
       });
+    });
+    document.addEventListener('input', e => {
+      if (e.target.id !== 'course-filter') return;
+      const query = e.target.value.trim().toLocaleLowerCase('ar');
+      let visible = 0;
+      for (const card of document.querySelectorAll('.premium-library-grid [data-course-searchable]')) {
+        card.hidden = !card.dataset.courseSearchable.includes(query);
+        if (!card.hidden) visible++;
+      }
+      const counter = document.getElementById('course-filter-count');
+      if (counter) counter.textContent = visible + ' مساقات';
+      const empty = document.getElementById('course-filter-empty');
+      if (empty) empty.hidden = visible !== 0;
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') document.querySelector('.modal-backdrop')?.remove();
