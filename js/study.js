@@ -38,6 +38,16 @@ export function searchStudySources(query,documents,limit=7){
  const unique=new Set();
  return matches.filter(x=>{const k=x.sourceId+':'+x.excerpt.slice(0,95);if(unique.has(k))return false;unique.add(k);return true;}).slice(0,limit);
 }
+function plausibleDefinitionTerm(term){
+ const letters=term.match(/\p{L}/gu)||[];
+ if(letters.length<3||term.length>64)return false;
+ if(/^[\d\s.,()[\]٠-٩]+$/u.test(term))return false;
+ // A broken Arabic PDF may have rendered almost every glyph as a separate word.
+ const arabicTokens=term.match(/[\u0621-\u064A]+/g)||[];
+ if(arabicTokens.length>=5 && arabicTokens.filter(t=>t.length===1).length/arabicTokens.length>0.42)return false;
+ if((term.match(/\s+/g)||[]).length>10)return false;
+ return true;
+}
 export function extractReviewCards(documents,limit=8){
  const result=[],seen=new Set();
  for(const doc of documents){
@@ -46,6 +56,7 @@ export function extractReviewCards(documents,limit=8){
    if(!match)continue;
    const term=match[1].trim().replace(/^[•\-]\s*/,'');
    const definition=match[2].trim();
+   if(!plausibleDefinitionTerm(term))continue;
    if(/^https?:|^شريحة \d|^slide \d/i.test(term)||/\b(?:https?:|www\.)/.test(definition))continue;
    const key=normalizeArabic(term);
    if(seen.has(key))continue;seen.add(key);
