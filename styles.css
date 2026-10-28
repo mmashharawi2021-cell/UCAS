@@ -2856,7 +2856,10 @@ html[data-theme='dark'] {
   background: var(--premium-glow);
   color: var(--navy);
   border-radius: 100px;
-  font: 700 10px 'Segoe UI', Arial, sans-serif;
+  font:
+    700 10px 'Segoe UI',
+    Arial,
+    sans-serif;
   letter-spacing: 1px;
   padding: 7px 12px;
   flex-shrink: 0;
