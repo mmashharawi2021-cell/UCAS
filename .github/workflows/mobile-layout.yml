@@ -1,0 +1,34 @@
+name: UCAS mobile layout smoke test
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'styles.css'
+      - 'index.html'
+      - 'js/app.js'
+      - 'tests/mobile-layout.mjs'
+      - '.github/workflows/mobile-layout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install headless Chrome controller
+        run: npm install --no-save --ignore-scripts playwright-core@1.56.1
+      - name: Check available browser
+        run: |
+          which google-chrome || which chromium
+          google-chrome --version || true
+      - name: Launch local test server
+        run: |
+          python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/ucas-http.log 2>&1 &
+          sleep 2
+      - name: Validate mobile layout width
+        run: node tests/mobile-layout.mjs
