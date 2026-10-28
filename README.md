@@ -2,7 +2,7 @@
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
-A local-first, offline-capable Arabic study dashboard. Static HTML/CSS/JS (ES modules), no build step, no tracking. Study data stays in the browser's IndexedDB; only the optional study groups and push notifications use a small Supabase backend ([supabase/README.md](supabase/README.md)).
+A local-first, offline-capable Arabic study dashboard. Static HTML/CSS/JS (ES modules), no build step, no tracking. Study data stays in the browser's IndexedDB; optional study groups, push notifications, email-account cloud sync and Gemini AI requests use a Supabase backend ([supabase/README.md](supabase/README.md)).
 
 ## Quick start
 
@@ -43,15 +43,15 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 ## Not included (by design or not built yet)
 
 - No Moodle login, API access or scraping; no Google Drive OAuth/auto-sync.
-- No AI provider integration — see [docs/SECURE_AI_GATEWAY.md](docs/SECURE_AI_GATEWAY.md) for the required design before adding one.
+- No guaranteed source-grounded AI citations or multi-file retrieval yet; existing Gemini function requires deployment verification and a security review — see [docs/SECURE_AI_GATEWAY.md](docs/SECURE_AI_GATEWAY.md).
 - No recurring ICS *import*.
 
 ## Security & privacy
 
 - Never enter Moodle passwords or tokens in the app. Only import material you are allowed to copy.
-- Data lives in this browser profile only; anyone with access to the profile can read it. Backups are unencrypted.
+- Core study data is local-first in IndexedDB. Optional sync uploads study records and files to an account-private Supabase bucket; groups store metadata and chat; AI sends the selected lecture text and question to Gemini after explicit consent. An unlocked browser profile can expose local study data. JSON backups are unencrypted.
 - Clearing site data deletes everything — keep backups.
-- PDF.js and Tesseract.js are loaded from pinned public CDN versions on first use; file contents are processed locally and never uploaded.
+- PDF.js and Tesseract.js are loaded from pinned public CDN versions on first use and process content locally unless the user chooses cloud sync or explicitly invokes the AI assistant. Do not share Moodle credentials.
 - Never commit API keys, personal study files or backups to this public repository.
 
 ## Docs
@@ -59,4 +59,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - [CHANGELOG.md](CHANGELOG.md) — release history
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workflow, conventions, release checklist
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — modules, data model, service worker
+- [docs/PRIVACY_DATA_FLOWS.md](docs/PRIVACY_DATA_FLOWS.md) — data flows and controls
+- [docs/PREMIUM_BLUEPRINT.md](docs/PREMIUM_BLUEPRINT.md) — Premium roadmap and release gates
+- [SECURITY.md](SECURITY.md) — security reporting and protection checklist
 - [دليل_التشغيل.md](دليل_التشغيل.md) — دليل الاستخدام بالعربية

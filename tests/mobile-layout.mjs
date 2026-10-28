@@ -21,6 +21,9 @@ try {
       null,
       { timeout: 15000 },
     );
+    await page.waitForSelector('.premium-focus');
+    assert.equal(await page.locator('.premium-focus-card').count(), 3);
+    assert.ok(await page.locator('.premium-progress [role="progressbar"]').count());
     await page.evaluate(() => document.querySelector('[data-go="import"]')?.click());
     await page.waitForTimeout(500);
     const result = await page.evaluate(() => {

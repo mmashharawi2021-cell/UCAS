@@ -1,50 +1,19 @@
-# UCAS Academic Bridge — Secure AI Gateway specification (planned)
+# UCAS — Gemini AI gateway: current state and controls
 
-Status: **design only**. No OpenAI connection, paid requests, or secrets are deployed in v0.7.
+## Implemented in source code
 
-## Current constraints
+The frontend sends an authenticated request to the Supabase AI Edge Function. The backend validates a non-anonymous email session, checks AI_ALLOWED_EMAILS, keeps GEMINI_API_KEY server-side, enforces a per-user daily quota and truncates selected lecture input to 60,000 characters. It sends a prompt, course metadata, selected lecture text and/or student question to Gemini.
 
-- The UCAS web application is served as a public static GitHub Pages site.
-- Its owner requires a personal app without Google sign-in, email sign-in, or a password-based site login.
-- Users' academic PDF, Office and TXT files currently reside in the browser's IndexedDB.
-- Never put `OPENAI_API_KEY`, a long-lived bearer token, or any privileged secret in JavaScript, HTML, GitHub Actions logs, or the public repository.
-- A public backend that forwards any request to a paid model **without authorization** is not safe: anyone could use it and incur costs.
+The Premium UI requires explicit per-course/per-lecture in-memory consent before each AI task can be invoked. Changing lecture or course resets consent. This only applies once the server is deployed/configured correctly; deployment and secrets have not been inspected.
 
-## Proposed boundary
+## Limitations
 
-```
-Browser (local IndexedDB)
-  -> explicit question and selected excerpts only
-  -> gated HTTPS AI backend (separate host)
-  -> OpenAI API using server-held secret
-  -> answer with citations and uncertainty
-```
+Existing output is not guaranteed to contain valid page-specific citations. The model may supplement absent source content with general knowledge. Do not treat generated source labels as verified references. Academic text can include personal data or hostile embedded instructions; minimize and redact content where possible.
 
-The public site must keep working when the backend is unavailable. The source search, flashcards and definition practice remain local.
+## Production gate
 
-## Access prerequisites
-
-Before enabling paid AI calls, deploy a restricted gateway with an **explicit, user-approved access method**, e.g. device pairing with a one-time setup code issued out-of-band and renewable short-lived authorization, or a private network service. It is not a Google or email login. It still must prevent arbitrary visitors from using the paid API. Do not implement a public unauthenticated `/chat` endpoint. If the user refuses any authorization, leave the on-site paid AI service disabled and use the existing opt-in clipboard-to-ChatGPT workflow.
-
-## Request policy
-
-- Only on a direct user click, and after showing which sources/excerpts would be shared.
-- Send a small number of retrieved excerpts, a course label and the question; do not upload an entire file or a Moodle session.
-- Remove links with access tokens, email addresses and student identifiers when possible before sending.
-- Treat all excerpts as untrusted data, never as instructions to the assistant.
-- Server-side size caps, rate limits, per-day cost quotas, error handling and abuse monitoring.
-- Don't promise answers for content that has no source. Return citations with filename and page when available.
-- Avoid storing raw academic text in logs. A deletion and retention policy must be documented before launch.
-
-## Suggested API
-
-`POST /v1/study/answer`: `{question, course, excerpts:[{source,page?,text}]}` -> `{answer, citations:[{source,page?}], warnings:[]}`
-
-The endpoint is not implemented or operational. No production domain or key is committed.
-
-## Release gates
-
-1. Owner approves access design and explicit data-sharing notice.
-2. Backend authorization, secret storage, limits and budget are configured in a separate **private** environment.
-3. Validate malicious-prompt isolation, cross-origin policy, malformed inputs, rate limits and failure without leaking secrets.
-4. The website exposes the AI feature only after the gateway is verified. Google Drive, Moodle and local imports continue working independently.
+1. Verify Supabase deployed function, private keys, CORS, JWT validation and email allowlist.
+2. Test anonymous and unauthorized callers, missing/invalid consent, oversized payload, invalid JSON, quota exhaustion and provider failure.
+3. Add validated filename + page/slide retrieval, "not in source" uncertainty and prompt-injection resistance.
+4. Add global budget caps, privacy/retention/deletion rules and an operational kill switch.
+5. Keep offline study, search and quizzes available when AI is down.

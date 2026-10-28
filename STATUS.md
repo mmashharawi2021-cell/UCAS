@@ -1,33 +1,17 @@
-# Project status — v1.0.0 (28 October 2026)
+# Project status — Premium foundation (October 2026)
 
-Working, offline-first static web app published from `main` via GitHub Pages. Release history: [CHANGELOG.md](CHANGELOG.md).
+Target: v1.2.0, initially in a development branch. The earlier v1.1.0 introduced account sync and Gemini alongside groups and push.
 
-## Quality gates
+## Implemented in the Premium foundation branch
 
-- Unit tests (`npm test`): ICS, Moodle/MHTML parsing, Drive links, study search, PDF/OCR helpers, static checks, version consistency, PWA icons.
-- Browser tests (`npm run test:browser`, CI): mobile layout 320–768px, storage migration + backup round-trip + data-protection UI, every student feature end-to-end (`features-browser.mjs`), study assistant, PDF search.
-- CI on every push/PR: syntax, Prettier, ESLint, unit tests; Playwright tests on PRs and relevant pushes.
+- Home dashboard displays upcoming assignment, exam, resume-course shortcut and actual local source completion, without a new network call.
+- Mobile home courses use a horizontally scrollable card rail; the full course listing is unchanged.
+- AI source/question transfers require explicit in-memory user consent; consent resets upon source/course change.
+- Data notices distinguish default local IndexedDB from optional Supabase groups, sync, push and Gemini processing.
+- Tests guard the consent behavior and mobile dashboard rendering.
 
-## Student features (v0.9)
+## Still requires verification or development
 
-Timetable, lecture notes, Pomodoro timer, exam countdown, timed mock exams, smart review, question import, grade book and average, weekly report, course packs, calendar export and in-app reminders — all offline, on the device.
+The deployed UCAS Supabase project has not been independently audited. Full Premium UI redesign, AI page-level citations, sync conflict resolution, encrypted local backups, Lighthouse measurements, penetration tests and representative load tests remain outstanding. Existing web CI tests are necessary but not sufficient.
 
-**Online (v1.0, Supabase):** study groups with live chat and push notifications while the app is closed — see `supabase/README.md`.
-
-**Not built:** sync of local study data between devices.
-
-## Technical roadmap (suggested order)
-
-1. **Split `js/app.js`** into page modules (`js/pages/*.js`) and shared UI helpers; it is still ~1,900 lines.
-2. **Partial re-rendering** so typing, scroll position and focus survive state changes.
-3. **Home page on mobile**: compact horizontal course list instead of six full cards; global search across course text.
-4. **Accessibility audit** (keyboard focus in modals, contrast in dark mode, screen-reader labels for icon buttons).
-5. **Optional encrypted backup** (password-derived key with Web Crypto).
-6. **Cloud sync (opt-in)** and **AI gateway** — only with a backend; follow `docs/SECURE_AI_GATEWAY.md`. Never put keys in this repository.
-
-## Known limitations
-
-- First PDF search / OCR needs internet to download PDF.js / Tesseract.js (cached afterwards).
-- ICS: single events only; recurrence and arbitrary time zones are not expanded.
-- No scheduled notifications while the app is closed.
-- Storage persistence is granted at the browser's discretion; installed PWAs are usually granted it. Keep backups.
+See docs/PREMIUM_BLUEPRINT.md, docs/PRIVACY_DATA_FLOWS.md and docs/SECURE_AI_GATEWAY.md.
