@@ -33,7 +33,7 @@ function packModal(ctx, courseId) {
       )
       .join(
         '',
-      )}<button class="primary-btn" type="submit">${ic('share')} مشاركة الحزمة</button></form></section><section><h3>${ic('download', 17)} استقبل حزمة من زميل</h3><p class="muted tiny">اختر ملف <bdi>.ucaspack.json</bdi> الذي وصلك. ستُضاف محتوياته إلى هذا المساق دون حذف أي شيء، وتُتجاهل المكررات.</p><input class="input" type="file" accept=".json,application/json" data-act-change="pack-file" data-id="${esc(courseId)}" aria-label="ملف الحزمة"/><div id="pack-preview"></div></section></div><p class="muted tiny">مجموعات الدراسة المباشرة (دردشة ومزامنة بين الطلاب) تحتاج خادمًا وحسابات، وهي غير متاحة في هذه النسخة.</p>`,
+      )}<button class="primary-btn" type="submit">${ic('share')} مشاركة الحزمة</button></form></section><section><h3>${ic('download', 17)} استقبل حزمة من زميل</h3><p class="muted tiny">اختر ملف <bdi>.ucaspack.json</bdi> الذي وصلك. ستُضاف محتوياته إلى هذا المساق دون حذف أي شيء، وتُتجاهل المكررات.</p><input class="input" type="file" accept=".json,application/json" data-act-change="pack-file" data-id="${esc(courseId)}" aria-label="ملف الحزمة"/><div id="pack-preview"></div></section></div><p class="muted tiny">للدردشة المباشرة مع زملائك استخدم <button class="link" data-go="groups">مجموعات الدراسة</button>.</p>`,
     true,
   );
 }

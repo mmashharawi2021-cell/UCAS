@@ -14,7 +14,7 @@ import {
 } from './store.js';
 import { features } from './features/index.js';
 
-const APP_VERSION = '0.9.0';
+const APP_VERSION = '1.0.0';
 const BACKUP_REMINDER_DAYS = 7;
 import { esc, ic } from './ui.js';
 import { parseICS } from './ics.js';
@@ -268,6 +268,7 @@ function navItems() {
     { id: 'tasks', icon: 'calendar', label: 'التكليفات والتقويم' },
     ...navFor('grades'),
     ...navFor('report'),
+    ...navFor('groups'),
     { id: 'progress', icon: 'chart', label: 'التقدم الدراسي' },
     { id: 'import', icon: 'upload', label: 'مركز الاستيراد' },
     { id: 'moodle', icon: 'cloud', label: 'Moodle UCAS' },
@@ -654,7 +655,7 @@ function settingsPage() {
     )
     .join(
       '',
-    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — جدول المحاضرات، الملاحظات، مؤقت المذاكرة، الامتحانات التجريبية والمراجعة الذكية، العلامات والمعدل، التقرير الأسبوعي، مشاركة المساقات وتذكيرات التقويم. كل البيانات على جهازك.</div></div>`;
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — أدوات الدراسة على جهازك، ومجموعات الدراسة والإشعارات عبر الإنترنت (اختيارية).</div></div>`;
 }
 function searchPage() {
   const q = state.query.trim().toLowerCase();

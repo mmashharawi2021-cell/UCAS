@@ -1,8 +1,8 @@
-# UCAS Academic Bridge — v0.9.0
+# UCAS Academic Bridge — v1.0.0
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
-A local-first, offline-capable Arabic study dashboard. Static HTML/CSS/JS (ES modules), no build step, no backend, no tracking. All user data stays in the browser's IndexedDB.
+A local-first, offline-capable Arabic study dashboard. Static HTML/CSS/JS (ES modules), no build step, no tracking. Study data stays in the browser's IndexedDB; only the optional study groups and push notifications use a small Supabase backend ([supabase/README.md](supabase/README.md)).
 
 ## Quick start
 
@@ -37,12 +37,13 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - **Exam dates with countdown**, **timed mock exams**, **smart review** of wrong answers, **question import** (text/CSV).
 - **Grade book and weighted average** (semester and cumulative), **weekly report**.
 - **Course packs** to share notes/questions with classmates; **phone-calendar export** with reminders.
+- **Study groups** with live chat (nickname only, invite code/link) and **push notifications** while the app is closed (optional, online).
 
 ## Not included (by design or not built yet)
 
 - No Moodle login, API access or scraping; no Google Drive OAuth/auto-sync.
 - No AI provider integration — see [docs/SECURE_AI_GATEWAY.md](docs/SECURE_AI_GATEWAY.md) for the required design before adding one.
-- No cloud sync between devices, no live study groups, no push notifications while the app is closed (use the calendar export), no recurring ICS *import*.
+- No sync of study data between devices, no recurring ICS *import*.
 
 ## Security & privacy
 
