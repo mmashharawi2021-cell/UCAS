@@ -63,6 +63,9 @@ export function friendlyError(err) {
   if (/invalid invite code/i.test(text)) return 'رمز الدعوة غير صحيح';
   if (/group is full/i.test(text)) return 'المجموعة ممتلئة (200 عضو)';
   if (/group limit/i.test(text)) return 'وصلت للحد الأقصى من المجموعات التي يمكنك إنشاؤها';
+  if (/over_email_send_rate_limit|email rate limit/i.test(text))
+    return 'تجاوزت حد إرسال الرسائل (حوالي رسالتين في الساعة). انتظر قليلًا ثم أعد المحاولة.';
+  if (/email_address_invalid|invalid email/i.test(text)) return 'البريد الإلكتروني غير صالح';
   if (/slow down/i.test(text)) return 'أرسلت رسائل كثيرة بسرعة. انتظر دقيقة.';
   if (/too many reminders/i.test(text)) return 'عدد التذكيرات كبير جدًا';
   if (/over_request_rate_limit|rate limit|429/i.test(text))
