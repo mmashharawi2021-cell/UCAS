@@ -30,9 +30,14 @@ try {
     await page.waitForSelector('.premium-library-grid');
     assert.ok((await page.locator('.premium-library-grid .premium-course-card').count()) > 0);
     await page.fill('#course-filter', 'unlikely-course-search-zz');
-    assert.equal(await page.locator('.premium-library-grid .premium-course-card:visible').count(), 0);
+    assert.equal(
+      await page.locator('.premium-library-grid .premium-course-card:visible').count(),
+      0,
+    );
     await page.fill('#course-filter', '');
-    assert.ok((await page.locator('.premium-library-grid .premium-course-card:visible').count()) > 0);
+    assert.ok(
+      (await page.locator('.premium-library-grid .premium-course-card:visible').count()) > 0,
+    );
     await page.evaluate(() => document.querySelector('[data-go="import"]')?.click());
     await page.waitForTimeout(500);
     const result = await page.evaluate(() => {
