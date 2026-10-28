@@ -8,8 +8,8 @@ import {
   todaySlots,
   nextSlot,
   weeklyMinutesByCourse,
-} from '../lib/timetable.js?v=1.2.0';
-import { formatMinutes } from '../lib/focus.js?v=1.2.0';
+} from '../lib/timetable.js?v=1.3.0';
+import { formatMinutes } from '../lib/focus.js?v=1.3.0';
 
 // UCAS week: Saturday → Friday.
 const WEEK_ORDER = [6, 0, 1, 2, 3, 4, 5];
