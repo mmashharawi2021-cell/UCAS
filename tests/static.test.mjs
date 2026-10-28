@@ -7,10 +7,10 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>readFileSync(resolve(root,p),'utf8');
 
 test('complete, internal static assets',()=>{
- for(const p of ['index.html','styles.css','js/app.js','js/store.js','js/ics.js','sw.js','manifest.webmanifest','assets/icon.svg','README.md'])assert.ok(existsSync(resolve(root,p)),p);
+ for(const p of ['index.html','styles.css','js/app.js','js/study.js','js/store.js','js/ics.js','sw.js','manifest.webmanifest','assets/icon.svg','README.md'])assert.ok(existsSync(resolve(root,p)),p);
  const html=read('index.html');
  assert.match(html,/<html lang="ar" dir="rtl"/);
- assert.match(html,/script type="module" src="js\/app.js"/);
+ assert.match(html,/script type="module" src="js\/app\.js(?:\?v=[0-9.]+)?"/);
  assert.match(html,/Content-Security-Policy/);
 });
 test('no hardcoded credentials or network AI calls',()=>{
