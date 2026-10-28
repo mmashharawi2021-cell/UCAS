@@ -46,6 +46,20 @@ try{
  console.log(text.slice(0,1200));
  assert.ok(text.includes('lecture-test.pdf')&&text.includes('صفحة 1'),'PDF extraction failed: '+text);
  assert.equal(errors.length,0,'Unexpected page errors: '+errors.join('\n'));
+ // Broken Arabic PDF must offer explicit OCR recovery; it must not auto-run on search.
+ await page.evaluate(async()=>{
+  const {put}=await import('./js/store.js');
+  const broken=new Blob(['%PDF-1.4 broken Arabic content'],{type:'application/pdf'});
+  await put('resources',{id:'ci-broken-arabic',kind:'file',name:'broken-summary.pdf',courseId:'course-1',module:'OCR candidate',blob:broken,size:broken.size,addedAt:new Date().toISOString()});
+ });
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForSelector('[data-course="course-1"]');
+ await page.locator('[data-course="course-1"]').first().click();
+ await page.locator('[data-action="assistant"]').click();
+ await page.locator('[data-action="study-cards"]').click();
+ await page.waitForSelector('[data-action="study-ocr"]',{timeout:15000});
+ const ocrButtons=await page.locator('[data-action="study-ocr"]').allTextContents();
+ assert.ok(ocrButtons.some(x=>x.includes('broken-summary.pdf')),JSON.stringify(ocrButtons));
  console.log('PASS: real PDF.js text extraction with page number and phone view');
  await page.close();
 }finally{await browser.close();}
