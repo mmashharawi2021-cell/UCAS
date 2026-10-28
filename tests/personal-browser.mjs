@@ -266,6 +266,10 @@ try {
   await phone.waitForSelector('#ai-source');
   await phone.selectOption('#ai-source', 'lec-1');
   await click(phone, '[data-act="ai-summarize"]');
+  await phone.waitForSelector('.ai-panel + .notice.warn');
+  assert.equal(server.aiCalls.length, 0, 'AI must not receive lecture text without consent');
+  await phone.check('#ai-cloud-consent');
+  await click(phone, '[data-act="ai-summarize"]');
   await phone.waitForSelector('.ai-result');
   assert.match(await phone.locator('.ai-result').innerText(), /قاعدة البيانات الجغرافية/);
   assert.match(server.aiCalls.at(-1).text, /الفهرس المكاني/, 'lecture text was sent');

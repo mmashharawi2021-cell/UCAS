@@ -2786,3 +2786,206 @@ body,
 .ai-question small {
   display: block;
 }
+
+
+/* ===== Premium foundation — dashboard, visual tokens and mobile course rail ===== */
+:root {
+  --premium-glow: rgba(196, 162, 108, 0.14);
+  --premium-ring: rgba(196, 162, 108, 0.38);
+  --premium-elevated: #ffffff;
+}
+html[data-theme='dark'] {
+  --premium-glow: rgba(196, 162, 108, 0.1);
+  --premium-ring: rgba(218, 187, 131, 0.4);
+  --premium-elevated: var(--surface);
+}
+.hero {
+  border: 1px solid rgba(213, 177, 117, 0.42);
+  background:
+    radial-gradient(circle at 82% 14%, rgba(216, 182, 125, 0.17), transparent 45%),
+    linear-gradient(120deg, #142f54, #11294b 73%, #0c203a);
+}
+.hero .primary-btn {
+  color: #173a68;
+}
+.sidebar {
+  background: linear-gradient(180deg, #142f54, #102744);
+}
+.nav-btn.active {
+  background: rgba(215, 184, 133, 0.18);
+  border-right-color: #d5b581;
+}
+.course-card,
+.panel,
+.stat-card {
+  box-shadow: 0 10px 32px rgba(22, 44, 77, 0.045);
+}
+.course-card:hover {
+  border-color: var(--premium-ring);
+}
+.premium-focus {
+  margin: 22px 0 30px;
+  padding: clamp(16px, 2.4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.premium-focus-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 17px;
+}
+.premium-focus-head h2 {
+  font-size: clamp(18px, 2vw, 22px);
+  margin: 2px 0 3px;
+}
+.premium-focus-head p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.premium-kicker {
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+.premium-edition {
+  border: 1px solid var(--premium-ring);
+  background: var(--premium-glow);
+  color: var(--navy);
+  border-radius: 100px;
+  font: 700 10px 'Segoe UI', Arial, sans-serif;
+  letter-spacing: 1px;
+  padding: 7px 12px;
+  flex-shrink: 0;
+}
+.premium-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.premium-focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+.premium-card-title {
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 750;
+}
+.premium-card-title svg {
+  width: 17px;
+  height: 17px;
+}
+.premium-focus-card h3 {
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.premium-focus-card p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.premium-text-link {
+  border: 0;
+  background: none;
+  color: var(--navy);
+  padding: 4px 0;
+  margin-top: auto;
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+.premium-text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.premium-progress {
+  margin-top: 18px;
+  padding: 14px 2px 0;
+  border-top: 1px solid var(--line);
+}
+.premium-progress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  font-size: 12px;
+}
+.premium-progress span {
+  color: var(--muted);
+}
+.premium-progress .progress-track > div {
+  background: linear-gradient(90deg, #9d7c45, #d3b478);
+}
+.ai-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px;
+  margin: 10px 0;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.ai-consent input {
+  accent-color: var(--navy);
+  margin: 5px 0 0;
+  flex: none;
+}
+@media (max-width: 1000px) {
+  .premium-focus-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .premium-focus {
+    margin: 16px 0 24px;
+    padding: 15px;
+  }
+  .premium-focus-head {
+    align-items: center;
+  }
+  .premium-focus-card {
+    padding: 13px;
+  }
+  .premium-focus-head p {
+    max-width: 25ch;
+  }
+  .home-courses {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x mandatory;
+    max-width: 100%;
+    padding: 2px 1px 12px;
+    scrollbar-width: thin;
+  }
+  .home-courses > .course-card {
+    flex: 0 0 min(78vw, 270px);
+    scroll-snap-align: start;
+    min-width: 0;
+  }
+}
