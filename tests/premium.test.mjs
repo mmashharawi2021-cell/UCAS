@@ -42,7 +42,7 @@ test('Premium Studio 2.0 uses accessible course filtering and AI workspace', () 
   assert.match(ai, /ai-studio-layout/);
   assert.match(ai, /ai-cloud-consent/);
   assert.match(ai, /ai-starter-grid/);
-  assert.match(html, /premium-v2\.css\?v=1\.6\.0/);
+  assert.match(html, /premium-v2\.css\?v=1\.7\.0/);
   assert.match(sw, /premium-v2\.css/);
 });
 
@@ -54,7 +54,7 @@ test('mobile UX preserves data and provides an expandable, accessible dashboard'
   assert.match(app, /class="premium-home-extras"/);
   assert.match(app, /data-action="close-menu"/);
   assert.match(app, /class="mobile-menu-close"/);
-  assert.match(html, /mobile-ux\.css\?v=1\.6\.0/);
+  assert.match(html, /mobile-ux\.css\?v=1\.7\.0/);
   assert.match(sw, /mobile-ux\.css/);
   assert.match(css, /premium-course-card:nth-child\(n \+ 3\)/);
   assert.match(css, /\.sidebar \.nav-group/);
@@ -68,7 +68,7 @@ test('Moodle Connect is registered in the app and offline shell', () => {
   assert.match(app, /href="moodle-connect.html"/);
   assert.match(sw, /moodle-connect\.html/);
   assert.match(sw, /moodle-connect-core\.js/);
-  assert.match(html, /js\/moodle-connect\.js\?v=1\.6\.0/);
+  assert.match(html, /js\/moodle-connect\.js\?v=1\.7\.0/);
 });
 
 test('UCAS Chrome Companion bridge remains optional and respects offline data', () => {
@@ -80,4 +80,18 @@ test('UCAS Chrome Companion bridge remains optional and respects offline data', 
   assert.match(sw, /js\/companion\.js/);
   assert.match(bridge, /safeMoodleActivityURL/);
   assert.match(bridge, /importCompanionSnapshot/);
+});
+
+test('Moodle Companion files integrate with offline site and explicit transfer UI', () => {
+  const app = read('js/app.js');
+  const sw = read('sw.js');
+  const html = read('index.html');
+  const files = read('js/companion-files.js');
+  assert.match(app, /data-action="companion-files-discover"/);
+  assert.match(app, /data-action="companion-files-import"/);
+  assert.match(app, /data-action="companion-files-cancel"/);
+  assert.match(sw, /js\/companion-files\.js/);
+  assert.match(html, /companion-files\.css\?v=1\.7\.0/);
+  assert.match(files, /SHA-256/);
+  assert.match(files, /sourceKey/);
 });

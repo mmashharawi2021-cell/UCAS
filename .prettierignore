@@ -4,3 +4,4 @@ package-lock.json
 
 # Compact standalone integration stylesheet (no third-party fonts/assets).
 moodle-connect.css
+companion-files.css

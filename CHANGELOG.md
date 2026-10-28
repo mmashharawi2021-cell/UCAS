@@ -1,13 +1,20 @@
 # Changelog — UCAS Academic Bridge
 
-## v1.6.0 — Desktop Moodle Companion integration (29 Oct 2026)
+## v1.7.0 — Moodle course file transfer (29 Oct 2026)
+
+- Add file-catalog preview and explicit selected-file transfer from Chrome Moodle Companion 0.2 to IndexedDB study library.
+- Add chunked transfer, progress and cancellation, 35 MiB per-file guard, quota checks, SHA-256 deduplication and source updates.
+- Discover resources and folder/page/book attachments with an authenticated student session; do not collect private grades, submissions, cookies, session secrets or arbitrary URLs.
+- Provide separate desktop Chrome extension ZIP; previous Chrome Companion 0.1 must be updated.
+
+## v1.7.0 — Desktop Moodle Companion integration (29 Oct 2026)
 
 - Added Chrome extension bridge on the Moodle and Import pages; import sanitized course and activity metadata from an authenticated browser session.
 - Added duplicate-safe local course matching and assignment-link import without fabricating due dates.
 - Added opt-in hourly snapshot scans in the extension while desktop Chrome and Moodle session are active; imports when UCAS is opened.
 - Explicitly clarify that Chrome Android, grades, and protected lecture-file downloads are not supported by this extension release.
 
-## v1.6.0 — Moodle Connect integration foundation (29 Oct 2026)
+## v1.7.0 — Moodle Connect integration foundation (29 Oct 2026)
 
 - Add a dedicated read-only Moodle Connect page with OAuth 2 public client + PKCE state verification and no local token persistence.
 - Add student-course synchronization with validation and duplicate prevention, when university-approved OAuth and REST API are configured.
