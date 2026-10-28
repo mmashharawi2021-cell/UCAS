@@ -30,6 +30,25 @@ try {
  await page.locator('[data-action="study-start-quiz"]').click();
  await page.waitForSelector('.quiz-panel');
  assert.ok((await page.locator('.quiz-panel').innerText()).includes('السؤال'));
+ // Regression: narrative-only PDF/lecture paragraphs must produce useful, cited cards.
+ await page.evaluate(async()=>{
+  const {put,remove}=await import('./js/store.js');
+  await remove('resources','ci-study-text');
+  const paragraph='Geographical information systems store and analyze location-based information to support urban service planning and environmental impact assessments. Remote sensing observations help map land cover change using satellite imagery and classification methods.';
+  const blob=new Blob([paragraph],{type:'text/plain'});
+  await put('resources',{id:'ci-passage-text',kind:'file',name:'narrative-lecture.txt',courseId:'course-1',module:'الوحدة الثالثة',blob,size:blob.size,addedAt:new Date().toISOString()});
+ });
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForSelector('[data-course="course-1"]');
+ await page.locator('[data-course="course-1"]').first().click();
+ await page.locator('[data-action="assistant"]').click();
+ await page.locator('[data-action="study-cards"]').click();
+ await page.waitForFunction(()=>document.querySelector('.study-match')?.textContent?.includes('narrative-lecture.txt'));
+ const studyText=await page.locator('#study-results').innerText();
+ assert.ok(studyText.includes('مقتطفات حرفية'),studyText);
+ await page.locator('[data-action="study-reveal"]').first().click();
+ assert.ok((await page.locator('.study-answer').first().innerText()).includes('Geographical information systems'));
+ assert.equal(await page.locator('[data-action="study-copy"]').isDisabled(),false);
  assert.equal(errors.length,0,errors.join('\n'));
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
  assert.ok(overflow<=2,'overflow '+overflow);
