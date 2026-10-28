@@ -1966,3 +1966,26 @@ body,
     padding: 11px;
   }
 }
+
+/* v0.8 — data protection */
+.backup-reminder {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.backup-reminder strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.backup-reminder p {
+  margin: 0;
+}
+.backup-reminder .primary-btn {
+  justify-self: start;
+}
+[data-theme='dark'] .notice.warn {
+  background: #3a2f17;
+  color: #f1d9a6;
+  border-color: #5c4a22;
+}

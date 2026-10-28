@@ -1,4 +1,19 @@
-import { initialize, all, get, put, remove, makeId, backup, restore } from './store.js';
+import {
+  initialize,
+  all,
+  get,
+  getFile,
+  put,
+  remove,
+  makeId,
+  backup,
+  restore,
+  requestPersistence,
+  storageStatus,
+} from './store.js';
+
+const APP_VERSION = '0.8.0';
+const BACKUP_REMINDER_DAYS = 7;
 import { parseICS } from './ics.js';
 import { previewOffice } from './office.js';
 import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js';
@@ -141,6 +156,7 @@ const state = {
   moodleSelectedCourseId: null,
   moodleImportFile: null,
   moodleImportError: null,
+  storage: { usage: null, quota: null, persisted: false, supported: false },
 };
 let viewURL = null;
 function courseName(id) {
@@ -209,6 +225,7 @@ async function refresh() {
   ] = await Promise.all(
     ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'].map(all),
   );
+  state.storage = await storageStatus();
   state.questionBank = Array.isArray(state.settings.find(s => s.id === 'question-bank')?.value)
     ? state.settings.find(s => s.id === 'question-bank').value
     : [];
@@ -287,6 +304,44 @@ function weekly() {
     })
     .join('')}</div>`;
 }
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return '—';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  while (bytes >= 1024 && i < units.length - 1) {
+    bytes /= 1024;
+    i++;
+  }
+  return `${bytes.toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+function lastBackupAt() {
+  return state.settings.find(s => s.id === 'last-backup')?.value || null;
+}
+function backupIsDue() {
+  if (!state.resources.length && !state.tasks.length && !state.attempts.length) return false;
+  const last = lastBackupAt();
+  if (!last) return true;
+  return Date.now() - new Date(last).getTime() > BACKUP_REMINDER_DAYS * 86400000;
+}
+function backupReminder() {
+  if (!backupIsDue()) return '';
+  const last = lastBackupAt();
+  const when = last
+    ? `آخر نسخة احتياطية: ${esc(new Date(last).toLocaleDateString('ar'))}.`
+    : 'لم تُنشئ أي نسخة احتياطية بعد.';
+  return `<div class="notice warn backup-reminder" role="status"><strong>${ic('download')} احمِ ملفاتك</strong><p>${when} بياناتك محفوظة على هذا المتصفح فقط وقد تُفقد عند مسح بيانات الموقع.</p><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية الآن</button></div>`;
+}
+function storagePanel() {
+  const st = state.storage;
+  const pct = st.quota ? Math.min(100, Math.round((st.usage / st.quota) * 100)) : 0;
+  const status = !st.supported
+    ? 'المتصفح لا يدعم إدارة التخزين.'
+    : st.persisted
+      ? 'التخزين الدائم مفعّل: لن يحذف المتصفح بياناتك تلقائيًا عند امتلاء المساحة.'
+      : 'التخزين غير محمي: قد يحذف المتصفح بياناتك تلقائيًا عند امتلاء مساحة الجهاز.';
+  const last = lastBackupAt();
+  return `<div class="panel storage-panel"><h2>حماية البيانات والمساحة</h2><p class="muted tiny" style="margin:8px 0">${status}</p><div class="progress-track" role="progressbar" aria-label="المساحة المستخدمة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div><p class="muted tiny" style="margin:8px 0 14px">المستخدم: <bdi dir="ltr">${formatBytes(st.usage)}</bdi> من <bdi dir="ltr">${formatBytes(st.quota)}</bdi> متاحة للموقع${last ? ` · آخر نسخة احتياطية: ${esc(new Date(last).toLocaleString('ar'))}` : ' · لا توجد نسخة احتياطية بعد'}</p>${st.supported && !st.persisted ? `<button class="outline-btn" data-action="persist-storage">${ic('check')} طلب تخزين دائم</button>` : ''}</div>`;
+}
 function homePage() {
   const upcoming = pending()
     .filter(t => t.due)
@@ -297,7 +352,7 @@ function homePage() {
     .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
     .slice(0, 3);
   return `<div class="hero"><div><div class="eyebrow">لوحة التحكم الأكاديمية</div><h1>كل دراستك في مكان واحد</h1><p>نظّم مساقاتك، تابع تكليفاتك، واستعد لاختباراتك من لوحة واحدة</p><div class="hero-actions"><button class="primary-btn" data-go="import">${ic('upload')} استيراد مصادر جديدة</button><button class="outline-btn" data-go="quizzes">${ic('quiz')} اختبار تدريبي</button></div></div><div class="hero-art"><svg viewBox="0 0 120 120"><path d="M15 34 60 12l45 22-45 22zM28 47v28c18 19 46 19 64 0V47M105 36v36M23 94h74"/></svg></div></div>
-<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>
+${backupReminder()}<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>
 ${sectionHead('مساقاتي', `<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron', 14)}</button>`)}<div class="course-grid">${state.courses.slice(0, 6).map(courseCard).join('')}</div>
 <div class="split-layout"><div>${sectionHead('المواعيد والتكليفات', `<button class="link" data-go="tasks">عرض التقويم</button>`)}<div class="panel">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف تكليفًا أو استورد ملف تقويم ICS', 'calendar')}</div></div><div>${sectionHead('التقويم الأسبوعي')}
 <div class="panel">${weekly()}</div></div></div>
@@ -556,7 +611,7 @@ function progressPage() {
     .join('')}</div>`;
 }
 function settingsPage() {
-  return `${intro('الإعدادات', 'التحكم في المظهر والنسخ الاحتياطي والخصوصية')}<div class="card-stack"><div class="panel"><h2>المظهر</h2><p class="muted tiny" style="margin:9px 0">اختر الوضع المناسب لك. سيُحفظ التفضيل على الجهاز.</p><div class="tabs">${[
+  return `${intro('الإعدادات', 'التحكم في المظهر والنسخ الاحتياطي والخصوصية')}<div class="card-stack">${storagePanel()}<div class="panel"><h2>المظهر</h2><p class="muted tiny" style="margin:9px 0">اختر الوضع المناسب لك. سيُحفظ التفضيل على الجهاز.</p><div class="tabs">${[
     ['auto', 'حسب الجهاز'],
     ['light', 'فاتح'],
     ['dark', 'داكن'],
@@ -567,7 +622,7 @@ function settingsPage() {
     )
     .join(
       '',
-    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="panel"><h2>الإشعارات</h2><p class="muted tiny" style="margin:10px 0">التنبيهات داخل التطبيق متاحة للمواعيد المستوردة عند فتح لوحة التحكم. الإشعارات المجدولة خارج التطبيق غير منفّذة بعد.</p><button class="outline-btn" data-action="request-notifications">${ic('bell')} طلب إذن إشعارات المتصفح</button></div><div class="notice">الإصدار الحالي: 0.7.3 — بحث محلي في PDF النصي وOffice مع مراجع صفحات PDF، دون اتصال AI خارجي أو مزامنة MoodleAS.</div></div>`;
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="panel"><h2>الإشعارات</h2><p class="muted tiny" style="margin:10px 0">التنبيهات داخل التطبيق متاحة للمواعيد المستوردة عند فتح لوحة التحكم. الإشعارات المجدولة خارج التطبيق غير منفّذة بعد.</p><button class="outline-btn" data-action="request-notifications">${ic('bell')} طلب إذن إشعارات المتصفح</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — بحث محلي في PDF النصي وOffice مع مراجع صفحات PDF، دون اتصال AI خارجي أو مزامنة Moodle.</div></div>`;
 }
 function searchPage() {
   const q = state.query.trim().toLowerCase();
@@ -743,7 +798,13 @@ async function loadStudyDocumentsForCurrentCourse() {
   if (!state.courseId || studySession.courseId !== state.courseId)
     throw new Error('افتح المساق المطلوب أولًا');
   if (studySession.documents.length) return studySession.documents;
-  const data = await loadCourseText(state.resources, state.courseId, previewOffice, {
+  // Resource lists hold metadata only; load file contents for this course on demand.
+  const courseFiles = await Promise.all(
+    state.resources
+      .filter(r => r.courseId === state.courseId && r.kind === 'file' && r.hasFile)
+      .map(r => get('resources', r.id)),
+  );
+  const data = await loadCourseText(courseFiles.filter(Boolean), state.courseId, previewOffice, {
     pdfPreview: extractPdfText,
   });
   studySession.documents = data.documents;
@@ -763,7 +824,7 @@ function appendOCROptions(slot) {
       r.courseId === studySession.courseId &&
       r.kind === 'file' &&
       /\.pdf$/i.test(r.name || '') &&
-      r.blob,
+      (r.hasFile || r.blob),
   );
   const missing = available
     .filter(r => !studySession.documents.some(d => d.id === r.id))
@@ -797,7 +858,7 @@ async function runStudyOCR(resourceId) {
       x.courseId === studySession.courseId &&
       x.kind === 'file' &&
       /\.pdf$/i.test(x.name || '') &&
-      x.blob,
+      (x.hasFile || x.blob),
   );
   if (!r) return toast('ملف PDF غير متاح أو لا يخص هذا المساق', true);
   studySession.ocrBusy = true;
@@ -810,7 +871,9 @@ async function runStudyOCR(resourceId) {
   const buttons = [...document.querySelectorAll('[data-action="study-ocr"]')];
   buttons.forEach(b => (b.disabled = true));
   try {
-    const result = await readPDFWithOCR(r.blob, {
+    const pdfBlob = r.blob || (await getFile(r.id));
+    if (!pdfBlob) throw new Error('الملف غير محفوظ على هذا الجهاز');
+    const result = await readPDFWithOCR(pdfBlob, {
       onProgress: message => {
         if (progress.isConnected) progress.textContent = message;
       },
@@ -1349,6 +1412,17 @@ async function handleClick(e) {
       setTimeout(() => URL.revokeObjectURL(u), 60000);
       break;
     }
+    case 'persist-storage': {
+      const result = await requestPersistence();
+      await refresh();
+      toast(
+        result.persisted
+          ? 'تم تفعيل التخزين الدائم لهذا الموقع'
+          : 'رفض المتصفح التخزين الدائم. ثبّت التطبيق على الشاشة الرئيسية ثم أعد المحاولة، واحتفظ بنسخ احتياطية.',
+        !result.persisted,
+      );
+      break;
+    }
     case 'export':
       try {
         const data = await backup();
@@ -1359,6 +1433,8 @@ async function handleClick(e) {
         a.download = `ucas-bridge-backup-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 60000);
+        await put('settings', { id: 'last-backup', value: new Date().toISOString() });
+        await refresh();
         toast('تم تجهيز النسخة الاحتياطية');
       } catch (err) {
         toast(`تعذر النسخ الاحتياطي: ${err.message}`, true);
@@ -1585,6 +1661,7 @@ async function handleSubmit(e) {
         state.resources.push({ hash, courseId });
         added++;
       }
+      if (added) requestPersistence().then(() => refresh());
       toast(`تم استيراد ${added} ملف، وتخطي ${skipped} ملف مكرر أو غير مدعوم`);
     }
     if (form.id === 'ics-form') {
@@ -1679,7 +1756,11 @@ async function handleChange(e) {
 }
 function setTheme(v) {
   state.mode = v;
-  localStorage.setItem('ucas-bridge-theme', v);
+  try {
+    localStorage.setItem('ucas-bridge-theme', v);
+  } catch {
+    /* storage blocked: keep the theme for this session only */
+  }
   document.documentElement.dataset.theme =
     v === 'auto' ? (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : v;
   render();
@@ -1694,6 +1775,16 @@ async function init() {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
       if (state.mode === 'auto')
         document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+    });
+    window.addEventListener('ucas-db-outdated', () =>
+      toast('تم تحديث المنصة في تبويب آخر. أعد تحميل الصفحة للمتابعة.', true),
+    );
+    window.addEventListener('ucas-db-blocked', () =>
+      toast('أغلق تبويبات المنصة الأخرى ليكتمل تحديث قاعدة البيانات.', true),
+    );
+    window.addEventListener('unhandledrejection', e => {
+      console.error(e.reason);
+      toast('حدث خطأ غير متوقع', true);
     });
     document.addEventListener('click', e => {
       handleClick(e).catch(err => {
@@ -1721,7 +1812,12 @@ async function init() {
         render();
       }
     });
-    const mode = localStorage.getItem('ucas-bridge-theme') || 'auto';
+    let mode = 'auto';
+    try {
+      mode = localStorage.getItem('ucas-bridge-theme') || 'auto';
+    } catch {
+      /* storage blocked */
+    }
     state.mode = mode;
     document.documentElement.dataset.theme =
       mode === 'auto'

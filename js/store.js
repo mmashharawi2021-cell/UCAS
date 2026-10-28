@@ -1,7 +1,13 @@
 // Local-first data. No account, cloud sync, tracking, or credential storage.
+//
+// Schema v2: file contents live in a separate `files` store keyed by resource id,
+// so listing resources never touches file blobs. Callers keep using the same
+// `get/put/remove('resources', …)` API; this module joins/splits blobs transparently.
 const NAME = 'ucas-academic-bridge';
-const VERSION = 1;
+const VERSION = 2;
 const STORES = ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'];
+const FILES = 'files';
+const INDEXES = { resources: ['courseId'], tasks: ['courseId'], attempts: ['courseId'] };
 let openPromise;
 export const initialCourses = [
   'إدارة مشاريع نظم المعلومات الجغرافية',
@@ -29,12 +35,48 @@ export function openDB() {
   if (!openPromise) {
     openPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(NAME, VERSION);
-      req.onupgradeneeded = () => {
+      req.onupgradeneeded = event => {
         const db = req.result;
+        const tx = req.transaction;
         for (const store of STORES)
           if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(FILES)) db.createObjectStore(FILES, { keyPath: 'id' });
+        for (const [store, fields] of Object.entries(INDEXES)) {
+          const bucket = tx.objectStore(store);
+          for (const field of fields)
+            if (!bucket.indexNames.contains(field))
+              bucket.createIndex(field, field, { unique: false });
+        }
+        // v1 → v2: move inline blobs out of `resources` into `files`.
+        if (event.oldVersion >= 1 && event.oldVersion < 2) {
+          const resources = tx.objectStore('resources');
+          const files = tx.objectStore(FILES);
+          resources.openCursor().onsuccess = e => {
+            const cursor = e.target.result;
+            if (!cursor) return;
+            const row = cursor.value;
+            if (row.blob) {
+              files.put({ id: row.id, blob: row.blob });
+              const { blob, ...meta } = row;
+              cursor.update({ ...meta, hasFile: true, size: meta.size ?? blob.size });
+            }
+            cursor.continue();
+          };
+        }
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onblocked = () => {
+        // Another tab still holds the old schema open.
+        window.dispatchEvent?.(new CustomEvent('ucas-db-blocked'));
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        db.onversionchange = () => {
+          db.close();
+          openPromise = null;
+          window.dispatchEvent?.(new CustomEvent('ucas-db-outdated'));
+        };
+        resolve(db);
+      };
       req.onerror = () => {
         openPromise = null;
         reject(req.error);
@@ -43,35 +85,91 @@ export function openDB() {
   }
   return openPromise;
 }
+
+/** Split a resource record into metadata (stored in `resources`) and its blob. */
+function splitResource(value) {
+  if (!value || !value.blob) return { meta: value, blob: null };
+  const { blob, ...meta } = value;
+  return { meta: { ...meta, hasFile: true, size: meta.size ?? blob.size }, blob };
+}
+
+/** All rows of a store. `resources` rows never include blobs (see `hasFile`). */
 export async function all(store) {
   const db = await openDB();
   return request(db.transaction(store, 'readonly').objectStore(store).getAll());
 }
+
+/** Rows of a store for one course, using the `courseId` index when available. */
+export async function byCourse(store, courseId) {
+  const db = await openDB();
+  const bucket = db.transaction(store, 'readonly').objectStore(store);
+  if (bucket.indexNames.contains('courseId'))
+    return request(bucket.index('courseId').getAll(courseId));
+  return (await request(bucket.getAll())).filter(row => row.courseId === courseId);
+}
+
+/** One row. For `resources`, the stored file is joined back as `blob`. */
 export async function get(store, id) {
   const db = await openDB();
-  return request(db.transaction(store, 'readonly').objectStore(store).get(id));
+  if (store !== 'resources')
+    return request(db.transaction(store, 'readonly').objectStore(store).get(id));
+  const tx = db.transaction(['resources', FILES], 'readonly');
+  const [meta, file] = await Promise.all([
+    request(tx.objectStore('resources').get(id)),
+    request(tx.objectStore(FILES).get(id)),
+  ]);
+  if (!meta) return meta;
+  return file?.blob ? { ...meta, blob: file.blob } : meta;
 }
+
+/** Only the stored file of a resource, or null. */
+export async function getFile(id) {
+  const db = await openDB();
+  const file = await request(db.transaction(FILES, 'readonly').objectStore(FILES).get(id));
+  return file?.blob || null;
+}
+
 export async function put(store, value) {
   const db = await openDB();
-  const tx = db.transaction(store, 'readwrite');
-  tx.objectStore(store).put(value);
+  if (store !== 'resources') {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(value);
+    await txDone(tx);
+    return value;
+  }
+  const { meta, blob } = splitResource(value);
+  const tx = db.transaction(['resources', FILES], 'readwrite');
+  tx.objectStore('resources').put(meta);
+  if (blob) tx.objectStore(FILES).put({ id: meta.id, blob });
   await txDone(tx);
   return value;
 }
+
 export async function remove(store, id) {
   const db = await openDB();
-  const tx = db.transaction(store, 'readwrite');
-  tx.objectStore(store).delete(id);
+  const names = store === 'resources' ? ['resources', FILES] : [store];
+  const tx = db.transaction(names, 'readwrite');
+  for (const name of names) tx.objectStore(name).delete(id);
   await txDone(tx);
 }
+
 export async function replaceAll(store, entries) {
   const db = await openDB();
-  const tx = db.transaction(store, 'readwrite');
-  const bucket = tx.objectStore(store);
-  bucket.clear();
-  for (const entry of entries) bucket.put(entry);
+  const names = store === 'resources' ? ['resources', FILES] : [store];
+  const tx = db.transaction(names, 'readwrite');
+  for (const name of names) tx.objectStore(name).clear();
+  for (const entry of entries) {
+    if (store !== 'resources') {
+      tx.objectStore(store).put(entry);
+      continue;
+    }
+    const { meta, blob } = splitResource(entry);
+    tx.objectStore('resources').put(meta);
+    if (blob) tx.objectStore(FILES).put({ id: meta.id, blob });
+  }
   await txDone(tx);
 }
+
 export async function initialize() {
   const db = await openDB();
   const count = await request(db.transaction('courses', 'readonly').objectStore('courses').count());
@@ -96,6 +194,64 @@ export function makeId() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 export const exportStores = STORES;
+
+// ---------- Storage durability ----------
+
+/** Ask the browser not to evict this site's data under storage pressure. */
+export async function requestPersistence() {
+  if (!navigator.storage?.persist) return { supported: false, persisted: false };
+  try {
+    const already = await navigator.storage.persisted();
+    const persisted = already || (await navigator.storage.persist());
+    return { supported: true, persisted };
+  } catch {
+    return { supported: true, persisted: false };
+  }
+}
+
+/** Current usage/quota in bytes plus the persistence state. */
+export async function storageStatus() {
+  const out = { usage: null, quota: null, persisted: false, supported: !!navigator.storage };
+  try {
+    if (navigator.storage?.estimate) Object.assign(out, await navigator.storage.estimate());
+    if (navigator.storage?.persisted) out.persisted = await navigator.storage.persisted();
+  } catch {
+    /* unavailable in some private modes */
+  }
+  return { usage: out.usage, quota: out.quota, persisted: out.persisted, supported: out.supported };
+}
+
+// ---------- Backup / restore ----------
+
+async function blobToBase64(blob) {
+  if (typeof FileReader !== 'undefined') {
+    // Native encoder: avoids building a huge binary string in JS memory.
+    const url = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    return String(url).slice(String(url).indexOf(',') + 1);
+  }
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  for (let n = 0; n < bytes.length; n += 8192)
+    binary += String.fromCharCode(...bytes.subarray(n, n + 8192));
+  return btoa(binary);
+}
+
+function base64ToBytes(data) {
+  const binary = atob(data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Backup format v1 (unchanged on purpose so older app versions can restore it):
+ * resource rows carry their file as `blobData` (base64) + `blobType`.
+ */
 export async function backup() {
   const data = {
     format: 'ucas-bridge-backup',
@@ -105,25 +261,24 @@ export async function backup() {
   };
   for (const store of STORES) {
     const rows = await all(store);
-    data.stores[store] = await Promise.all(
-      rows.map(async row => {
-        if (!row.blob) return row;
-        const bytes = new Uint8Array(await row.blob.arrayBuffer());
-        // Avoid excessive argument length in String.fromCharCode.
-        let binary = '';
-        for (let n = 0; n < bytes.length; n += 8192)
-          binary += String.fromCharCode(...bytes.slice(n, n + 8192));
-        const { blob, ...meta } = row;
-        return {
-          ...meta,
-          blobData: btoa(binary),
-          blobType: row.blob.type || 'application/octet-stream',
-        };
-      }),
-    );
+    data.stores[store] = [];
+    for (const row of rows) {
+      const blob = store === 'resources' && row.hasFile ? await getFile(row.id) : row.blob;
+      if (!blob) {
+        data.stores[store].push(row);
+        continue;
+      }
+      const { blob: _inline, hasFile: _hasFile, ...meta } = row;
+      data.stores[store].push({
+        ...meta,
+        blobData: await blobToBase64(blob),
+        blobType: blob.type || row.type || 'application/octet-stream',
+      });
+    }
   }
   return data;
 }
+
 export async function restore(data) {
   if (!data || data.format !== 'ucas-bridge-backup' || data.version !== 1 || !data.stores)
     throw new Error('ملف النسخة الاحتياطية غير صالح');
@@ -131,23 +286,24 @@ export async function restore(data) {
     if (!Array.isArray(data.stores[store])) throw new Error(`النسخة لا تحتوي على ${store}`);
   // Decode and validate the complete backup before changing any local data.
   const replacement = {};
+  const files = [];
   for (const store of STORES) {
     replacement[store] = data.stores[store].map(row => {
       if (!row || typeof row.id !== 'string' || !row.id)
         throw new Error(`سجل غير صالح ضمن ${store}`);
       if (!row.blobData) return row;
-      const bytes = Uint8Array.from(atob(row.blobData), x => x.charCodeAt(0));
       const { blobData, blobType, ...meta } = row;
-      return { ...meta, blob: new Blob([bytes], { type: blobType }) };
+      const blob = new Blob([base64ToBytes(blobData)], { type: blobType });
+      if (store !== 'resources') return { ...meta, blob };
+      files.push({ id: meta.id, blob });
+      return { ...meta, hasFile: true, size: meta.size ?? blob.size };
     });
   }
   const db = await openDB();
   // One IndexedDB transaction ensures restore is all-or-nothing.
-  const tx = db.transaction(STORES, 'readwrite');
-  for (const store of STORES) {
-    const objectStore = tx.objectStore(store);
-    objectStore.clear();
-    for (const row of replacement[store]) objectStore.put(row);
-  }
+  const tx = db.transaction([...STORES, FILES], 'readwrite');
+  for (const store of [...STORES, FILES]) tx.objectStore(store).clear();
+  for (const store of STORES) for (const row of replacement[store]) tx.objectStore(store).put(row);
+  for (const file of files) tx.objectStore(FILES).put(file);
   await txDone(tx);
 }
