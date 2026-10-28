@@ -11,16 +11,16 @@ import {
   requestPersistence,
   storageStatus,
   exportStores,
-} from './store.js';
-import { features } from './features/index.js';
+} from './store.js?v=1.0.1';
+import { features } from './features/index.js?v=1.0.1';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const BACKUP_REMINDER_DAYS = 7;
-import { esc, ic } from './ui.js';
-import { parseICS } from './ics.js';
-import { previewOffice } from './office.js';
-import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js';
-import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js';
+import { esc, ic } from './ui.js?v=1.0.1';
+import { parseICS } from './ics.js?v=1.0.1';
+import { previewOffice } from './office.js?v=1.0.1';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.0.1';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.0.1';
 import {
   loadCourseText,
   searchStudySources,
@@ -28,9 +28,9 @@ import {
   extractPassageCards,
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
-} from './study.js';
-import { extractPdfText } from './pdf-text.js';
-import { readPDFWithOCR } from './ocr.js';
+} from './study.js?v=1.0.1';
+import { extractPdfText } from './pdf-text.js?v=1.0.1';
+import { readPDFWithOCR } from './ocr.js?v=1.0.1';
 
 const titles = {
   home: 'الرئيسية',
@@ -1502,7 +1502,7 @@ async function handleClick(e) {
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
         const names = exportStores;
-        const { replaceAll } = await import('./store.js');
+        const { replaceAll } = await import('./store.js?v=1.0.1');
         for (const s of names) await replaceAll(s, []);
         await initialize();
         await refresh();
@@ -1873,11 +1873,29 @@ async function init() {
           : 'light'
         : mode;
     await refresh();
+    window.__ucasBooted = true;
+    try {
+      sessionStorage.removeItem('ucas-cache-recovery');
+    } catch {
+      /* storage blocked */
+    }
     features.start(ctx);
     if ('serviceWorker' in navigator && isSecureContext) {
       navigator.serviceWorker.register('./sw.js').catch(console.warn);
     }
   } catch (err) {
+    // An old service worker can serve files from a previous release next to new ones.
+    // Drop all caches and the old worker, then reload once with fresh files.
+    let retried = true;
+    try {
+      retried = !!sessionStorage.getItem('ucas-cache-recovery');
+    } catch {
+      /* storage blocked */
+    }
+    if (window.__ucasRecover && navigator.onLine && !retried) {
+      window.__ucasRecover();
+      return;
+    }
     document.getElementById('app').innerHTML =
       `<div class="initial-loader"><h2>تعذر تشغيل التخزين المحلي</h2><p>تأكد من فتح الموقع في متصفح يدعم IndexedDB وعبر localhost أو HTTPS.</p><p>${esc(err.message)}</p></div>`;
     console.error(err);

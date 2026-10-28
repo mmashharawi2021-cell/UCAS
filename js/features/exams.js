@@ -1,14 +1,14 @@
 // Phase 2 — exam dates & countdown, timed mock exams, smart review, question import.
-import { EXAM_TYPES, countdownLabel, urgency, upcomingExams } from '../lib/countdown.js';
+import { EXAM_TYPES, countdownLabel, urgency, upcomingExams } from '../lib/countdown.js?v=1.0.1';
 import {
   applyAnswer,
   dueReviews,
   reviewStats,
   reviewUpdatesFromQuiz,
   MASTERED_BOX,
-} from '../lib/review.js';
-import { parseQuestions } from '../lib/question-import.js';
-import { clock } from '../lib/focus.js';
+} from '../lib/review.js?v=1.0.1';
+import { parseQuestions } from '../lib/question-import.js?v=1.0.1';
+import { clock } from '../lib/focus.js?v=1.0.1';
 
 const EXAM_KEY = 'mock-exam';
 let tab = 'dates';

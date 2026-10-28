@@ -1,5 +1,5 @@
 // Phase 4 — share a course with classmates as a "course pack" file (no server).
-import { buildPack, readPack, dedupeKey } from '../lib/pack.js';
+import { buildPack, readPack, dedupeKey } from '../lib/pack.js?v=1.0.1';
 
 let pending = null; // { courseId, data, fileName }
 

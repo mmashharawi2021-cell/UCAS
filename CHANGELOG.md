@@ -1,5 +1,14 @@
 # Changelog — UCAS Academic Bridge
 
+## v1.0.1 — Upgrade fix (28 Oct 2026)
+
+- **Fixed:** after updating, phones that had opened an older version could show «تعذر تشغيل التخزين المحلي» because the browser mixed the new app with an old cached `store.js`.
+- Every module import now carries the release version (`./store.js?v=1.0.1`), so two releases can never be mixed. `npm run stamp` applies it; a unit test enforces it.
+- Service worker: static files are now network-first (cache only when offline).
+- New `js/boot.js` guard: if the app fails to start online, it removes old service workers and caches, re-downloads the app files and reloads once.
+- New `tests/upgrade-browser.mjs`: opens an old release under its service worker, switches the server to the new release and checks the app starts with data intact (verified from v0.7.3 and v1.0.0).
+
+
 ## v1.0.0 — Study groups and push notifications (28 Oct 2026)
 
 - **مجموعات الدراسة (Study groups):** nickname-only accounts (anonymous sign-in), create a group for a course, invite classmates with an 8-character code or a `?join=` link (WhatsApp share), live chat with realtime updates, leave/delete group. Explicit consent screen lists what goes online.

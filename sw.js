@@ -1,45 +1,46 @@
 // Service worker: caches the public app shell only — never user data.
 // Bump VERSION on every release (keep it equal to package.json "version").
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const CACHE = `ucas-bridge-shell-${VERSION}`;
 const SHELL = [
   './',
   './index.html',
+  `./js/boot.js?v=${VERSION}`,
   `./styles.css?v=${VERSION}`,
   `./js/app.js?v=${VERSION}`,
-  './js/store.js',
-  './js/ics.js',
-  './js/office.js',
-  './js/moodle.js',
-  './js/mhtml.js',
-  './js/drive.js',
-  './js/study.js',
-  './js/pdf-text.js',
-  './js/ocr.js',
-  './js/lib/cloud.js',
-  './js/features/push.js',
-  './js/features/groups.js',
-  './js/cloud/config.js',
-  './js/cloud/client.js',
-  './js/ui.js',
-  './js/lib/countdown.js',
-  './js/lib/focus.js',
-  './js/lib/grades.js',
-  './js/lib/ics-export.js',
-  './js/lib/pack.js',
-  './js/lib/question-import.js',
-  './js/lib/report.js',
-  './js/lib/review.js',
-  './js/lib/timetable.js',
-  './js/features/exams.js',
-  './js/features/focus.js',
-  './js/features/grades.js',
-  './js/features/index.js',
-  './js/features/notes.js',
-  './js/features/reminders.js',
-  './js/features/report.js',
-  './js/features/schedule.js',
-  './js/features/share.js',
+  `./js/store.js?v=${VERSION}`,
+  `./js/ics.js?v=${VERSION}`,
+  `./js/office.js?v=${VERSION}`,
+  `./js/moodle.js?v=${VERSION}`,
+  `./js/mhtml.js?v=${VERSION}`,
+  `./js/drive.js?v=${VERSION}`,
+  `./js/study.js?v=${VERSION}`,
+  `./js/pdf-text.js?v=${VERSION}`,
+  `./js/ocr.js?v=${VERSION}`,
+  `./js/lib/cloud.js?v=${VERSION}`,
+  `./js/features/push.js?v=${VERSION}`,
+  `./js/features/groups.js?v=${VERSION}`,
+  `./js/cloud/config.js?v=${VERSION}`,
+  `./js/cloud/client.js?v=${VERSION}`,
+  `./js/ui.js?v=${VERSION}`,
+  `./js/lib/countdown.js?v=${VERSION}`,
+  `./js/lib/focus.js?v=${VERSION}`,
+  `./js/lib/grades.js?v=${VERSION}`,
+  `./js/lib/ics-export.js?v=${VERSION}`,
+  `./js/lib/pack.js?v=${VERSION}`,
+  `./js/lib/question-import.js?v=${VERSION}`,
+  `./js/lib/report.js?v=${VERSION}`,
+  `./js/lib/review.js?v=${VERSION}`,
+  `./js/lib/timetable.js?v=${VERSION}`,
+  `./js/features/exams.js?v=${VERSION}`,
+  `./js/features/focus.js?v=${VERSION}`,
+  `./js/features/grades.js?v=${VERSION}`,
+  `./js/features/index.js?v=${VERSION}`,
+  `./js/features/notes.js?v=${VERSION}`,
+  `./js/features/reminders.js?v=${VERSION}`,
+  `./js/features/report.js?v=${VERSION}`,
+  `./js/features/schedule.js?v=${VERSION}`,
+  `./js/features/share.js?v=${VERSION}`,
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
@@ -94,24 +95,18 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static files: stale-while-revalidate — answer from cache instantly, refresh in background
-  // so an unversioned module can never stay stale for more than one load.
+  // Static files: network first, cache as offline fallback. Online, every load gets the
+  // files of one single release, so a new app.js can never run with an old store.js.
   if (!CACHEABLE.test(url.pathname)) return;
   e.respondWith(
-    caches.open(CACHE).then(async cache => {
-      const cached = await cache.match(request);
-      const network = fetch(request)
+    caches.open(CACHE).then(cache =>
+      fetch(request, { cache: 'no-cache' })
         .then(response => {
           if (response.ok) cache.put(request, response.clone());
           return response;
         })
-        .catch(() => cached);
-      if (cached) {
-        e.waitUntil(network);
-        return cached;
-      }
-      return network;
-    }),
+        .catch(async () => (await cache.match(request)) || Response.error()),
+    ),
   );
 });
 
