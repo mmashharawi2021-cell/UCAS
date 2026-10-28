@@ -1,5 +1,15 @@
 # Changelog — UCAS Academic Bridge
 
+## v1.3.0 — Premium UI 2.0 (29 Oct 2026)
+
+- Rebuild the home experience with a prominent editorial study hero, actual resource-completion ring, prominent shortcuts, structured priorities, courses and activity feeds.
+- Redesign course cards, course library, summary and responsive layout with instant local course filtering.
+- Rebuild Gemini course tab into a study studio: source controls, summary/test actions, example prompts, accessible chat composer and guest onboarding.
+- Preserve explicit consent before cloud requests, local-first data handling, existing course navigation and academic workflows.
+- Add a separate versioned Premium design stylesheet to the PWA offline shell and expand mobile/browser regression tests.
+
+This is a substantial visible UI redesign, not a claim of completed production security/load auditing.
+
 ## v1.2.0 — Premium foundation (28 Oct 2026)
 
 - Added a live dashboard with next assignment, upcoming exam, resume-course action and real source progress.

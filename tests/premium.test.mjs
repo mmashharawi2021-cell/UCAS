@@ -29,3 +29,19 @@ test('privacy disclosures describe optional Supabase and Gemini', () => {
   assert.match(app, /Supabase/);
   assert.doesNotMatch(read('README.md'), /No AI provider integration/);
 });
+
+test('Premium Studio 2.0 uses accessible course filtering and AI workspace', () => {
+  const app = read('js/app.js');
+  const ai = read('js/features/ai.js');
+  const html = read('index.html');
+  const sw = read('sw.js');
+  assert.match(app, /id="premium-hero-title"/);
+  assert.match(app, /id="course-filter"/);
+  assert.match(app, /data-course-searchable/);
+  assert.match(app, /addEventListener\('input'/);
+  assert.match(ai, /ai-studio-layout/);
+  assert.match(ai, /ai-cloud-consent/);
+  assert.match(ai, /ai-starter-grid/);
+  assert.match(html, /premium-v2\.css\?v=1\.3\.0/);
+  assert.match(sw, /premium-v2\.css/);
+});
