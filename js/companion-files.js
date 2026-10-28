@@ -11,19 +11,30 @@ const SHA = /^[a-f0-9]{64}$/;
 export function validateFileCatalog(files) {
   if (!Array.isArray(files) || files.length > 1200) throw Error('عدد ملفات غير صالح');
   const used = new Set();
-  return files.filter(f => {
-    if (!f || !UUID.test(f.id || '') || used.has(f.id) ||
+  return files
+    .filter(f => {
+      if (
+        !f ||
+        !UUID.test(f.id || '') ||
+        used.has(f.id) ||
         !/^\d{1,12}$/.test(String(f.courseId || '')) ||
         !SHA.test(f.sourceKey || '') ||
-        !String(f.name || '').trim() || String(f.name).length > 180 ||
-        String(f.module || '').length > 120) return false;
-    used.add(f.id);
-    return true;
-  }).map(f => ({
-    id: f.id, courseId: String(f.courseId), sourceKey: f.sourceKey,
-    name: f.name, module: f.module || 'مصادر Moodle',
-    courseTitle: String(f.courseTitle || '').slice(0, 150),
-  }));
+        !String(f.name || '').trim() ||
+        String(f.name).length > 180 ||
+        String(f.module || '').length > 120
+      )
+        return false;
+      used.add(f.id);
+      return true;
+    })
+    .map(f => ({
+      id: f.id,
+      courseId: String(f.courseId),
+      sourceKey: f.sourceKey,
+      name: f.name,
+      module: f.module || 'مصادر Moodle',
+      courseTitle: String(f.courseTitle || '').slice(0, 150),
+    }));
 }
 
 function fromBase64(raw) {
@@ -39,9 +50,13 @@ export async function downloadCompanionFile(file, onProgress = () => {}, cancell
   try {
     if (cancelled()) throw Error('تم إيقاف نقل الملفات');
     opened = await companionRequest('FILE_OPEN', { fileId: file.id });
-    if (opened.size < 1 || opened.size > MAX_COMPANION_FILE_BYTES ||
-        !Number.isSafeInteger(opened.size) ||
-        opened.sourceKey !== file.sourceKey || opened.courseId !== file.courseId)
+    if (
+      opened.size < 1 ||
+      opened.size > MAX_COMPANION_FILE_BYTES ||
+      !Number.isSafeInteger(opened.size) ||
+      opened.sourceKey !== file.sourceKey ||
+      opened.courseId !== file.courseId
+    )
       throw Error('بيانات الملف مختلفة عن القائمة، أعد فحص المساق');
     const name = String(opened.name || file.name).trim();
     if (!EXT.test(name)) throw Error('صيغة الملف غير مدعومة');
@@ -50,23 +65,34 @@ export async function downloadCompanionFile(file, onProgress = () => {}, cancell
     while (offset < opened.size) {
       if (cancelled()) throw Error('تم إيقاف نقل الملفات');
       const packet = await companionRequest('FILE_CHUNK', {
-        fileId: file.id, sessionId: opened.sessionId, offset,
+        fileId: file.id,
+        sessionId: opened.sessionId,
+        offset,
       });
       const chunk = fromBase64(packet.base64);
-      if (packet.offset !== offset || !chunk.byteLength ||
-          chunk.byteLength !== packet.count ||
-          chunk.byteLength > 96 * 1024 || offset + chunk.byteLength > opened.size)
+      if (
+        packet.offset !== offset ||
+        !chunk.byteLength ||
+        chunk.byteLength !== packet.count ||
+        chunk.byteLength > 96 * 1024 ||
+        offset + chunk.byteLength > opened.size
+      )
         throw Error('بيانات جزء الملف غير متطابقة');
       chunks.push(chunk);
       offset += chunk.byteLength;
       onProgress(offset, opened.size);
     }
-    return { blob: new Blob(chunks, { type: opened.mime || 'application/octet-stream' }),
-      size: opened.size, name, mime: opened.mime || 'application/octet-stream' };
+    return {
+      blob: new Blob(chunks, { type: opened.mime || 'application/octet-stream' }),
+      size: opened.size,
+      name,
+      mime: opened.mime || 'application/octet-stream',
+    };
   } finally {
     if (opened?.sessionId)
       await companionRequest('FILE_CLOSE', {
-        fileId: file.id, sessionId: opened.sessionId,
+        fileId: file.id,
+        sessionId: opened.sessionId,
       }).catch(() => {});
   }
 }
@@ -77,9 +103,20 @@ export async function transferCompanionFiles(files, onProgress, cancelled = () =
   await requestPersistence();
   const courses = await all('courses');
   const resources = await all('resources');
-  const summary = { total: list.length, added: 0, updated: 0, unchanged: 0, failed: 0, stopped: false, errors: [] };
+  const summary = {
+    total: list.length,
+    added: 0,
+    updated: 0,
+    unchanged: 0,
+    failed: 0,
+    stopped: false,
+    errors: [],
+  };
   for (let i = 0; i < list.length; i++) {
-    if (cancelled()) { summary.stopped = true; break; }
+    if (cancelled()) {
+      summary.stopped = true;
+      break;
+    }
     const file = list[i];
     const course = courses.find(c => String(c.moodleId || '') === file.courseId);
     if (!course) {
@@ -90,24 +127,30 @@ export async function transferCompanionFiles(files, onProgress, cancelled = () =
     let lastPercent = -1;
     try {
       onProgress({ index: i + 1, total: list.length, name: file.name, percent: 0 });
-      const received = await downloadCompanionFile(file, (bytes, size) => {
-        const percent = Math.round(bytes / size * 100);
-        if (percent !== lastPercent && (percent === 100 || percent - lastPercent >= 5)) {
-          lastPercent = percent;
-          onProgress({ index: i + 1, total: list.length, name: file.name, percent });
-        }
-      }, cancelled);
+      const received = await downloadCompanionFile(
+        file,
+        (bytes, size) => {
+          const percent = Math.round((bytes / size) * 100);
+          if (percent !== lastPercent && (percent === 100 || percent - lastPercent >= 5)) {
+            lastPercent = percent;
+            onProgress({ index: i + 1, total: list.length, name: file.name, percent });
+          }
+        },
+        cancelled,
+      );
       const used = await storageStatus();
-      if (used.quota && used.usage != null &&
-          used.usage + received.size > used.quota * 0.95)
+      if (used.quota && used.usage != null && used.usage + received.size > used.quota * 0.95)
         throw Error('المساحة المتاحة في المتصفح غير كافية؛ احتفظ بنسخة احتياطية أولًا');
       const buf = await received.blob.arrayBuffer();
       const digest = await crypto.subtle.digest('SHA-256', buf);
-      const hash = [...new Uint8Array(digest)]
-        .map(v => v.toString(16).padStart(2, '0')).join('');
-      let existing = resources.find(r => r.courseId === course.id &&
-        r.origin === 'moodle-companion-file' && r.sourceKey === file.sourceKey);
-      if (existing?.hash === hash && await getFile(existing.id)) {
+      const hash = [...new Uint8Array(digest)].map(v => v.toString(16).padStart(2, '0')).join('');
+      let existing = resources.find(
+        r =>
+          r.courseId === course.id &&
+          r.origin === 'moodle-companion-file' &&
+          r.sourceKey === file.sourceKey,
+      );
+      if (existing?.hash === hash && (await getFile(existing.id))) {
         summary.unchanged++;
         continue;
       }
@@ -130,9 +173,15 @@ export async function transferCompanionFiles(files, onProgress, cancelled = () =
       };
       await put('resources', row);
       if (existing) summary.updated++;
-      else { resources.push({ ...row, blob: undefined }); summary.added++; }
+      else {
+        resources.push({ ...row, blob: undefined });
+        summary.added++;
+      }
     } catch (err) {
-      if (cancelled()) { summary.stopped = true; break; }
+      if (cancelled()) {
+        summary.stopped = true;
+        break;
+      }
       summary.failed++;
       if (summary.errors.length < 30)
         summary.errors.push(file.name + ': ' + (err?.message || 'تعذر التحميل'));
