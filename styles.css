@@ -1160,7 +1160,7 @@ small {
     left: 0;
     right: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     background: var(--surface);
     border-top: 1px solid var(--line);
     height: 73px;
@@ -1988,4 +1988,555 @@ body,
   background: #3a2f17;
   color: #f1d9a6;
   border-color: #5c4a22;
+}
+
+/* ===== v0.9 — student features ===== */
+.toggle-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.course-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Home widgets */
+.home-widgets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 15px;
+  margin: -12px 0 28px;
+}
+.widget {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.widget-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.widget-head h3 {
+  margin: 0;
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.widget-figure {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy);
+}
+.widget p {
+  margin: 0;
+}
+.widget .outline-btn,
+.widget .subtle-btn {
+  justify-self: start;
+}
+.mini-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.mini-row:last-child {
+  border-bottom: 0;
+}
+.mini-row.done {
+  opacity: 0.55;
+}
+.mini-time {
+  font-weight: 700;
+  direction: ltr;
+  min-width: 42px;
+}
+.urgency-urgent {
+  border-color: var(--danger);
+}
+.urgency-soon {
+  border-color: #d9a441;
+}
+
+/* Timetable */
+.timetable {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.day-column {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.day-column.is-today {
+  border-color: var(--navy-light);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--navy-light) 25%, transparent);
+}
+.day-column h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.day-empty {
+  margin: 0;
+}
+.slot-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--soft);
+  margin-bottom: 8px;
+}
+.slot-card h4 {
+  margin: 0 0 3px;
+  font-size: 13px;
+}
+.slot-card p {
+  margin: 0 0 4px;
+}
+.slot-time {
+  display: grid;
+  text-align: center;
+  font-size: 12px;
+  direction: ltr;
+  min-width: 44px;
+}
+.slot-time span {
+  color: var(--muted);
+}
+.slot-card .row-actions {
+  flex-wrap: nowrap;
+}
+
+/* Notes */
+.notes-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.notes-toolbar .input {
+  flex: 1 1 220px;
+}
+.color-filter {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  padding: 0;
+  cursor: pointer;
+  display: inline-block;
+}
+.swatch.active,
+.swatch-pick input:checked + .swatch {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+.swatch-pick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.swatch-all {
+  background: linear-gradient(135deg, var(--surface) 50%, var(--soft) 50%);
+}
+.swatch-yellow,
+.note-yellow {
+  --note: #ffe58a;
+}
+.swatch-green,
+.note-green {
+  --note: #a8e6c1;
+}
+.swatch-blue,
+.note-blue {
+  --note: #a9cdf5;
+}
+.swatch-pink,
+.note-pink {
+  --note: #f6b8d1;
+}
+.swatch[class*='swatch-']:not(.swatch-all) {
+  background: var(--note);
+}
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.note-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-inline-start: 5px solid var(--note, var(--line));
+  border-radius: 14px;
+  padding: 14px;
+  min-width: 0;
+}
+.note-head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.note-head h4 {
+  margin: 0 0 3px;
+}
+.note-head p {
+  margin: 0;
+}
+.note-body {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+  max-height: 340px;
+  overflow: auto;
+}
+.note-body mark {
+  background: color-mix(in srgb, var(--note, #ffe58a) 70%, transparent);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+.note-body ul {
+  margin: 4px 0;
+  padding-inline-start: 18px;
+}
+
+/* Focus timer */
+.focus-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+.focus-panel {
+  text-align: center;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+.focus-panel.running.mode-focus {
+  border-color: var(--navy-light);
+}
+.focus-panel.running.mode-short,
+.focus-panel.running.mode-long {
+  border-color: var(--success);
+}
+.focus-modes {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.focus-clock {
+  font-size: clamp(56px, 14vw, 92px);
+  font-weight: 800;
+  letter-spacing: 2px;
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+  line-height: 1.1;
+}
+.focus-course {
+  margin: 0;
+  min-height: 18px;
+}
+.focus-select {
+  width: min(320px, 100%);
+}
+.focus-controls {
+  justify-content: center;
+}
+.big-btn {
+  min-width: 150px;
+  font-size: 15px;
+}
+.stats-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+/* Exams */
+.exam-tabs {
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.exam-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-inline-start: 5px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.exam-card.urgency-urgent {
+  border-inline-start-color: var(--danger);
+}
+.exam-card.urgency-soon {
+  border-inline-start-color: #d9a441;
+}
+.exam-card.urgency-later {
+  border-inline-start-color: var(--success);
+}
+.exam-card.urgency-past {
+  opacity: 0.6;
+}
+.exam-card h4 {
+  margin: 0 0 3px;
+}
+.exam-card p {
+  margin: 0;
+}
+.exam-count {
+  min-width: 92px;
+  font-size: 13px;
+  color: var(--navy);
+}
+.exam-sticky {
+  position: sticky;
+  top: 70px;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.exam-sticky p {
+  margin: 2px 0 0;
+}
+.exam-timer {
+  font-size: 26px;
+  font-weight: 800;
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+}
+.exam-timer.low {
+  color: var(--danger);
+}
+.mock-question {
+  border: 1px solid var(--line);
+  margin: 0 0 12px;
+}
+.mock-question legend {
+  font-weight: 700;
+  line-height: 1.8;
+  padding: 0 6px;
+}
+.review-choice {
+  width: 100%;
+  text-align: start;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.review-choice.is-right {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+}
+.review-choice.is-wrong {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+.review-due {
+  justify-self: start;
+}
+.format-help {
+  margin: 4px 0 12px;
+  font-size: 12px;
+}
+.import-preview {
+  margin-top: 14px;
+}
+
+/* Grades */
+.grades-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 14px;
+}
+.grade-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.grade-head h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.grade-head p {
+  margin: 0;
+}
+.hours-field {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  width: 74px;
+}
+.grade-table {
+  margin: 12px 0 8px;
+  display: grid;
+  gap: 6px;
+}
+.grade-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)) 30px;
+  gap: 6px;
+  align-items: center;
+}
+.grade-header {
+  font-size: 11px;
+  color: var(--muted);
+}
+.grade-input {
+  padding: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.grade-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+.grade-foot label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  width: 140px;
+}
+.gpa-settings {
+  margin-bottom: 18px;
+}
+.gpa-settings h3 {
+  margin-top: 0;
+}
+
+/* Share */
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.share-grid h3 {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+@media (max-width: 700px) {
+  .focus-layout {
+    grid-template-columns: 1fr;
+  }
+  .home-widgets {
+    grid-template-columns: 1fr;
+    margin-top: -16px;
+  }
+  .course-detail-hero {
+    flex-wrap: wrap;
+  }
+  .exam-card {
+    flex-wrap: wrap;
+  }
+  .exam-count {
+    min-width: 0;
+    width: 100%;
+  }
+  .exam-sticky {
+    top: 62px;
+  }
+  .grades-grid {
+    grid-template-columns: 1fr;
+  }
+  .grade-foot label {
+    width: calc(50% - 5px);
+  }
+  .notes-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .sidebar,
+  .topbar,
+  .mobile-nav,
+  .ai-fab,
+  .row-actions,
+  .toast {
+    display: none !important;
+  }
+  .main-area,
+  .content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
+
+/* Compact icon actions inside cards must not take the full row on phones. */
+@media (max-width: 860px) {
+  .slot-card .row-actions,
+  .exam-card .row-actions {
+    width: auto;
+    flex-wrap: nowrap;
+  }
+  .slot-card .row-actions {
+    flex-direction: column;
+  }
+  .slot-card .grow,
+  .note-head .grow,
+  .exam-card .grow {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .note-head {
+    flex-wrap: wrap;
+  }
+  .note-head .row-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
