@@ -16,8 +16,11 @@ Static site, no build step. `index.html` loads `js/app.js` as an ES module; ever
 | `js/drive.js` | File validation for imports and Google Drive link normalisation. |
 | `js/ics.js` | Minimal single-event `.ics` parser. |
 | `js/ui.js` | Shared helpers: `esc()`, `ic()` and the icon set. |
-| `js/features/*.js` | One module per student feature (timetable, notes, focus timer, exams, grades, report, share, reminders), plugged in through `js/features/index.js`. |
+| `js/features/*.js` | One module per student feature including timetable, notes, exams, account sync, study groups, push and Gemini AI, plugged in through `js/features/index.js`. |
 | `js/lib/*.js` | Pure logic for those features (no DOM, no storage) — this is where unit tests point. |
+| `js/cloud/*.js` | Optional Supabase client and account-scoped sync of records and files. |
+| `supabase/functions/ai/index.ts` | Server-side Gemini gateway enforcing email allowlist and daily quota. |
+| `supabase/functions/push/index.ts` | Web push delivery. |
 | `js/boot.js` | Classic script loaded before the app: if the app fails to start after an update, clears old service workers/caches and reloads once. |
 | `sw.js` | Service worker: network-first for pages and static files (cache = offline fallback). Caches the app shell only. |
 
@@ -73,3 +76,7 @@ The version number lives in four places and a unit test enforces they match: `pa
 ## External code
 
 Only two third-party libraries, both loaded lazily from pinned CDN URLs and allowed by the CSP in `index.html`: PDF.js 4.10.38 (cdnjs) and Tesseract.js 7.0.0 (jsDelivr). Any new external origin must be added to the CSP deliberately.
+
+## Premium foundation
+
+The home dashboard reads already-loaded local state, without additional network requests. The mobile course rail is scoped to the home page. The AI tab requires per-course/per-source in-memory consent before sending selected lecture text or a question through the authenticated gateway. The consent is cleared on lecture/course change. See [PRIVACY_DATA_FLOWS.md](PRIVACY_DATA_FLOWS.md).

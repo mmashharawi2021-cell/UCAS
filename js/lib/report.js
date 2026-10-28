@@ -1,5 +1,5 @@
 // Weekly study report (pure). Works on the plain arrays kept in app state.
-import { inRange, minutesByCourse, weekRange, streakDays } from './focus.js?v=1.1.0';
+import { inRange, minutesByCourse, weekRange, streakDays } from './focus.js?v=1.2.0';
 
 export function weeklyReport(data, now = new Date(), offsetWeeks = 0) {
   const range = weekRange(now, offsetWeeks);

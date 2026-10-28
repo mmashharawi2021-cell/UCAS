@@ -1,5 +1,13 @@
 # Changelog — UCAS Academic Bridge
 
+## v1.2.0 — Premium foundation (28 Oct 2026)
+
+- Added a live dashboard with next assignment, upcoming exam, resume-course action and real source progress.
+- Added a compact touch-friendly mobile course rail and Premium design refinements.
+- Added explicit, source-specific opt-in before sending lecture text or questions to Gemini.
+- Corrected privacy copy and documented optional Supabase cloud processing and security boundaries.
+- Expanded unit and browser regression tests. Full Premium features and production security/load audits remain separate stages.
+
 ## v1.1.0 — Personal study (28 Oct 2026)
 
 - **Your Fall 2026/2027 plan pre-filled:** course codes (GISS 2307 …), credit hours (19) and 55 previously passed hours; codes shown on course cards. Written as defaults that never override a real edit.

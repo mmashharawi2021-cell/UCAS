@@ -1,8 +1,8 @@
 // AI lecture assistant (course tab "مساعد AI"). Runs through the `ai` edge function, so
 // the Gemini key never reaches the browser. Only the selected lecture's text is sent.
-import { getClient } from '../cloud/client.js?v=1.1.0';
-import { accountUser } from './account.js?v=1.1.0';
-import { formatNote } from './notes.js?v=1.1.0';
+import { getClient } from '../cloud/client.js?v=1.2.0';
+import { accountUser } from './account.js?v=1.2.0';
+import { formatNote } from './notes.js?v=1.2.0';
 
 const READABLE = /\.(txt|md|docx|pptx|pdf)$/i;
 const ERRORS = {
@@ -19,6 +19,7 @@ const s = {
   source: '',
   busy: false,
   error: '',
+  consent: false,
   kind: '', // summary | questions | answer
   text: '',
   questions: [],
@@ -33,6 +34,7 @@ function reset(courseId) {
     source: '',
     busy: false,
     error: '',
+    consent: false,
     kind: '',
     text: '',
     questions: [],
@@ -64,6 +66,11 @@ async function sourceText(ctx) {
 }
 
 async function runTask(ctx, task, extra = {}) {
+  if (!s.consent) {
+    s.error = 'يلزم الموافقة على مشاركة السؤال ونص المحاضرة المحددة قبل تشغيل المساعد.';
+    ctx.render();
+    return;
+  }
   s.busy = true;
   s.error = '';
   ctx.render();
@@ -112,7 +119,7 @@ function renderTab(ctx, course) {
   const files = state.resources.filter(
     r => r.courseId === course.id && r.kind === 'file' && READABLE.test(r.name || ''),
   );
-  return `<div class="page-intro"><div><h2>مساعد المحاضرات</h2><p>اختر محاضرة ثم اطلب ملخصًا أو أسئلة، أو اسأل سؤالًا. يُرسل نص المحاضرة المختارة فقط إلى Gemini عبر خادمك.</p></div></div><div class="panel ai-panel"><div class="field"><label for="ai-source">المحاضرة</label><select id="ai-source" class="select" data-act-change="ai-source"><option value="">${files.length ? 'اختر ملفًا' : 'لا ملفات نصية في هذا المساق'}</option>${files.map(r => `<option value="${esc(r.id)}" ${s.source === r.id ? 'selected' : ''}>${esc(r.module ? `${r.module} — ` : '')}${esc(r.name)}</option>`).join('')}</select></div><div class="row-actions"><button class="primary-btn" data-act="ai-summarize" ${s.busy ? 'disabled' : ''}>${ic('note', 15)} لخّص</button><button class="outline-btn" data-act="ai-questions" ${s.busy ? 'disabled' : ''}>${ic('quiz', 15)} ولّد أسئلة</button><select class="select ai-count" id="ai-count" aria-label="عدد الأسئلة">${[5, 8, 10, 15].map(n => `<option value="${n}" ${n === 8 ? 'selected' : ''}>${n} أسئلة</option>`).join('')}</select></div><form id="ai-ask-form" class="ai-ask"><textarea class="textarea" name="question" rows="2" maxlength="2000" required placeholder="اسأل عن مفهوم في المحاضرة أو في GIS عمومًا…" aria-label="سؤالك"></textarea><button class="outline-btn" type="submit" ${s.busy ? 'disabled' : ''}>${ic('bot', 15)} اسأل</button></form></div>${resultHTML(ctx)}`;
+  return `<div class="page-intro"><div><h2>مساعد المحاضرات</h2><p>اختر محاضرة ثم اطلب ملخصًا أو أسئلة، أو اسأل سؤالًا. يُرسل نص المحاضرة المختارة فقط إلى Gemini عبر خادمك.</p></div></div><div class="panel ai-panel"><div class="field"><label for="ai-source">المحاضرة</label><select id="ai-source" class="select" data-act-change="ai-source"><option value="">${files.length ? 'اختر ملفًا' : 'لا ملفات نصية في هذا المساق'}</option>${files.map(r => `<option value="${esc(r.id)}" ${s.source === r.id ? 'selected' : ''}>${esc(r.module ? `${r.module} — ` : '')}${esc(r.name)}</option>`).join('')}</select></div><label class="ai-consent"><input id="ai-cloud-consent" type="checkbox" data-act-change="ai-consent" ${s.consent ? 'checked' : ''} /><span>أوافق على إرسال سؤالي ونص المحاضرة التي اخترتها إلى خدمة Gemini عبر Supabase لمعالجتهما عند الضغط على أحد أزرار المساعد. لا تُرسل الملفات الأخرى.</span></label><div class="row-actions"><button class="primary-btn" data-act="ai-summarize" ${s.busy ? 'disabled' : ''}>${ic('note', 15)} لخّص</button><button class="outline-btn" data-act="ai-questions" ${s.busy ? 'disabled' : ''}>${ic('quiz', 15)} ولّد أسئلة</button><select class="select ai-count" id="ai-count" aria-label="عدد الأسئلة">${[5, 8, 10, 15].map(n => `<option value="${n}" ${n === 8 ? 'selected' : ''}>${n} أسئلة</option>`).join('')}</select></div><form id="ai-ask-form" class="ai-ask"><textarea class="textarea" name="question" rows="2" maxlength="2000" required placeholder="اسأل عن مفهوم في المحاضرة أو في GIS عمومًا…" aria-label="سؤالك"></textarea><button class="outline-btn" type="submit" ${s.busy ? 'disabled' : ''}>${ic('bot', 15)} اسأل</button></form></div>${resultHTML(ctx)}`;
 }
 
 export const courseTabs = [{ id: 'ai', label: 'مساعد AI', render: renderTab }];
@@ -157,8 +164,13 @@ export const actions = {
 };
 
 export const changes = {
+  'ai-consent': el => {
+    s.consent = el.checked;
+    s.error = '';
+  },
   'ai-source': (el, ctx) => {
     s.source = el.value;
+    s.consent = false;
     s.kind = '';
     s.error = '';
     ctx.render();

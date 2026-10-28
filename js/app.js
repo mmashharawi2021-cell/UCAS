@@ -11,18 +11,18 @@ import {
   requestPersistence,
   storageStatus,
   exportStores,
-} from './store.js?v=1.1.0';
-import { features } from './features/index.js?v=1.1.0';
-import { normalizeCode } from './lib/semester.js?v=1.1.0';
-import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.1.0';
+} from './store.js?v=1.2.0';
+import { features } from './features/index.js?v=1.2.0';
+import { normalizeCode } from './lib/semester.js?v=1.2.0';
+import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.2.0';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const BACKUP_REMINDER_DAYS = 7;
-import { esc, ic } from './ui.js?v=1.1.0';
-import { parseICS } from './ics.js?v=1.1.0';
-import { previewOffice } from './office.js?v=1.1.0';
-import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.1.0';
-import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.1.0';
+import { esc, ic } from './ui.js?v=1.2.0';
+import { parseICS } from './ics.js?v=1.2.0';
+import { previewOffice } from './office.js?v=1.2.0';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.2.0';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.2.0';
 import {
   loadCourseText,
   searchStudySources,
@@ -30,9 +30,9 @@ import {
   extractPassageCards,
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
-} from './study.js?v=1.1.0';
-import { extractPdfText } from './pdf-text.js?v=1.1.0';
-import { readPDFWithOCR } from './ocr.js?v=1.1.0';
+} from './study.js?v=1.2.0';
+import { extractPdfText } from './pdf-text.js?v=1.2.0';
+import { readPDFWithOCR } from './ocr.js?v=1.2.0';
 
 const titles = {
   home: 'الرئيسية',
@@ -308,7 +308,7 @@ function layout(content) {
     )
     .join(
       '',
-    )}</nav><div class="nav-footer">${ic('shield', 15)}<br>بياناتك محفوظة على هذا الجهاز<br>لا يتطلب الموقع تسجيل دخول</div></aside>
+    )}</nav><div class="nav-footer">${ic('shield', 15)}<br>البيانات الدراسية محليًا افتراضيًا<br>الخدمات السحابية اختيارية</div></aside>
 ${state.mobileMenu ? `<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>` : ''}
 <div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS Academic Bridge</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
     { id: 'home', icon: 'home', label: 'الرئيسية' },
@@ -396,6 +396,31 @@ function storagePanel() {
   const last = lastBackupAt();
   return `<div class="panel storage-panel"><h2>حماية البيانات والمساحة</h2><p class="muted tiny" style="margin:8px 0">${status}</p><div class="progress-track" role="progressbar" aria-label="المساحة المستخدمة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div><p class="muted tiny" style="margin:8px 0 14px">المستخدم: <bdi dir="ltr">${formatBytes(st.usage)}</bdi> من <bdi dir="ltr">${formatBytes(st.quota)}</bdi> متاحة للموقع${last ? ` · آخر نسخة احتياطية: ${esc(new Date(last).toLocaleString('ar'))}` : ' · لا توجد نسخة احتياطية بعد'}</p>${st.supported && !st.persisted ? `<button class="outline-btn" data-action="persist-storage">${ic('check')} طلب تخزين دائم</button>` : ''}</div>`;
 }
+function premiumOverview() {
+  const nextTask = pending()
+    .filter(t => t.due && Number.isFinite(new Date(t.due).getTime()))
+    .sort((a, b) => a.due.localeCompare(b.due))[0];
+  const nextExam = state.exams
+    .filter(e => e.date && new Date(e.date).getTime() >= Date.now())
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+  const latest = state.resources
+    .filter(r => r.courseId)
+    .slice()
+    .sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')))[0];
+  const focusCourse = state.courses.find(c => c.id === latest?.courseId) || state.courses[0];
+  const total = state.resources.length;
+  const complete = state.resources.filter(r => r.completed).length;
+  const completion = total ? Math.round((complete / total) * 100) : 0;
+  return `<section class="premium-focus" aria-labelledby="premium-focus-title">
+    <div class="premium-focus-head"><div><span class="premium-kicker">STUDY WORKSPACE</span><h2 id="premium-focus-title">مساحة الدراسة اليوم</h2><p>خطوات عملية من بياناتك المسجلة داخل المنصة</p></div><span class="premium-edition">PREMIUM</span></div>
+    <div class="premium-focus-grid">
+      <article class="premium-focus-card"><div class="premium-card-title">${ic('calendar')} <span>التكليف التالي</span></div><h3>${nextTask ? esc(nextTask.title) : 'لا يوجد تكليف مجدول'}</h3><p>${nextTask ? `${esc(courseName(nextTask.courseId))} · ${fmtDate(nextTask.due)}` : 'أضف موعدًا لتظهر أولوياتك هنا'}</p><button class="premium-text-link" data-go="tasks">فتح التكليفات ${ic('chevron', 14)}</button></article>
+      <article class="premium-focus-card"><div class="premium-card-title">${ic('award')} <span>الامتحان القادم</span></div><h3>${nextExam ? esc(nextExam.title) : 'لا يوجد امتحان قادم'}</h3><p>${nextExam ? `${esc(courseName(nextExam.courseId))} · ${fmtDate(nextExam.date)}` : 'أضف مواعيد الامتحانات لتخطيط المراجعة'}</p><button class="premium-text-link" data-go="exams">مركز الامتحانات ${ic('chevron', 14)}</button></article>
+      <article class="premium-focus-card premium-resume"><div class="premium-card-title">${ic('book')} <span>واصل التعلم</span></div><h3>${focusCourse ? esc(focusCourse.title) : 'ابدأ بإضافة مساق'}</h3><p>${focusCourse ? 'افتح المحاضرات والملاحظات والمساعد الدراسي لهذا المساق' : 'نظم مساقاتك ومحاضراتك من مكان واحد'}</p><button class="premium-text-link" ${focusCourse ? `data-course="${esc(focusCourse.id)}"` : 'data-go="courses"'}>متابعة الدراسة ${ic('chevron', 14)}</button></article>
+    </div>
+    <div class="premium-progress"><div><strong>إنجاز المصادر الدراسية</strong><span>${complete} من ${total} · ${completion}%</span></div><div class="progress-track" role="progressbar" aria-label="إنجاز المصادر الدراسية" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${completion}"><div style="width:${completion}%"></div></div></div>
+  </section>`;
+}
 function homePage() {
   const upcoming = pending()
     .filter(t => t.due)
@@ -406,8 +431,8 @@ function homePage() {
     .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
     .slice(0, 3);
   return `<div class="hero"><div><div class="eyebrow">لوحة التحكم الأكاديمية</div><h1>كل دراستك في مكان واحد</h1><p>نظّم مساقاتك، تابع تكليفاتك، واستعد لاختباراتك من لوحة واحدة</p><div class="hero-actions"><button class="primary-btn" data-go="import">${ic('upload')} استيراد مصادر جديدة</button><button class="outline-btn" data-go="quizzes">${ic('quiz')} اختبار تدريبي</button></div></div><div class="hero-art"><svg viewBox="0 0 120 120"><path d="M15 34 60 12l45 22-45 22zM28 47v28c18 19 46 19 64 0V47M105 36v36M23 94h74"/></svg></div></div>
-${backupReminder()}<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>${features.homeWidgets(ctx)}
-${sectionHead('مساقاتي', `<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron', 14)}</button>`)}<div class="course-grid">${state.courses.slice(0, 6).map(courseCard).join('')}</div>
+${backupReminder()}${premiumOverview()}<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>${features.homeWidgets(ctx)}
+${sectionHead('مساقاتي', `<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron', 14)}</button>`)}<div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('')}</div>
 <div class="split-layout"><div>${sectionHead('المواعيد والتكليفات', `<button class="link" data-go="tasks">عرض التقويم</button>`)}<div class="panel">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف تكليفًا أو استورد ملف تقويم ICS', 'calendar')}</div></div><div>${sectionHead('التقويم الأسبوعي')}
 <div class="panel">${weekly()}</div></div></div>
 ${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'ابدأ بإضافة أول ملف PDF أو رابط محاضرة', 'folder')}</div>
@@ -678,7 +703,7 @@ function settingsPage() {
     )
     .join(
       '',
-    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — أدوات الدراسة على جهازك، ومجموعات الدراسة والإشعارات عبر الإنترنت (اختيارية).</div></div>`;
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>تعمل الوظائف الدراسية الأساسية محليًا دون حساب. تحفظ الملفات والملاحظات أولًا في متصفح هذا الجهاز.</li><li>عند تفعيل المزامنة بحساب بريد إلكتروني، تُرفع بيانات الدراسة والملفات إلى مساحة سحابية خاصة بالحساب عبر Supabase.</li><li>عند استخدام مجموعات الدراسة، تُرسل أسماء المجموعات والاسم المستعار والرسائل إلى Supabase لعرضها لأعضاء المجموعة.</li><li>عند استخدام مساعد Gemini وبعد موافقتك، يُرسل نص المحاضرة المحددة وسؤالك إلى الخدمة لمعالجته؛ لا تُرسل الملفات تلقائيًا بمجرد استيرادها.</li><li>لا يطلب الموقع كلمة مرور Moodle ولا ينفذ مزامنة مباشرة معه. النسخ الاحتياطية JSON غير مشفرة حاليًا؛ احفظها بمكان آمن.</li><li>عند مسح بيانات الموقع قد تفقد البيانات المحلية. راجع <a href="https://github.com/mmashharawi2021-cell/UCAS/blob/main/docs/PRIVACY_DATA_FLOWS.md" target="_blank" rel="noopener noreferrer">شرح تدفقات البيانات</a> قبل تفعيل الخدمات السحابية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — الدراسة المحلية افتراضيًا، والمزامنة والمجموعات وميزات AI خدمات سحابية اختيارية.</div></div>`;
 }
 function searchPage() {
   const q = state.query.trim().toLowerCase();
@@ -1525,7 +1550,7 @@ async function handleClick(e) {
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
         const names = exportStores;
-        const { replaceAll } = await import('./store.js?v=1.1.0');
+        const { replaceAll } = await import('./store.js?v=1.2.0');
         for (const s of names) await replaceAll(s, []);
         await initialize();
         await refresh();

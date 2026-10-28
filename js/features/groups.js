@@ -1,7 +1,7 @@
 // Study groups with live chat (online, optional). Accounts are nickname-only
 // (Supabase anonymous sign-in). Only the nickname, group names and messages are stored
 // on the server; local study data never leaves the device through this feature.
-import { ensureSession, hasStoredSession, run, CloudError } from '../cloud/client.js?v=1.1.0';
+import { ensureSession, hasStoredSession, run, CloudError } from '../cloud/client.js?v=1.2.0';
 import {
   validateNickname,
   normalizeInviteCode,
@@ -10,7 +10,7 @@ import {
   readLaunchParams,
   validateMessage,
   messageTime,
-} from '../lib/cloud.js?v=1.1.0';
+} from '../lib/cloud.js?v=1.2.0';
 
 const CONSENT_KEY = 'ucas-cloud-consent';
 const PAGE = 50;
@@ -165,7 +165,7 @@ function messageHTML(ctx, m) {
 
 function introView(ctx) {
   const { ic, intro } = ctx;
-  return `${intro('مجموعات الدراسة', 'ذاكر مع زملائك: أنشئ مجموعة لمساق وادعُهم برمز أو رابط، وتحدثوا مباشرة')}<div class="panel groups-intro"><h3>${ic('users', 18)} قبل أن تبدأ</h3><ul class="bullet-list"><li>هذه الميزة الوحيدة التي تتصل بخادم (Supabase). تحتاج إنترنت.</li><li>لا يُطلب بريد أو رقم هاتف؛ تختار <strong>اسمًا مستعارًا</strong> فقط.</li><li>يُحفظ على الخادم: اسمك المستعار، أسماء المجموعات، والرسائل. ملفاتك وعلاماتك وملاحظاتك تبقى على جهازك.</li><li>لا يرى الرسائل إلا أعضاء المجموعة. لا ترسل بيانات شخصية أو كلمات مرور.</li><li>حسابك مرتبط بهذا المتصفح: إذا مسحت بيانات الموقع تفقد الوصول للمجموعات (يمكنك الانضمام مجددًا بالرمز).</li></ul><button class="primary-btn" data-act="groups-connect">${ic('check')} موافق، ابدأ</button></div>`;
+  return `${intro('مجموعات الدراسة', 'ذاكر مع زملائك: أنشئ مجموعة لمساق وادعُهم برمز أو رابط، وتحدثوا مباشرة')}<div class="panel groups-intro"><h3>${ic('users', 18)} قبل أن تبدأ</h3><ul class="bullet-list"><li>تتصل هذه الميزة بخادم Supabase وتحتاج إنترنت. المزامنة ومساعد AI خدمات سحابية اختيارية أخرى.</li><li>لا يُطلب بريد أو رقم هاتف؛ تختار <strong>اسمًا مستعارًا</strong> فقط.</li><li>يُحفظ على الخادم: اسمك المستعار، أسماء المجموعات، والرسائل. ملفاتك وعلاماتك وملاحظاتك تبقى على جهازك.</li><li>لا يرى الرسائل إلا أعضاء المجموعة. لا ترسل بيانات شخصية أو كلمات مرور.</li><li>حسابك مرتبط بهذا المتصفح: إذا مسحت بيانات الموقع تفقد الوصول للمجموعات (يمكنك الانضمام مجددًا بالرمز).</li></ul><button class="primary-btn" data-act="groups-connect">${ic('check')} موافق، ابدأ</button></div>`;
 }
 
 function nicknameView(ctx) {

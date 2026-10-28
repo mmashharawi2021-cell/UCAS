@@ -1,8 +1,8 @@
 // Email account for syncing the student's own devices (phone ↔ laptop).
 // Sign-in is a magic link sent by Supabase; nothing else is needed on the device.
-import { getClient, hasStoredSession, CloudError } from '../cloud/client.js?v=1.1.0';
-import { syncNow, syncUser, lastSyncedAt } from '../cloud/sync.js?v=1.1.0';
-import { friendlyError } from '../lib/cloud.js?v=1.1.0';
+import { getClient, hasStoredSession, CloudError } from '../cloud/client.js?v=1.2.0';
+import { syncNow, syncUser, lastSyncedAt } from '../cloud/sync.js?v=1.2.0';
+import { friendlyError } from '../lib/cloud.js?v=1.2.0';
 
 const s = { user: null, checked: false, busy: false, progress: '', sentTo: '', lastResult: null };
 let ctxRef = null;
