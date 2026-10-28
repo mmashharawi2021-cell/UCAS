@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeArabic,queryTerms,segmentText,searchStudySources,extractReviewCards,buildDefinitionQuiz,loadCourseText,formatChatGPTStudyPrompt} from '../js/study.js';
+import {normalizeArabic,queryTerms,segmentText,searchStudySources,extractReviewCards,extractPassageCards,buildDefinitionQuiz,loadCourseText,formatChatGPTStudyPrompt} from '../js/study.js';
 
 const docs=[{id:'a',name:'Lecture1.txt',module:'الوحدة الأولى',text:'إدارة المشاريع: عملية تخطيط الأنشطة والموارد بهدف تحقيق الأهداف.\nالرقابة: متابعة سير العمل ومقارنة النتائج بالخطة الأصلية.\nالتقييم: تحديد مدى تحقق أهداف المشروع ونتائجه الفعلية.\nالاستشعار عن بعد: جمع بيانات عن سطح الأرض دون تماس مباشر.\nنظم المعلومات الجغرافية: نظم لمعالجة وتحليل وتمثيل البيانات المكانية.\nقواعد البيانات: طريقة منظمة لحفظ البيانات واسترجاعها.'}];
 test('normalizes Arabic orthography for useful course retrieval',()=>{
@@ -44,4 +44,22 @@ test('clipboard prompt marks references and does not invent content',()=>{
  assert.ok(prompt.includes('Lecture1.txt'));
  assert.ok(prompt.includes('لا تختلق مراجع'));
  assert.ok(prompt.includes('وضح التقييم'));
+});
+
+test('narrative lectures produce honest passage flashcards with PDF page citations',()=>{
+ const material=[{id:'pdf-3',name:'RemoteSensing.pdf',module:'الوحدة الثانية',text:'',pages:[
+  {page:3,text:'Remote sensing collects observations of the Earth surface using sensors without physical contact, often from satellites or aircraft.'},
+  {page:4,text:'Satellite sensors measure electromagnetic radiation across different spectral bands to help distinguish surface materials and land cover.'}
+ ]}];
+ assert.equal(extractReviewCards(material).length,0);
+ const cards=extractPassageCards(material,5);
+ assert.equal(cards.length,2);
+ assert.deepEqual(cards.map(x=>x.page),[3,4]);
+ assert.ok(cards.every(x=>x.kind==='passage'&&x.source==='RemoteSensing.pdf'));
+ assert.ok(cards.every(x=>x.definition.length>=45));
+ assert.equal(buildDefinitionQuiz(cards).length,0,'passages must not silently become multiple-choice definitions');
+});
+test('empty or short study sources return no invented flashcards',()=>{
+ assert.deepEqual(extractPassageCards([{id:'x',name:'x.txt',text:'short'}]),[]);
+ assert.deepEqual(extractPassageCards([]),[]);
 });
