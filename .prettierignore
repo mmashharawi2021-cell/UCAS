@@ -1,3 +1,6 @@
 node_modules
 *.md
 package-lock.json
+
+# Compact standalone integration stylesheet (no third-party fonts/assets).
+moodle-connect.css

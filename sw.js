@@ -1,10 +1,15 @@
 // Service worker: caches the public app shell only — never user data.
 // Bump VERSION on every release (keep it equal to package.json "version").
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const CACHE = `ucas-bridge-shell-${VERSION}`;
 const SHELL = [
   './',
   './index.html',
+  './moodle-connect.html',
+  `./moodle-connect.css?v=${VERSION}`,
+  `./js/moodle-connect.js?v=${VERSION}`,
+  `./js/moodle-connect-core.js?v=${VERSION}`,
+  `./js/moodle-connect-config.js?v=${VERSION}`,
   `./js/boot.js?v=${VERSION}`,
   `./styles.css?v=${VERSION}`,
   `./mobile-ux.css?v=${VERSION}`,
@@ -88,16 +93,19 @@ self.addEventListener('fetch', e => {
 
   // Pages: network first so deployments show up immediately; offline → cached shell.
   if (request.mode === 'navigate') {
+    const page = url.pathname.endsWith('/moodle-connect.html')
+      ? './moodle-connect.html'
+      : './index.html';
     e.respondWith(
       fetch(request)
         .then(response => {
           if (response.ok) {
             const copy = response.clone();
-            caches.open(CACHE).then(cache => cache.put('./index.html', copy));
+            caches.open(CACHE).then(cache => cache.put(page, copy));
           }
           return response;
         })
-        .catch(() => caches.match('./index.html')),
+        .catch(() => caches.match(page)),
     );
     return;
   }

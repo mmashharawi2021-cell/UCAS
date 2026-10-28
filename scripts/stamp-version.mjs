@@ -23,7 +23,7 @@ for (const file of walk('js')) {
     changed++;
   }
 }
-for (const file of ['index.html', 'sw.js']) {
+for (const file of ['index.html', 'moodle-connect.html', 'sw.js']) {
   const src = readFileSync(file, 'utf8');
   const out =
     file === 'sw.js'

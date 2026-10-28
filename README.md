@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v1.4.0
+# UCAS Academic Bridge — v1.5.0
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
@@ -34,6 +34,12 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 
 - A redesigned study home with a real completion ring and practical navigation, redesigned course library with instant filtering, and a Gemini study workspace inside each course.
 - Styles in `premium-v2.css` are versioned, cached for offline use and layered above the original `styles.css`.
+
+## Moodle Connect (official OAuth, gated)
+
+- Dedicated OAuth Authorization Code + PKCE connector with a student-controlled session, read-only course import and no passwords stored.
+- The connection is **not active** without UCAS Moodle administrator registration, scopes, endpoint configuration and CORS approval. Existing manual imports continue working.
+- [Activation guide](docs/MOODLE_CONNECT.md).
 
 ## Features
 

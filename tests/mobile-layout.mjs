@@ -56,6 +56,10 @@ try {
     }
     await page.evaluate(() => document.querySelector('[data-go="courses"]')?.click());
     await page.waitForSelector('.premium-library-grid');
+    await page.evaluate(() => document.querySelector('[data-go="import"]')?.click());
+    await page.waitForSelector('.moodle-connect-intro a[href="moodle-connect.html"]');
+    await page.evaluate(() => document.querySelector('[data-go="courses"]')?.click());
+    await page.waitForSelector('.premium-library-grid');
     assert.ok((await page.locator('.premium-library-grid .premium-course-card').count()) > 0);
     await page.fill('#course-filter', 'unlikely-course-search-zz');
     assert.equal(
