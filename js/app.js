@@ -200,7 +200,7 @@ async function startStudyDefinitionQuiz(){
  try{
   await loadStudyDocumentsForCurrentCourse();
   const questions=buildDefinitionQuiz(extractReviewCards(studySession.documents,24),8);
-  if(questions.length<4)return toast('تحتاج إلى 4 تعريفات على الأقل بصيغة «مصطلح: تعريف» لإنشاء اختبار.',true);
+  if(questions.length<4){const slot=document.getElementById('study-results');if(slot)appendStudyNotice(slot,'لا يمكن إعداد اختبار اختيار من متعدد موثوق من النصوص الحالية؛ يتطلب 4 تعريفات صريحة على الأقل. يمكنك عرض بطاقات المقتطفات والبحث في المحاضرة بدلًا من ذلك.');return toast('تحتاج إلى 4 تعريفات صريحة على الأقل لإنشاء اختبار الاختيار من متعدد.',true);}
   if(quizDraftValid(state.quizDraft)&&!confirm('سيتم استبدال مسودة اختبارك الحالي. هل تتابع؟'))return;
   state.activeQuiz={courseId:state.courseId,title:'مراجعة تعريفات المساق — '+courseName(state.courseId),questions,pos:0,answers:{}};
   state.page='quizzes';document.querySelector('.modal-backdrop')?.remove();await saveQuizDraft();render();scrollTo(0,0);
