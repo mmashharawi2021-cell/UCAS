@@ -13,23 +13,30 @@ export function companionRequest(type, enabled = false) {
       else resolve(value);
     };
     const receive = event => {
-      if (event.source !== window || event.origin !== location.origin ||
-          event.data?.source !== 'UCAS_COMPANION_EXTENSION' ||
-          event.data.requestId !== requestId) return;
-      if (!event.data.result?.ok) finish(Error(event.data.result?.error || 'تعذر الاتصال بإضافة Chrome'));
+      if (
+        event.source !== window ||
+        event.origin !== location.origin ||
+        event.data?.source !== 'UCAS_COMPANION_EXTENSION' ||
+        event.data.requestId !== requestId
+      )
+        return;
+      if (!event.data.result?.ok)
+        finish(Error(event.data.result?.error || 'تعذر الاتصال بإضافة Chrome'));
       else finish(null, event.data.result);
     };
     const timeout = setTimeout(
-      () => finish(Error(type === 'SCAN'
-        ? 'تعذر إكمال فحص Moodle، تأكد من اتصال الإنترنت وجلسة الجامعة.'
-        : 'لم تُكتشف إضافة UCAS Moodle Companion. ثبّتها على Chrome للكمبيوتر ثم حدّث الصفحة.')),
+      () =>
+        finish(
+          Error(
+            type === 'SCAN'
+              ? 'تعذر إكمال فحص Moodle، تأكد من اتصال الإنترنت وجلسة الجامعة.'
+              : 'لم تُكتشف إضافة UCAS Moodle Companion. ثبّتها على Chrome للكمبيوتر ثم حدّث الصفحة.',
+          ),
+        ),
       type === 'SCAN' ? 190000 : 9000,
     );
     window.addEventListener('message', receive);
-    window.postMessage(
-      { source: 'UCAS_COMPANION_WEB', requestId, type, enabled },
-      location.origin,
-    );
+    window.postMessage({ source: 'UCAS_COMPANION_WEB', requestId, type, enabled }, location.origin);
   });
 }
 
@@ -55,8 +62,13 @@ function validCourseURL(value, id) {
   }
 }
 export async function importCompanionSnapshot(snapshot) {
-  if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.courses) ||
-      snapshot.courses.length > 150) throw Error('البيانات المستلمة من الإضافة غير صالحة');
+  if (
+    !snapshot ||
+    snapshot.version !== 1 ||
+    !Array.isArray(snapshot.courses) ||
+    snapshot.courses.length > 150
+  )
+    throw Error('البيانات المستلمة من الإضافة غير صالحة');
   const courses = await all('courses');
   const resources = await all('resources');
   const tasks = await all('tasks');
@@ -64,13 +76,22 @@ export async function importCompanionSnapshot(snapshot) {
   const seenCourses = new Set();
   for (const remote of snapshot.courses) {
     const moodleId = String(remote?.id || '');
-    const title = String(remote?.title || '').trim().slice(0, 160);
-    if (!/^\d{1,12}$/.test(moodleId) || !title ||
-        !validCourseURL(remote?.url, moodleId) || seenCourses.has(moodleId)) continue;
+    const title = String(remote?.title || '')
+      .trim()
+      .slice(0, 160);
+    if (
+      !/^\d{1,12}$/.test(moodleId) ||
+      !title ||
+      !validCourseURL(remote?.url, moodleId) ||
+      seenCourses.has(moodleId)
+    )
+      continue;
     seenCourses.add(moodleId);
     stats.scanned++;
     const baseTitle = title.split(/\s+[-–]\s+/)[0].trim();
-    const code = String(remote?.code || '').trim().slice(0, 60);
+    const code = String(remote?.code || '')
+      .trim()
+      .slice(0, 60);
     let course = courses.find(c => c.moodleId === moodleId);
     if (!course) {
       course = courses.find(c => !c.moodleId && clean(c.title) === clean(baseTitle));
@@ -96,9 +117,14 @@ export async function importCompanionSnapshot(snapshot) {
     if (!Array.isArray(remote.activities)) continue;
     for (const activity of remote.activities.slice(0, 220)) {
       const url = safeMoodleActivityURL(activity?.url);
-      const name = String(activity?.title || '').trim().slice(0, 180);
+      const name = String(activity?.title || '')
+        .trim()
+        .slice(0, 180);
       if (!url || !name) continue;
-      const module = String(activity?.section || '').trim().slice(0, 120) || 'مصادر Moodle';
+      const module =
+        String(activity?.section || '')
+          .trim()
+          .slice(0, 120) || 'مصادر Moodle';
       if (!resources.some(r => r.courseId === course.id && r.url === url)) {
         const resource = {
           id: makeId(),
@@ -115,9 +141,14 @@ export async function importCompanionSnapshot(snapshot) {
         resources.push(resource);
         stats.resources++;
       }
-      if (activity.type === 'assign' &&
-          !tasks.some(t => t.courseId === course.id &&
-            (t.moodleActivityURL === url || clean(t.title) === clean(name)))) {
+      if (
+        activity.type === 'assign' &&
+        !tasks.some(
+          t =>
+            t.courseId === course.id &&
+            (t.moodleActivityURL === url || clean(t.title) === clean(name)),
+        )
+      ) {
         const task = {
           id: makeId(),
           title: name,
