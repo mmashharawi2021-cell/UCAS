@@ -9,18 +9,18 @@
 //   forms{}             formId → (form, ctx) — submit of <form id="formId">
 //   start(ctx)          called once after the first data load
 //   onQuizFinished(quiz, ctx) — after a practice quiz is saved
-import * as schedule from './schedule.js?v=1.4.0';
-import * as notes from './notes.js?v=1.4.0';
-import * as focus from './focus.js?v=1.4.0';
-import * as exams from './exams.js?v=1.4.0';
-import * as grades from './grades.js?v=1.4.0';
-import * as report from './report.js?v=1.4.0';
-import * as share from './share.js?v=1.4.0';
-import * as reminders from './reminders.js?v=1.4.0';
-import * as groups from './groups.js?v=1.4.0';
-import * as push from './push.js?v=1.4.0';
-import * as account from './account.js?v=1.4.0';
-import * as ai from './ai.js?v=1.4.0';
+import * as schedule from './schedule.js?v=1.5.0';
+import * as notes from './notes.js?v=1.5.0';
+import * as focus from './focus.js?v=1.5.0';
+import * as exams from './exams.js?v=1.5.0';
+import * as grades from './grades.js?v=1.5.0';
+import * as report from './report.js?v=1.5.0';
+import * as share from './share.js?v=1.5.0';
+import * as reminders from './reminders.js?v=1.5.0';
+import * as groups from './groups.js?v=1.5.0';
+import * as push from './push.js?v=1.5.0';
+import * as account from './account.js?v=1.5.0';
+import * as ai from './ai.js?v=1.5.0';
 
 const modules = [
   schedule,
