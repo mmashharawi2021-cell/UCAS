@@ -2,8 +2,13 @@
 import { all, put, makeId } from './store.js?v=1.6.0';
 import { safeMoodleActivityURL } from './moodle.js?v=1.6.0';
 
-export function companionRequest(type, enabled = false) {
-  if (!['SCAN', 'LAST', 'AUTO'].includes(type)) return Promise.reject(Error('عملية غير مدعومة'));
+export function companionRequest(type, options = false) {
+  if (!['SCAN', 'LAST', 'AUTO', 'FILE_SCAN', 'FILE_LIST', 'FILE_OPEN', 'FILE_CHUNK', 'FILE_CLOSE'].includes(type))
+    return Promise.reject(Error('عملية غير مدعومة'));
+  const args = options && typeof options === 'object' ? options : { enabled: options };
+  const timeoutMs = type === 'SCAN' ? 190000 :
+    type === 'FILE_SCAN' ? 290000 : type === 'FILE_OPEN' ? 75000 :
+      type === 'FILE_CHUNK' ? 30000 : 10000;
   const requestId = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     const finish = (error, value) => {
@@ -33,10 +38,12 @@ export function companionRequest(type, enabled = false) {
               : 'لم تُكتشف إضافة UCAS Moodle Companion. ثبّتها على Chrome للكمبيوتر ثم حدّث الصفحة.',
           ),
         ),
-      type === 'SCAN' ? 190000 : 9000,
+      timeoutMs,
     );
     window.addEventListener('message', receive);
-    window.postMessage({ source: 'UCAS_COMPANION_WEB', requestId, type, enabled }, location.origin);
+    window.postMessage({ source: 'UCAS_COMPANION_WEB', requestId, type,
+      enabled: args.enabled === true, fileId: args.fileId, sessionId: args.sessionId,
+      offset: args.offset }, location.origin);
   });
 }
 
