@@ -1376,12 +1376,14 @@ async function handleClick(e) {
         const type = d.action === 'companion-scan' ? 'SCAN' : 'LAST';
         // Confirm the extension exists before starting a longer authenticated scan.
         if (type === 'SCAN') await companionRequest('LAST');
-        state.companionStatus = type === 'SCAN'
-          ? 'جارٍ فحص المساقات واحدًا واحدًا من جلسة Moodle الرسمية…'
-          : 'جارٍ قراءة آخر بيانات محفوظة في الإضافة…';
+        state.companionStatus =
+          type === 'SCAN'
+            ? 'جارٍ فحص المساقات واحدًا واحدًا من جلسة Moodle الرسمية…'
+            : 'جارٍ قراءة آخر بيانات محفوظة في الإضافة…';
         render();
         const response = await companionRequest(type);
-        if (!response.snapshot) throw Error('لا يوجد فحص محفوظ بعد. استخدم «مزامنة من Moodle» أولًا.');
+        if (!response.snapshot)
+          throw Error('لا يوجد فحص محفوظ بعد. استخدم «مزامنة من Moodle» أولًا.');
         const result = await importCompanionSnapshot(response.snapshot);
         state.companionAuto = response.autoEnabled === true || state.companionAuto;
         state.companionStatus = `تم فحص ${result.scanned} مساق، أُضيف ${result.courses} مساق وربط ${result.linked} مساق، واستيراد ${result.resources} نشاط و${result.tasks} تكليف. ${result.failures ? `تعذر فحص ${result.failures} مساق بالكامل.` : ''}`;
