@@ -83,3 +83,22 @@ The website's GitHub Pages code is public. IndexedDB study notes stay locally in
 - In UCAS Academic Bridge, open **Moodle UCAS → Import course page**, select that file, review the extracted activities, choose the target course and import.
 - Only the HTML component is decoded in the browser. Raw MHT, embedded images, passwords and session tokens are **not** saved or uploaded. Activity links are limited to approved UCAS URLs with only numeric activity IDs.
 - Maximum MHT file: 25 MB, extracted HTML: 4 MB. This is a local manual import, not automatic Moodle syncing or access to protected attachments.
+
+
+## v0.5 — Google Drive-assisted study import (October 28, 2026)
+
+The central **Google Drive** tab is now usable in the browser without a UCAS account:
+- Open Google Drive in a separate official browser tab.
+- Select PDF/DOCX/PPTX/TXT/MD documents from the device's file picker. On supported Android devices, the system picker can show Google Drive as a source. If it is unavailable, first download the file from the Drive app.
+- Choose the UCAS course and module; import into IndexedDB, with SHA-256 duplicate checks and 30 files/35 MB per-file caps.
+- Paste a Google Drive or Google Docs/Slides/Sheets link; normalize it to a canonical HTTPS URL, strip query parameters and fragments, and store it as a course reference locally.
+- Existing local resource/quiz/task storage is unchanged; no new sign-in or paid API.
+
+**Limits**: This release does NOT browse a Drive account, auto-sync Drive folders, download private Drive files by URL, or connect to Moodle. True Google Picker/OAuth integration needs a configured Google Cloud project, restricted credentials and explicit user authorization. The Drive link stores a pointer, not the file content; users need their normal Google access to open it. Avoid storing shared links to sensitive materials in a shared browser profile.
+
+### Acceptance test on Android
+1. Open UCAS > مركز الاستيراد > Google Drive.
+2. Choose a PDF from Android Files (select Google Drive as the source if offered); select a course and import.
+3. Open the course and view the imported file.
+4. Open the same import form and re-import to confirm duplicate detection.
+5. Paste an allowed Google Drive file or Docs URL, save it in the course, then open it using the browser. File import and link saving remain completely separate.
