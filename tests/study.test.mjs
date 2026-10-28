@@ -63,3 +63,15 @@ test('empty or short study sources return no invented flashcards',()=>{
  assert.deepEqual(extractPassageCards([{id:'x',name:'x.txt',text:'short'}]),[]);
  assert.deepEqual(extractPassageCards([]),[]);
 });
+
+test('flashcards ignore numbered headings and fragmented PDF glyphs',()=>{
+ const docs=[{id:'a',name:'english.pdf',module:'remote sensing',text:[
+  '255: Very long numeric sequence is not a definition of a scientific term.',
+  'م ن ظ و م ة ج غ ر ا ف ي ة: هذه حروف عربية متقطعة يجب عدم اعتبارها مصطلحًا صحيحًا.',
+  'Gaussian filter: A filter applied in image processing to reduce high-frequency image noise.',
+  'Restoration: Image correction process that attempts to recover useful information from degraded imagery.'
+ ].join('\n')}];
+ const cards=extractReviewCards(docs,10);
+ assert.equal(cards.length,2,JSON.stringify(cards));
+ assert.deepEqual(cards.map(c=>c.term),['Gaussian filter','Restoration']);
+});
