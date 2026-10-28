@@ -1,5 +1,12 @@
 # Changelog — UCAS Academic Bridge
 
+## v1.5.0 — Moodle Connect integration foundation (29 Oct 2026)
+
+- Add a dedicated read-only Moodle Connect page with OAuth 2 public client + PKCE state verification and no local token persistence.
+- Add student-course synchronization with validation and duplicate prevention, when university-approved OAuth and REST API are configured.
+- Keep the connect button disabled until UCAS Moodle grants official client ID/scopes/endpoints/CORS. No Moodle passwords or unsupported credential workarounds.
+- Preserve manual imports, offline support and backup data, add OAuth validators and security documentation.
+
 ## v1.4.0 — Mobile usability refinement (29 Oct 2026)
 
 - Reduce mobile header and homepage hero height; preserve accessible controls.
