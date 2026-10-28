@@ -22,6 +22,10 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js sw.js; do node --check "$file"; done
+      - name: Show CSS formatter diff for debugging
+        run: |
+          npx prettier styles.css > /tmp/ucas-prettier-css
+          diff -u styles.css /tmp/ucas-prettier-css || true
       - name: Check formatting
         run: npm run format:check
       - name: Lint
