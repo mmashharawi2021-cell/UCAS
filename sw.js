@@ -1,5 +1,5 @@
-const CACHE='ucas-bridge-shell-v12';
-const SHELL=['./','./index.html','./styles.css?v=0.7.2','./js/app.js?v=0.7.2','./js/store.js','./js/ics.js','./js/office.js','./js/moodle.js','./js/mhtml.js','./js/drive.js','./js/study.js','./js/pdf-text.js','./assets/icon.svg','./manifest.webmanifest'];
+const CACHE='ucas-bridge-shell-v13';
+const SHELL=['./','./index.html','./styles.css?v=0.7.3','./js/app.js?v=0.7.3','./js/store.js','./js/ics.js','./js/office.js','./js/moodle.js','./js/mhtml.js','./js/drive.js','./js/study.js','./js/pdf-text.js','./js/ocr.js','./assets/icon.svg','./manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('ucas-bridge-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
