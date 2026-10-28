@@ -1,5 +1,7 @@
 name: UCAS mobile layout smoke test
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -11,6 +13,9 @@ on:
       - 'tests/pdf-browser.mjs'
       - 'js/pdf-text.js'
       - 'js/study.js'
+      - 'js/store.js'
+      - 'sw.js'
+      - 'tests/storage-browser.mjs'
       - '.github/workflows/mobile-layout.yml'
   workflow_dispatch:
 permissions:
@@ -37,5 +42,6 @@ jobs:
       - name: Validate mobile layout and offline study workflow
         run: |
           node tests/mobile-layout.mjs
+          node tests/storage-browser.mjs
           node tests/study-browser.mjs
           node tests/pdf-browser.mjs
