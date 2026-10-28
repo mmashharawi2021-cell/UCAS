@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v0.5 (local-first prototype)
+# UCAS Academic Bridge — v0.6 (local-first prototype)
 
 Arabic RTL single-user study dashboard. A **working offline-first web prototype** implementing the initial UI and local storage, **not** an integration with private Moodle sessions. No account, tracking, remote server, or API keys.
 
@@ -102,3 +102,22 @@ The central **Google Drive** tab is now usable in the browser without a UCAS acc
 3. Open the course and view the imported file.
 4. Open the same import form and re-import to confirm duplicate detection.
 5. Paste an allowed Google Drive file or Docs URL, save it in the course, then open it using the browser. File import and link saving remain completely separate.
+
+
+## v0.6 — Course study and grounded offline practice (28 October 2026)
+
+- The assistant button inside each course now opens a **local source-study panel**.
+- A user-initiated search reads locally imported TXT/MD and extracts text from DOCX/PPTX (when supported by the browser), returning **literal source excerpts with filename and module**. It does not generate factual answers.
+- Supports study flashcards and basic multiple-choice practice **only when imported sources contain clear \`Term: definition\` lines**. These are mechanical drafts; verify scientific accuracy before treating them as exam preparation.
+- A separate, explicit copy action lets the user paste a query and source excerpts into ChatGPT. There is **no automatic file upload** or ChatGPT API integration in the website.
+- PDF remains **view-only** in this release: scanned and text PDFs are not searched by the local study tool. Source links without locally stored text are also excluded from search.
+- No sign-in, no external AI credentials, no background cloud processing. Private study data stays in this browser profile.
+
+### Using the course study tool
+1. Import a readable TXT, DOCX, or PPTX into a course through the Import Center.
+2. Open **مساقاتي**, select the same course, tap the floating **المساعد الذكي** button.
+3. Search for a topic. Inspect the displayed excerpts and source file names.
+4. Optional: reveal definition flashcards, create simple definition practice, or copy selected excerpts to ChatGPT yourself.
+
+### Security and functional limitations
+The project is a publicly hosted static web application; **the locally imported content is not committed to the public repository**. Other people with access to the same browser profile can potentially access the local database. No automatic Moodle or Google Drive OAuth sync is implemented. Real OpenAI-generated answers would require a private, authenticated API gateway that does not expose paid service keys to visitors. The new study features deliberately do not make misleading claims about AI.
