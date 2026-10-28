@@ -1,7 +1,10 @@
 node_modules/
-.next/
-.env
-.env.*
-*.log
 .DS_Store
+*.log
+# Never commit personal study data or backups
+ucas-bridge-backup-*.json
+*.mht
+*.mhtml
+.env*
+.next/
 .cache/

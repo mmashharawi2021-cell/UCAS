@@ -8,6 +8,7 @@ export function cleanMoodlePaste(input) {
   if (typeof input !== 'string') throw new TypeError('يجب لصق نص المحاضرة');
   const text = input
     .replace(/\r\n?/g, '\n')
+    // eslint-disable-next-line no-control-regex -- strip NUL bytes from pasted text
     .replace(/\u0000/g, '')
     .trim();
   if (text.length < 20)

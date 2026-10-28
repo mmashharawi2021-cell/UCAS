@@ -132,7 +132,7 @@ export function extractReviewCards(documents, limit = 8) {
     for (const line of String(doc.text || '').split(/\r?\n/)) {
       const match = /^(.{3,64}?)\s*(?:[:：]|[–—])\s*(.{15,280})$/.exec(line.trim());
       if (!match) continue;
-      const term = match[1].trim().replace(/^[•\-]\s*/, '');
+      const term = match[1].trim().replace(/^[•-]\s*/, '');
       const definition = match[2].trim();
       if (!plausibleDefinitionTerm(term)) continue;
       if (/^https?:|^شريحة \d|^slide \d/i.test(term) || /\b(?:https?:|www\.)/.test(definition))

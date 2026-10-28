@@ -138,7 +138,7 @@ export async function extractPdfText(
     };
   } catch (error) {
     if (/لا يحتوي على نص/.test(String(error?.message))) throw error;
-    throw new Error('تعذر استخراج نص PDF: ' + String(error?.message || error));
+    throw new Error('تعذر استخراج نص PDF: ' + String(error?.message || error), { cause: error });
   } finally {
     if (document) await document.destroy();
     else await task.destroy();
