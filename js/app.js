@@ -1965,11 +1965,15 @@ async function init() {
       const empty = document.getElementById('course-filter-empty');
       if (empty) empty.hidden = visible !== 0;
     });
-    document.addEventListener('toggle', e => {
-      if (e.target.matches?.('details.premium-home-extras')) {
-        state.homeExtrasOpen = e.target.open;
-      }
-    }, true);
+    document.addEventListener(
+      'toggle',
+      e => {
+        if (e.target.matches?.('details.premium-home-extras')) {
+          state.homeExtrasOpen = e.target.open;
+        }
+      },
+      true,
+    );
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') document.querySelector('.modal-backdrop')?.remove();
       if (e.key === 'Enter' && e.target.id === 'global-search') {
