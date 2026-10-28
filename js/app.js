@@ -11,20 +11,20 @@ import {
   requestPersistence,
   storageStatus,
   exportStores,
-} from './store.js?v=1.6.0';
-import { features } from './features/index.js?v=1.6.0';
-import { normalizeCode } from './lib/semester.js?v=1.6.0';
-import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.6.0';
+} from './store.js?v=1.7.0';
+import { features } from './features/index.js?v=1.7.0';
+import { normalizeCode } from './lib/semester.js?v=1.7.0';
+import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.7.0';
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const BACKUP_REMINDER_DAYS = 7;
-import { esc, ic } from './ui.js?v=1.6.0';
-import { parseICS } from './ics.js?v=1.6.0';
-import { previewOffice } from './office.js?v=1.6.0';
-import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.6.0';
+import { esc, ic } from './ui.js?v=1.7.0';
+import { parseICS } from './ics.js?v=1.7.0';
+import { previewOffice } from './office.js?v=1.7.0';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.7.0';
 import { companionRequest, importCompanionSnapshot } from './companion.js?v=1.7.0';
 import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=1.7.0';
-import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.6.0';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.7.0';
 import {
   loadCourseText,
   searchStudySources,
@@ -32,9 +32,9 @@ import {
   extractPassageCards,
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
-} from './study.js?v=1.6.0';
-import { extractPdfText } from './pdf-text.js?v=1.6.0';
-import { readPDFWithOCR } from './ocr.js?v=1.6.0';
+} from './study.js?v=1.7.0';
+import { extractPdfText } from './pdf-text.js?v=1.7.0';
+import { readPDFWithOCR } from './ocr.js?v=1.7.0';
 
 const titles = {
   home: 'الرئيسية',
@@ -1734,7 +1734,7 @@ async function handleClick(e) {
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
         const names = exportStores;
-        const { replaceAll } = await import('./store.js?v=1.6.0');
+        const { replaceAll } = await import('./store.js?v=1.7.0');
         for (const s of names) await replaceAll(s, []);
         await initialize();
         await refresh();

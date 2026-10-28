@@ -1,7 +1,7 @@
 // Two-way sync of all study data between the student's own devices (email account).
 // Records: last write wins by the local `_mtime`. Pull cursor: the server's updated_at.
 // Lecture files go to a private Storage bucket under <user id>/<resource id>.
-import { getClient, run, CloudError } from './client.js?v=1.6.0';
+import { getClient, run, CloudError } from './client.js?v=1.7.0';
 import {
   changedSince,
   tombstonesSince,
@@ -12,7 +12,7 @@ import {
   put,
   remove,
   syncedStores,
-} from '../store.js?v=1.6.0';
+} from '../store.js?v=1.7.0';
 
 const BUCKET = 'sync-files';
 const LOCAL_ONLY_SETTINGS = new Set(['seeded']);

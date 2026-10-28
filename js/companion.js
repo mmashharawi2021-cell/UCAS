@@ -1,6 +1,6 @@
 // UCAS Moodle Companion bridge. Only imports the student's visible course metadata.
-import { all, put, makeId } from './store.js?v=1.6.0';
-import { safeMoodleActivityURL } from './moodle.js?v=1.6.0';
+import { all, put, makeId } from './store.js?v=1.7.0';
+import { safeMoodleActivityURL } from './moodle.js?v=1.7.0';
 
 export function companionRequest(type, options = false) {
   if (!['SCAN', 'LAST', 'AUTO', 'FILE_SCAN', 'FILE_LIST', 'FILE_OPEN', 'FILE_CHUNK', 'FILE_CLOSE'].includes(type))
