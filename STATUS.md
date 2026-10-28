@@ -49,3 +49,14 @@ Office DOCX/PPTX text preview, saved quiz drafts and local question bank, detail
 - Implemented: dedicated Moodle screen, manual text import into coursework, shortcuts to files/ICS/links, duplicate protection.
 - Verified: Node unit and static tests. Automated browser access to localhost blocked by environment policy (ERR_BLOCKED_BY_ADMINISTRATOR); manual phone/browser acceptance remains outstanding.
 - Not implemented: Moodle API or auto sync, remote auth, external AI integration.
+
+
+## v0.5 — Drive-assisted import: implemented
+
+- New central Google Drive tab with native Android file chooser and canonical Drive links.
+- Course-specific saving of selected PDF/DOCX/PPTX/TXT/MD files; file size/count limits, hash-based deduplication.
+- Google Drive, Docs, Slides and Sheets links can be saved as local references; URL parameters are removed.
+- Mobile-first layout; no passwords, OAuth tokens or academic files committed to GitHub.
+- New unit tests for Drive URL validation and file constraints. CI runs syntax checks and all tests.
+
+**Not implemented:** Google Drive OAuth Picker automatic browsing and cloud synchronization; AI backend/automatic quizzes from uploaded lectures; direct Moodle API. Initial v0.4 MHT importer remains but is not a development priority. Test Android system picker availability on user device; Chrome version and installed document providers affect it.
