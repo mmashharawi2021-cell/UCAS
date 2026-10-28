@@ -1,6 +1,6 @@
 // Service worker: caches the public app shell only — never user data.
 // Bump VERSION on every release (keep it equal to package.json "version").
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const CACHE = `ucas-bridge-shell-${VERSION}`;
 const SHELL = [
   './',
@@ -13,6 +13,7 @@ const SHELL = [
   `./js/boot.js?v=${VERSION}`,
   `./styles.css?v=${VERSION}`,
   `./mobile-ux.css?v=${VERSION}`,
+  `./companion-files.css?v=${VERSION}`,
   `./premium-v2.css?v=${VERSION}`,
   `./js/app.js?v=${VERSION}`,
   `./js/store.js?v=${VERSION}`,
@@ -20,6 +21,7 @@ const SHELL = [
   `./js/office.js?v=${VERSION}`,
   `./js/moodle.js?v=${VERSION}`,
   `./js/companion.js?v=${VERSION}`,
+  `./js/companion-files.js?v=${VERSION}`,
   `./js/mhtml.js?v=${VERSION}`,
   `./js/drive.js?v=${VERSION}`,
   `./js/study.js?v=${VERSION}`,

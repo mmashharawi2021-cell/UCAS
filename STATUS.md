@@ -1,7 +1,5 @@
-# UCAS 1.6.0 — Desktop Chrome Moodle Companion
+# UCAS 1.7.0 — Moodle course file import
 
-This release adds a browser-extension bridge and local course/activity import to the existing Import and Moodle sections. The extension ZIP is distributed separately for desktop Chrome, requires a student's **normal Moodle sign-in**, and scans only readable dashboard/course links. An hourly opt-in scan runs only while Chrome and the session remain active. The UI cannot turn on the extension by itself; user installation is required.
+The Chrome Companion 0.2 extension can scan the student's permitted Moodle lecture resource links (including folder/page/book attachments), preview a file catalog, transfer selected supported attachments as bounded chunks, and store them in UCAS's local IndexedDB library. The user must update the extension and click to consent to downloading. The old 0.1.0 extension has no file transfer API. No passwords, cookies, grade records, private submissions or tokens are read or transferred. The Moodle system can refuse downloads, and 35 MiB/file and browser storage quotas apply.
 
-No Moodle login bypass, official API privileges, course PDF downloads, grades, or continuous cloud background sync are claimed. All original import paths and local data remain intact. The university may change its Moodle HTML and terms; validate with one test account.
-
-See README and docs/MOODLE_CONNECT.md.
+Desktop local files do not automatically appear on Android; optional authorized cloud sync is separate. No live authenticated UCAS Moodle test account was available for end-to-end verification.
