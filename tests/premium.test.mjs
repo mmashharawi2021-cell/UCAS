@@ -60,3 +60,13 @@ test('mobile UX preserves data and provides an expandable, accessible dashboard'
   assert.match(css, /\.sidebar \.nav-group/);
   assert.match(css, /\.mobile-nav/);
 });
+
+test('Moodle Connect is registered in the app and offline shell', () => {
+  const app = read('js/app.js');
+  const sw = read('sw.js');
+  const html = read('moodle-connect.html');
+  assert.match(app, /href="moodle-connect.html"/);
+  assert.match(sw, /moodle-connect\.html/);
+  assert.match(sw, /moodle-connect-core\.js/);
+  assert.match(html, /js\/moodle-connect\.js\?v=1\.5\.0/);
+});
