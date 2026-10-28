@@ -7,6 +7,8 @@ on:
       - 'index.html'
       - 'js/app.js'
       - 'tests/mobile-layout.mjs'
+      - 'tests/study-browser.mjs'
+      - 'js/study.js'
       - '.github/workflows/mobile-layout.yml'
   workflow_dispatch:
 permissions:
@@ -30,5 +32,7 @@ jobs:
         run: |
           python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/ucas-http.log 2>&1 &
           sleep 2
-      - name: Validate mobile layout width
-        run: node tests/mobile-layout.mjs
+      - name: Validate mobile layout and offline study workflow
+        run: |
+          node tests/mobile-layout.mjs
+          node tests/study-browser.mjs
