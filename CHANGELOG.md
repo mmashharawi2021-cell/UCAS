@@ -1,6 +1,15 @@
 # Changelog — UCAS Academic Bridge
 
-## v1.3.0 — Premium UI 2.0 (29 Oct 2026)
+## v1.4.0 — Mobile usability refinement (29 Oct 2026)
+
+- Reduce mobile header and homepage hero height; preserve accessible controls.
+- Convert the secondary home dashboard (calendar, progress, focus, exams, recent sources, Moodle) into a native expandable section on phones, open by default on desktop.
+- Display two complete, compact course cards on home instead of cropped horizontal cards, with access to the full course library.
+- Condense quick actions, statistics, upcoming tasks and the optional backup reminder without hiding crucial data.
+- Provide a clear close button, scrollable sidebar navigation, and hide the bottom bar while the drawer is open.
+- Maintain offline caches and student data, with expanded mobile and browser regression tests.
+
+## v1.4.0 — Premium UI 2.0 (29 Oct 2026)
 
 - Rebuild the home experience with a prominent editorial study hero, actual resource-completion ring, prominent shortcuts, structured priorities, courses and activity feeds.
 - Redesign course cards, course library, summary and responsive layout with instant local course filtering.
