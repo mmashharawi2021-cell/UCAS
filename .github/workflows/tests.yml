@@ -22,12 +22,6 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js sw.js; do node --check "$file"; done
-      - name: Show formatter diffs for Premium UI
-        run: |
-          npx prettier js/app.js > /tmp/ucas-app-formatted
-          diff -u js/app.js /tmp/ucas-app-formatted || true
-          npx prettier tests/mobile-layout.mjs > /tmp/ucas-mobile-formatted
-          diff -u tests/mobile-layout.mjs /tmp/ucas-mobile-formatted || true
       - name: Check formatting
         run: npm run format:check
       - name: Lint
