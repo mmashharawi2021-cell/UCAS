@@ -1,14 +1,20 @@
-# Project status — v0.8.0 (28 October 2026)
+# Project status — v0.9.0 (28 October 2026)
 
 Working, offline-first static web app published from `main` via GitHub Pages. Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ## Quality gates
 
 - Unit tests (`npm test`): ICS, Moodle/MHTML parsing, Drive links, study search, PDF/OCR helpers, static checks, version consistency, PWA icons.
-- Browser tests (`npm run test:browser`, CI): mobile layout 320–768px, storage migration + backup round-trip + data-protection UI, study assistant, PDF search.
+- Browser tests (`npm run test:browser`, CI): mobile layout 320–768px, storage migration + backup round-trip + data-protection UI, every student feature end-to-end (`features-browser.mjs`), study assistant, PDF search.
 - CI on every push/PR: syntax, Prettier, ESLint, unit tests; Playwright tests on PRs and relevant pushes.
 
-## Roadmap (suggested order)
+## Student features (v0.9)
+
+Timetable, lecture notes, Pomodoro timer, exam countdown, timed mock exams, smart review, question import, grade book and average, weekly report, course packs, calendar export and in-app reminders — all offline, on the device.
+
+**Need a server (not built):** live study groups/chat, push notifications while the app is closed, sync between devices.
+
+## Technical roadmap (suggested order)
 
 1. **Split `js/app.js`** into page modules (`js/pages/*.js`) and shared UI helpers; it is still ~1,900 lines.
 2. **Partial re-rendering** so typing, scroll position and focus survive state changes.

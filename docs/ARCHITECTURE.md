@@ -15,6 +15,9 @@ Static site, no build step. `index.html` loads `js/app.js` as an ES module; ever
 | `js/moodle.js`, `js/mhtml.js` | Parse pasted Moodle text and saved MHT/MHTML course pages. No network. |
 | `js/drive.js` | File validation for imports and Google Drive link normalisation. |
 | `js/ics.js` | Minimal single-event `.ics` parser. |
+| `js/ui.js` | Shared helpers: `esc()`, `ic()` and the icon set. |
+| `js/features/*.js` | One module per student feature (timetable, notes, focus timer, exams, grades, report, share, reminders), plugged in through `js/features/index.js`. |
+| `js/lib/*.js` | Pure logic for those features (no DOM, no storage) — this is where unit tests point. |
 | `sw.js` | Service worker: network-first pages, stale-while-revalidate static files. Caches the app shell only. |
 
 ## Rendering model
@@ -23,7 +26,15 @@ Static site, no build step. `index.html` loads `js/app.js` as an ES module; ever
 
 Event handling is delegated from `document` using `data-*` attributes (`data-go`, `data-action`, `data-view-resource`, …). To add a button, give it a `data-action="…"` and add a `case` in `handleClick`.
 
-## Data model (IndexedDB `ucas-academic-bridge`, version 2)
+## Feature modules
+
+`js/features/index.js` documents the hooks a feature module can export: `pages`, `homeWidgets`, `courseTabs`, `courseActionButtons`, `settingsPanels`, `actions` (clicks on `[data-act]`), `changes` (`[data-act-change]`), `forms` (submit by form id), `start(ctx)` and `onQuizFinished`. Features receive a `ctx` object from `app.js` (state, render/refresh, storage functions, UI helpers) and never import `app.js`.
+
+To add a feature: put the logic in `js/lib/<name>.js` with unit tests, the UI in `js/features/<name>.js`, register it in `js/features/index.js`, add both files to `SHELL` in `sw.js` (a test enforces this), and add new stores in `store.js` if needed.
+
+> Forms: read a form's id with `form.getAttribute('id')` — a field named `id` inside the form shadows `form.id`.
+
+## Data model (IndexedDB `ucas-academic-bridge`, version 3)
 
 | Store | Key | Notes |
 | --- | --- | --- |
@@ -34,6 +45,12 @@ Event handling is delegated from `document` using `data-*` attributes (`data-go`
 | `events` | `id` | Imported calendar events. |
 | `attempts` | `id` | Quiz results. Index: `courseId`. |
 | `progress` | `id` | Progress records. |
+| `schedule` | `id` | Weekly lectures `{ courseId, day (0=Sun), start, end, type, room, lecturer }`. Index: `courseId`. |
+| `notes` | `id` | `{ courseId, title, body, color, lecture, pinned, createdAt, updatedAt }`. Index: `courseId`. |
+| `sessions` | `id` | Study timer sessions `{ courseId, kind, minutes, startedAt, endedAt }`. Index: `courseId`. |
+| `exams` | `id` | `{ courseId, title, type, date, duration, room, topics }`. Index: `courseId`. |
+| `grades` | course id | `{ hours, components[{name, weight, score, max}], finalMark, target }`. |
+| `reviews` | question key | Leitner record `{ courseId, q (snapshot), box, due, right, wrong }`. Index: `courseId`. |
 | `settings` | `id` | Key/value rows: `seeded`, `question-bank`, `quiz-draft`, `last-backup`, … |
 
 `store.js` hides the resources/files split: `put('resources', { …, blob })` writes both stores in one transaction; `get('resources', id)` returns the record with its `blob`; `all('resources')` returns metadata only; `getFile(id)` returns just the blob; `remove`/`replaceAll` keep both stores consistent.

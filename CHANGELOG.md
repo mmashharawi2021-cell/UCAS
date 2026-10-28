@@ -1,5 +1,36 @@
 # Changelog — UCAS Academic Bridge
 
+## v0.9.0 — Student features (28 Oct 2026)
+
+**Daily study**
+- **Timetable** (جدول المحاضرات): weekly lectures with room, lecturer and type; today highlighted; overlap warnings; weekly hours per course; "today's lectures" card on Home.
+- **Lecture notes** (ملاحظاتي, new course tab): colour highlights, pin, search, share; safe mini-formatting (`**bold**`, `==highlight==`, `- bullets`) applied after escaping.
+- **Pomodoro study timer** (مؤقت المذاكرة): 25/5/15 presets, per-course study time, daily streak; survives reloads and screen-off; notification when a session ends.
+
+**Exam preparation**
+- **Exam dates** with live countdown and urgency colours.
+- **Timed mock exam**: all questions on one page, sticky timer, auto-submit at zero, answers saved as you go.
+- **Smart review** (Leitner boxes 0→1→3→7→14→30 days): every wrong answer from practice quizzes and mock exams comes back until mastered.
+- **Question import** from pasted text (Arabic `س:` / `أ)` / `الإجابة:` format) or CSV, with preview, error report and duplicate skipping.
+
+**Academic tracking**
+- **Grade book & average** (العلامات والمعدل): weighted components per course, official final mark override, target → "you need X% in the rest", semester and cumulative averages weighted by credit hours, configurable pass mark.
+- **Weekly report**: study time, tasks done/overdue, practice results, notes, exams next week; share as text or print to PDF.
+
+**Sharing & reminders**
+- **Course packs**: share a course's notes, questions, timetable and exam dates as a small file (WhatsApp/Drive/…) and import a classmate's pack with validation and de-duplication. No files, marks or history are ever included.
+- **Phone calendar export** (.ics with alarms, weekly lecture recurrence until semester end): reminders work even when the site is closed.
+- **In-app reminders** before deadlines, exams and lectures while the app is open.
+
+**Platform**
+- IndexedDB v3: `schedule`, `notes`, `sessions`, `exams`, `grades`, `reviews` stores (indexed by course). Backups include them; backups from v0.8 still restore.
+- New `js/features/` (one module per feature, plugged in through a small registry) and `js/lib/` (pure, unit-tested logic). Shared UI helpers moved to `js/ui.js`.
+- Five-item bottom bar on phones: Home, Timetable, Courses, Exams, More.
+- Tests: 9 new unit-test groups and an end-to-end browser test covering every feature.
+
+**Not included (needs a server):** live study groups/chat between students, push notifications while the app is fully closed.
+
+
 ## v0.8.0 — Data safety, performance and developer setup (28 Oct 2026)
 
 **Data safety**

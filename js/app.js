@@ -10,10 +10,13 @@ import {
   restore,
   requestPersistence,
   storageStatus,
+  exportStores,
 } from './store.js';
+import { features } from './features/index.js';
 
-const APP_VERSION = '0.8.0';
+const APP_VERSION = '0.9.0';
 const BACKUP_REMINDER_DAYS = 7;
+import { esc, ic } from './ui.js';
 import { parseICS } from './ics.js';
 import { previewOffice } from './office.js';
 import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js';
@@ -39,61 +42,9 @@ const titles = {
   progress: 'التقدم الدراسي',
   settings: 'الإعدادات',
   search: 'نتائج البحث',
+  ...Object.fromEntries(features.pages.map(p => [p.id, p.title])),
 };
 const coursesSymbols = ['database', 'layers', 'globe', 'map', 'lightbulb', 'briefcase', 'code'];
-const iconPath = {
-  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-  home: '<path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/>',
-  book: '<path d="M4 5c3-1 6 0 8 2 2-2 5-3 8-2v15c-3-1-6 0-8 2-2-2-5-3-8-2zM12 7v15"/>',
-  upload: '<path d="M12 16V4m-5 5 5-5 5 5M4 17v4h16v-4"/>',
-  quiz: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 13h6M9 18h3"/>',
-  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
-  chart: '<path d="M4 20V9m5 11V4m6 16v-7m5 7V7M2 20h20"/>',
-  settings:
-    '<path d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.4-6.4-2.1 2.1M7.7 16.3l-2.1 2.1m12.8 0-2.1-2.1M7.7 7.7 5.6 5.6"/><circle cx="12" cy="12" r="4"/>',
-  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/>',
-  search: '<circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/>',
-  chevron: '<path d="m15 5-7 7 7 7"/>',
-  arrow: '<path d="m16 4-9 8 9 8"/>',
-  check: '<path d="m5 12 5 5 9-10"/>',
-  file: '<path d="M6 2h8l5 5v15H6zM14 2v6h5M9 13h7M9 17h7"/>',
-  database:
-    '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/>',
-  layers: '<path d="m12 3 10 5-10 5L2 8zm-10 10 10 5 10-5M2 18l10 5 10-5"/>',
-  globe:
-    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-7 6-7 12 0 18M12 3c7 6 7 12 0 18"/>',
-  map: '<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16"/>',
-  lightbulb: '<path d="M9 18h6M10 21h4M8 15a7 7 0 1 1 8 0l-1 2H9z"/>',
-  briefcase:
-    '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 12c4 4 14 4 18 0"/>',
-  code: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 3"/>',
-  spark: '<path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/>',
-  link: '<path d="m10 13 4-4M8 15H7a4 4 0 0 1 0-8h4m2 0h4a4 4 0 0 1 0 8h-4"/>',
-  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/>',
-  download: '<path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/>',
-  folder: '<path d="M3 6h6l2 3h10v12H3z"/>',
-  cloud: '<path d="M7 19H6a5 5 0 1 1 1-10 7 7 0 0 1 13 2 4 4 0 0 1-1 8h-2"/>',
-  moon: '<path d="M20 15a8 8 0 0 1-11-11 8 8 0 1 0 11 11"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/>',
-  bot: '<rect x="3" y="7" width="18" height="14" rx="4"/><path d="M12 7V3m-4 10h.01M16 13h.01M8 17h8"/>',
-  plus: '<path d="M12 4v16M4 12h16"/>',
-  close: '<path d="m5 5 14 14M19 5 5 19"/>',
-  alert: '<path d="M12 3 2 21h20zM12 9v5m0 3v.1"/>',
-  more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
-  rotate: '<path d="M4 5v6h6M5 11a8 8 0 1 1 2 7"/>',
-  shield: '<path d="m12 2 8 4v6c0 6-3 9-8 10-5-1-8-4-8-10V6z"/>',
-  external: '<path d="M13 4h7v7m0-7-9 9M20 14v6H4V4h6"/>',
-};
-function ic(name, size = 20) {
-  return `<svg class="svg-icon" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${iconPath[name] || iconPath.file}</svg>`;
-}
-function esc(x) {
-  return String(x ?? '').replace(
-    /[&<>"']/g,
-    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-  );
-}
 function fmtDate(x) {
   if (!x) return 'بدون موعد';
   const raw = String(x);
@@ -157,6 +108,72 @@ const state = {
   moodleImportFile: null,
   moodleImportError: null,
   storage: { usage: null, quota: null, persisted: false, supported: false },
+  // v0.9 study features
+  schedule: [],
+  notes: [],
+  sessions: [],
+  exams: [],
+  grades: [],
+  reviews: [],
+};
+const STUDY_STORES = ['schedule', 'notes', 'sessions', 'exams', 'grades', 'reviews'];
+function questionsForCourse(courseId) {
+  const index = state.courses.findIndex(c => c.id === courseId);
+  return index < 0 ? [] : sampleAndPersonalQuestions(index);
+}
+function closeModal() {
+  document.querySelector('.modal-backdrop')?.remove();
+}
+/** Offer a generated file: native share sheet when possible (phones), else download. */
+async function deliverFile(name, text, type, shareTitle = '') {
+  const file = new File([text], name, { type });
+  if (shareTitle && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: shareTitle });
+      return 'shared';
+    } catch (err) {
+      if (err?.name === 'AbortError') return 'cancelled';
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return 'downloaded';
+}
+// Everything a feature page (js/features/*) may use. Keep this surface small and stable.
+const ctx = {
+  state,
+  esc,
+  ic,
+  intro,
+  sectionHead,
+  stat,
+  noData,
+  toast,
+  modal,
+  closeModal,
+  render,
+  refresh,
+  go,
+  put,
+  get,
+  all,
+  remove,
+  makeId,
+  courseOption,
+  courseName,
+  fmtDate,
+  questionsForCourse,
+  deliverFile,
+  saveQuestionBank: async bank => {
+    state.questionBank = bank;
+    await put('settings', { id: 'question-bank', value: bank });
+  },
+  setting: id => state.settings.find(s => s.id === id)?.value,
+  saveSetting: (id, value) => put('settings', { id, value }),
 };
 let viewURL = null;
 function courseName(id) {
@@ -225,6 +242,8 @@ async function refresh() {
   ] = await Promise.all(
     ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'].map(all),
   );
+  const study = await Promise.all(STUDY_STORES.map(all));
+  STUDY_STORES.forEach((name, i) => (state[name] = study[i]));
   state.storage = await storageStatus();
   state.questionBank = Array.isArray(state.settings.find(s => s.id === 'question-bank')?.value)
     ? state.settings.find(s => s.id === 'question-bank').value
@@ -232,16 +251,26 @@ async function refresh() {
   const draft = state.settings.find(s => s.id === 'quiz-draft')?.value;
   state.quizDraft = quizDraftValid(draft) ? draft : null;
   render();
+  window.dispatchEvent(new CustomEvent('ucas-data-changed'));
+}
+function navFor(id) {
+  const page = features.pages.find(p => p.id === id);
+  return page ? [{ id: page.id, icon: page.icon, label: page.label || page.title }] : [];
 }
 function navItems() {
   return [
     { id: 'home', icon: 'home', label: 'الرئيسية' },
+    ...navFor('schedule'),
     { id: 'courses', icon: 'book', label: 'مساقاتي' },
-    { id: 'moodle', icon: 'cloud', label: 'Moodle UCAS' },
-    { id: 'import', icon: 'upload', label: 'مركز الاستيراد' },
+    ...navFor('focus'),
+    ...navFor('exams'),
     { id: 'quizzes', icon: 'quiz', label: 'اختباراتي' },
     { id: 'tasks', icon: 'calendar', label: 'التكليفات والتقويم' },
+    ...navFor('grades'),
+    ...navFor('report'),
     { id: 'progress', icon: 'chart', label: 'التقدم الدراسي' },
+    { id: 'import', icon: 'upload', label: 'مركز الاستيراد' },
+    { id: 'moodle', icon: 'cloud', label: 'Moodle UCAS' },
     { id: 'settings', icon: 'settings', label: 'الإعدادات' },
   ];
 }
@@ -259,8 +288,9 @@ function layout(content) {
 ${state.mobileMenu ? `<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>` : ''}
 <div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS Academic Bridge</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
     { id: 'home', icon: 'home', label: 'الرئيسية' },
+    { id: 'schedule', icon: 'grid', label: 'جدولي' },
     { id: 'courses', icon: 'book', label: 'مساقاتي' },
-    { id: 'quizzes', icon: 'quiz', label: 'اختباراتي' },
+    { id: 'exams', icon: 'award', label: 'امتحاناتي' },
     { id: 'more', icon: 'menu', label: 'المزيد' },
   ]
     .map(
@@ -352,7 +382,7 @@ function homePage() {
     .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
     .slice(0, 3);
   return `<div class="hero"><div><div class="eyebrow">لوحة التحكم الأكاديمية</div><h1>كل دراستك في مكان واحد</h1><p>نظّم مساقاتك، تابع تكليفاتك، واستعد لاختباراتك من لوحة واحدة</p><div class="hero-actions"><button class="primary-btn" data-go="import">${ic('upload')} استيراد مصادر جديدة</button><button class="outline-btn" data-go="quizzes">${ic('quiz')} اختبار تدريبي</button></div></div><div class="hero-art"><svg viewBox="0 0 120 120"><path d="M15 34 60 12l45 22-45 22zM28 47v28c18 19 46 19 64 0V47M105 36v36M23 94h74"/></svg></div></div>
-${backupReminder()}<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>
+${backupReminder()}<div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>استورد محتوى مساقاتك يدويًا من الموقع الرسمي، دون مشاركة بيانات الدخول.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div><div class="stats-grid">${stat('book', state.courses.length, 'مساقات دراسية')}${stat('file', state.resources.length, 'مصادر مستوردة')}${stat('calendar', pending().length, 'تكليفات غير مكتملة')}${stat('quiz', state.attempts.length, 'اختبارات تم حلها')}</div>${features.homeWidgets(ctx)}
 ${sectionHead('مساقاتي', `<button class="link" data-go="courses">عرض جميع المساقات ${ic('chevron', 14)}</button>`)}<div class="course-grid">${state.courses.slice(0, 6).map(courseCard).join('')}</div>
 <div class="split-layout"><div>${sectionHead('المواعيد والتكليفات', `<button class="link" data-go="tasks">عرض التقويم</button>`)}<div class="panel">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف تكليفًا أو استورد ملف تقويم ICS', 'calendar')}</div></div><div>${sectionHead('التقويم الأسبوعي')}
 <div class="panel">${weekly()}</div></div></div>
@@ -407,25 +437,27 @@ function coursePage() {
     ? Object.groupBy(resources, r => r.module || 'مصادر المساق')
     : resources.reduce((a, r) => ((a[r.module || 'مصادر المساق'] ??= []).push(r), a), {});
   const tab = state.courseTab;
-  return `<button class="back-line" data-go="courses">${ic('arrow', 15)} العودة للمساقات</button><div class="course-detail-hero"><div class="course-symbol">${ic(coursesSymbols[idx % coursesSymbols.length])}</div><div class="grow"><div class="breadcrumbs">المساقات / تفاصيل المساق</div><h1>${esc(c.title)}</h1><p class="muted tiny">${resources.length} مصدر · ${tasks.length} تكليف · ${progressForCourse(c.id)}% إنجاز</p></div></div><div class="tabs"><button class="tab ${tab === 'lessons' ? 'active' : ''}" data-tab="lessons">المحاضرات والملفات</button><button class="tab ${tab === 'tasks' ? 'active' : ''}" data-tab="tasks">التكليفات</button><button class="tab ${tab === 'about' ? 'active' : ''}" data-tab="about">نظرة عامة</button></div>${
-    tab === 'lessons'
-      ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div><button class="primary-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div>${
-          Object.keys(groups).length
-            ? Object.entries(groups)
-                .map(
-                  ([module, items], i) =>
-                    `<details class="accordion" ${i === 0 ? 'open' : ''}><summary>${ic('folder')} ${esc(module)} <span class="pill">${items.length} مصدر</span> <span class="chevron">${ic('chevron', 16)}</span></summary><div class="accordion-body">${items.map(r => resourceRow(r)).join('')}</div></details>`,
+  return `<button class="back-line" data-go="courses">${ic('arrow', 15)} العودة للمساقات</button><div class="course-detail-hero"><div class="course-symbol">${ic(coursesSymbols[idx % coursesSymbols.length])}</div><div class="grow"><div class="breadcrumbs">المساقات / تفاصيل المساق</div><h1>${esc(c.title)}</h1><p class="muted tiny">${resources.length} مصدر · ${tasks.length} تكليف · ${progressForCourse(c.id)}% إنجاز</p></div>${features.courseActions(ctx, c)}</div><div class="tabs"><button class="tab ${tab === 'lessons' ? 'active' : ''}" data-tab="lessons">المحاضرات والملفات</button><button class="tab ${tab === 'tasks' ? 'active' : ''}" data-tab="tasks">التكليفات</button>${features.courseTabs.map(t => `<button class="tab ${tab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}<button class="tab ${tab === 'about' ? 'active' : ''}" data-tab="about">نظرة عامة</button></div>${
+    features.courseTabs.some(t => t.id === tab)
+      ? features.courseTabs.find(t => t.id === tab).render(ctx, c)
+      : tab === 'lessons'
+        ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div><button class="primary-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div>${
+            Object.keys(groups).length
+              ? Object.entries(groups)
+                  .map(
+                    ([module, items], i) =>
+                      `<details class="accordion" ${i === 0 ? 'open' : ''}><summary>${ic('folder')} ${esc(module)} <span class="pill">${items.length} مصدر</span> <span class="chevron">${ic('chevron', 16)}</span></summary><div class="accordion-body">${items.map(r => resourceRow(r)).join('')}</div></details>`,
+                  )
+                  .join('')
+              : noData(
+                  'لا توجد محاضرات مستوردة',
+                  'انتقل إلى مركز الاستيراد وأضف مصادر هذا المساق',
+                  'folder',
                 )
-                .join('')
-            : noData(
-                'لا توجد محاضرات مستوردة',
-                'انتقل إلى مركز الاستيراد وأضف مصادر هذا المساق',
-                'folder',
-              )
-        }`
-      : tab === 'tasks'
-        ? `<div class="page-intro"><div><h2>تكليفات هذا المساق</h2></div><button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button></div>${tasks.length ? tasks.map(taskRow).join('') : noData('لا توجد تكليفات', 'يمكنك إضافة تكليف يدويًا', 'calendar')}`
-        : `<div class="panel">${progressBars()}<div class="divider"></div><p class="muted tiny">لا يوجد ربط مباشر بجلسة Moodle. محتوى هذه الصفحة مما استوردته أنت فقط.</p></div>`
+          }`
+        : tab === 'tasks'
+          ? `<div class="page-intro"><div><h2>تكليفات هذا المساق</h2></div><button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button></div>${tasks.length ? tasks.map(taskRow).join('') : noData('لا توجد تكليفات', 'يمكنك إضافة تكليف يدويًا', 'calendar')}`
+          : `<div class="panel">${progressBars()}<div class="divider"></div><p class="muted tiny">لا يوجد ربط مباشر بجلسة Moodle. محتوى هذه الصفحة مما استوردته أنت فقط.</p></div>`
   }<button class="ai-fab" data-action="assistant">${ic('bot')} المساعد الذكي</button>`;
 }
 
@@ -611,7 +643,7 @@ function progressPage() {
     .join('')}</div>`;
 }
 function settingsPage() {
-  return `${intro('الإعدادات', 'التحكم في المظهر والنسخ الاحتياطي والخصوصية')}<div class="card-stack">${storagePanel()}<div class="panel"><h2>المظهر</h2><p class="muted tiny" style="margin:9px 0">اختر الوضع المناسب لك. سيُحفظ التفضيل على الجهاز.</p><div class="tabs">${[
+  return `${intro('الإعدادات', 'التحكم في المظهر والنسخ الاحتياطي والخصوصية')}<div class="card-stack">${storagePanel()}${features.settingsPanels(ctx)}<div class="panel"><h2>المظهر</h2><p class="muted tiny" style="margin:9px 0">اختر الوضع المناسب لك. سيُحفظ التفضيل على الجهاز.</p><div class="tabs">${[
     ['auto', 'حسب الجهاز'],
     ['light', 'فاتح'],
     ['dark', 'داكن'],
@@ -622,7 +654,7 @@ function settingsPage() {
     )
     .join(
       '',
-    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="panel"><h2>الإشعارات</h2><p class="muted tiny" style="margin:10px 0">التنبيهات داخل التطبيق متاحة للمواعيد المستوردة عند فتح لوحة التحكم. الإشعارات المجدولة خارج التطبيق غير منفّذة بعد.</p><button class="outline-btn" data-action="request-notifications">${ic('bell')} طلب إذن إشعارات المتصفح</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — بحث محلي في PDF النصي وOffice مع مراجع صفحات PDF، دون اتصال AI خارجي أو مزامنة Moodle.</div></div>`;
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>لا يوجد تسجيل دخول ولا جمع بيانات مستخدم.</li><li>تُحفظ ملفاتك محليًا في متصفح الجهاز فقط.</li><li>لا توجد مزامنة تلقائية بين الأجهزة أو الوصول إلى Moodle.</li><li>الحماية تعتمد كذلك على أمان جهازك وملف المتصفح.</li><li>قد تُحذف البيانات عند مسح بيانات الموقع، لذلك أنشئ نسخًا احتياطية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — جدول المحاضرات، الملاحظات، مؤقت المذاكرة، الامتحانات التجريبية والمراجعة الذكية، العلامات والمعدل، التقرير الأسبوعي، مشاركة المساقات وتذكيرات التقويم. كل البيانات على جهازك.</div></div>`;
 }
 function searchPage() {
   const q = state.query.trim().toLowerCase();
@@ -651,7 +683,9 @@ function render() {
                     ? progressPage()
                     : state.page === 'settings'
                       ? settingsPage()
-                      : searchPage();
+                      : features.pages.some(p => p.id === state.page)
+                        ? features.pages.find(p => p.id === state.page).render(ctx)
+                        : searchPage();
   document.getElementById('app').innerHTML = layout(content);
 }
 let pendingNavigation = null;
@@ -1160,6 +1194,7 @@ async function nextQuestion() {
       total: quiz.questions.length,
       answers: quiz.answers,
     });
+    await features.quizFinished(quiz, ctx);
     await remove('settings', 'quiz-draft');
     state.quizDraft = null;
     state.attempts = await all('attempts');
@@ -1174,10 +1209,14 @@ function addQuestionModal(courseId) {
 }
 async function handleClick(e) {
   const link = e.target.closest(
-    '[data-go],[data-course],[data-tab],[data-import-tab],[data-action],[data-view-resource],[data-delete-resource],[data-delete-task],[data-start-quiz],[data-add-question],[data-set-theme]',
+    '[data-act],[data-go],[data-course],[data-tab],[data-import-tab],[data-action],[data-view-resource],[data-delete-resource],[data-delete-task],[data-start-quiz],[data-add-question],[data-set-theme]',
   );
   if (!link) return;
   const d = link.dataset;
+  if (d.act) {
+    await features.click(d.act, link, ctx, e);
+    return;
+  }
   if (d.go) {
     go(d.go);
     return;
@@ -1461,15 +1500,7 @@ async function handleClick(e) {
         return;
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
-        const names = [
-          'courses',
-          'resources',
-          'tasks',
-          'events',
-          'attempts',
-          'progress',
-          'settings',
-        ];
+        const names = exportStores;
         const { replaceAll } = await import('./store.js');
         for (const s of names) await replaceAll(s, []);
         await initialize();
@@ -1481,6 +1512,16 @@ async function handleClick(e) {
 }
 async function handleSubmit(e) {
   const form = e.target;
+  // getAttribute: a field named "id" inside a form shadows form.id.
+  if (features.hasForm(form.getAttribute('id'))) {
+    e.preventDefault();
+    try {
+      await features.submit(form, ctx);
+    } catch (err) {
+      toast(err.message || 'تعذر الحفظ', true);
+    }
+    return;
+  }
   if (
     ![
       'study-search-form',
@@ -1693,6 +1734,10 @@ async function handleSubmit(e) {
 }
 async function handleChange(e) {
   const el = e.target;
+  if (el.dataset?.actChange) {
+    await features.change(el.dataset.actChange, el, ctx, e);
+    return;
+  }
   if (el.id === 'moodle-html-course') {
     state.moodleSelectedCourseId = el.value;
     return;
@@ -1729,6 +1774,7 @@ async function handleChange(e) {
     const t = await get('tasks', el.dataset.toggleTask);
     if (t) {
       t.done = el.checked;
+      t.doneAt = el.checked ? new Date().toISOString() : null;
       await put('tasks', t);
       await refresh();
     }
@@ -1826,6 +1872,7 @@ async function init() {
           : 'light'
         : mode;
     await refresh();
+    features.start(ctx);
     if ('serviceWorker' in navigator && isSecureContext) {
       navigator.serviceWorker.register('./sw.js').catch(console.warn);
     }
