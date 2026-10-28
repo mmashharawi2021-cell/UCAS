@@ -18,6 +18,7 @@ on:
       - 'tests/storage-browser.mjs'
       - 'tests/features-browser.mjs'
       - 'tests/groups-browser.mjs'
+      - 'tests/personal-browser.mjs'
       - 'tests/fixtures/**'
       - 'js/cloud/**'
       - 'js/features/**'
@@ -52,5 +53,6 @@ jobs:
           node tests/storage-browser.mjs
           node tests/features-browser.mjs
           node tests/groups-browser.mjs
+          node tests/personal-browser.mjs
           node tests/study-browser.mjs
           node tests/pdf-browser.mjs

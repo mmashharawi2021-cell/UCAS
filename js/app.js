@@ -11,16 +11,18 @@ import {
   requestPersistence,
   storageStatus,
   exportStores,
-} from './store.js?v=1.0.1';
-import { features } from './features/index.js?v=1.0.1';
+} from './store.js?v=1.1.0';
+import { features } from './features/index.js?v=1.1.0';
+import { normalizeCode } from './lib/semester.js?v=1.1.0';
+import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.1.0';
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.1.0';
 const BACKUP_REMINDER_DAYS = 7;
-import { esc, ic } from './ui.js?v=1.0.1';
-import { parseICS } from './ics.js?v=1.0.1';
-import { previewOffice } from './office.js?v=1.0.1';
-import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.0.1';
-import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.0.1';
+import { esc, ic } from './ui.js?v=1.1.0';
+import { parseICS } from './ics.js?v=1.1.0';
+import { previewOffice } from './office.js?v=1.1.0';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.1.0';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.1.0';
 import {
   loadCourseText,
   searchStudySources,
@@ -28,9 +30,9 @@ import {
   extractPassageCards,
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
-} from './study.js?v=1.0.1';
-import { extractPdfText } from './pdf-text.js?v=1.0.1';
-import { readPDFWithOCR } from './ocr.js?v=1.0.1';
+} from './study.js?v=1.1.0';
+import { extractPdfText } from './pdf-text.js?v=1.1.0';
+import { readPDFWithOCR } from './ocr.js?v=1.1.0';
 
 const titles = {
   home: 'الرئيسية',
@@ -86,6 +88,7 @@ function safeUrl(str) {
 const state = {
   page: 'home',
   courses: [],
+  allCourses: [],
   resources: [],
   tasks: [],
   events: [],
@@ -174,10 +177,27 @@ const ctx = {
   },
   setting: id => state.settings.find(s => s.id === id)?.value,
   saveSetting: (id, value) => put('settings', { id, value }),
+  // Defaults written with mtime 0 never override a real edit synced from another device.
+  putDefault: (store, value) => put(store, value, { mtime: 0 }),
+  /** Readable text of one imported file (TXT/MD/DOCX/PPTX/text PDF), extracted on this device. */
+  extractText: async id => {
+    const r = await get('resources', id);
+    if (!r?.blob) throw new Error('الملف غير محفوظ على هذا الجهاز');
+    const data = await loadCourseText([r], r.courseId, previewOffice, {
+      pdfPreview: extractPdfText,
+    });
+    if (data.documents[0]?.text?.trim()) return data.documents[0].text;
+    throw new Error(
+      data.unsupported.length
+        ? 'صيغة هذا الملف غير مدعومة للقراءة'
+        : data.errors[0] || 'لم يُعثر على نص قابل للقراءة (قد يكون PDF مصوّرًا)',
+    );
+  },
+  saveDefaultSetting: (id, value) => put('settings', { id, value }, { mtime: 0 }),
 };
 let viewURL = null;
 function courseName(id) {
-  return state.courses.find(c => c.id === id)?.title || 'غير مصنّف';
+  return (state.allCourses || state.courses).find(c => c.id === id)?.title || 'غير مصنّف';
 }
 function courseOption(selected) {
   return state.courses
@@ -242,6 +262,9 @@ async function refresh() {
   ] = await Promise.all(
     ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'].map(all),
   );
+  // Archived courses (finished semesters) stay in the database but leave the lists.
+  state.allCourses = state.courses;
+  state.courses = state.allCourses.filter(c => !c.archived);
   const study = await Promise.all(STUDY_STORES.map(all));
   STUDY_STORES.forEach((name, i) => (state[name] = study[i]));
   state.storage = await storageStatus();
@@ -313,7 +336,7 @@ function courseCard(c, i) {
   const resources = state.resources.filter(r => r.courseId === c.id);
   const done = resources.filter(r => r.completed).length;
   const pct = progressForCourse(c.id);
-  return `<article class="course-card"><div class="course-top"><div class="course-symbol">${ic(coursesSymbols[i % coursesSymbols.length])}</div><span class="pill">${resources.length} مصدر</span></div><h3>${esc(c.title)}</h3><div class="course-meta">${resources.length ? `${done} من ${resources.length} مصدر مكتمل` : 'جاهز لإضافة المحاضرات'}</div><div class="progress-track" aria-label="التقدم ${pct}%"><div style="width:${pct}%"></div></div><div class="course-top"><span class="course-meta">${pct}% إنجاز</span><button class="card-arrow" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">${ic('chevron')}</button></div></article>`;
+  return `<article class="course-card"><div class="course-top"><div class="course-symbol">${ic(coursesSymbols[i % coursesSymbols.length])}</div><span class="pill">${resources.length} مصدر</span></div><h3>${c.code ? `<span class="code-pill">${esc(c.code)}</span> ` : ''}${esc(c.title)}</h3><div class="course-meta">${resources.length ? `${done} من ${resources.length} مصدر مكتمل` : 'جاهز لإضافة المحاضرات'}</div><div class="progress-track" aria-label="التقدم ${pct}%"><div style="width:${pct}%"></div></div><div class="course-top"><span class="course-meta">${pct}% إنجاز</span><button class="card-arrow" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">${ic('chevron')}</button></div></article>`;
 }
 function noData(title, subtitle, icon = 'folder') {
   return `<div class="empty-state">${ic(icon, 31)}<strong>${title}</strong><p>${subtitle}</p></div>`;
@@ -438,7 +461,7 @@ function coursePage() {
     ? Object.groupBy(resources, r => r.module || 'مصادر المساق')
     : resources.reduce((a, r) => ((a[r.module || 'مصادر المساق'] ??= []).push(r), a), {});
   const tab = state.courseTab;
-  return `<button class="back-line" data-go="courses">${ic('arrow', 15)} العودة للمساقات</button><div class="course-detail-hero"><div class="course-symbol">${ic(coursesSymbols[idx % coursesSymbols.length])}</div><div class="grow"><div class="breadcrumbs">المساقات / تفاصيل المساق</div><h1>${esc(c.title)}</h1><p class="muted tiny">${resources.length} مصدر · ${tasks.length} تكليف · ${progressForCourse(c.id)}% إنجاز</p></div>${features.courseActions(ctx, c)}</div><div class="tabs"><button class="tab ${tab === 'lessons' ? 'active' : ''}" data-tab="lessons">المحاضرات والملفات</button><button class="tab ${tab === 'tasks' ? 'active' : ''}" data-tab="tasks">التكليفات</button>${features.courseTabs.map(t => `<button class="tab ${tab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}<button class="tab ${tab === 'about' ? 'active' : ''}" data-tab="about">نظرة عامة</button></div>${
+  return `<button class="back-line" data-go="courses">${ic('arrow', 15)} العودة للمساقات</button><div class="course-detail-hero"><div class="course-symbol">${ic(coursesSymbols[idx % coursesSymbols.length])}</div><div class="grow"><div class="breadcrumbs">المساقات / تفاصيل المساق${c.code ? ` · <bdi>${esc(c.code)}</bdi>` : ''}</div><h1>${esc(c.title)}</h1><p class="muted tiny">${resources.length} مصدر · ${tasks.length} تكليف · ${progressForCourse(c.id)}% إنجاز</p></div>${features.courseActions(ctx, c)}</div><div class="tabs"><button class="tab ${tab === 'lessons' ? 'active' : ''}" data-tab="lessons">المحاضرات والملفات</button><button class="tab ${tab === 'tasks' ? 'active' : ''}" data-tab="tasks">التكليفات</button>${features.courseTabs.map(t => `<button class="tab ${tab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}<button class="tab ${tab === 'about' ? 'active' : ''}" data-tab="about">نظرة عامة</button></div>${
     features.courseTabs.some(t => t.id === tab)
       ? features.courseTabs.find(t => t.id === tab).render(ctx, c)
       : tab === 'lessons'
@@ -796,7 +819,7 @@ function addTaskModal() {
 function addCourseModal() {
   modal(
     'إضافة مساق',
-    `<form id="course-form"><div class="field"><label>اسم المساق</label><input class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
+    `<form id="course-form"><div class="field"><label for="course-title">اسم المساق</label><input id="course-title" class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><div class="form-grid"><div class="field"><label for="course-code">رمز المساق</label><input id="course-code" class="input" name="code" maxlength="12" placeholder="GISS 3301" dir="ltr"/></div><div class="field"><label for="course-hours">الساعات المعتمدة</label><input id="course-hours" class="input" type="number" name="hours" min="0" max="12" value="3"/></div></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
   );
 }
 
@@ -1502,7 +1525,7 @@ async function handleClick(e) {
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
         const names = exportStores;
-        const { replaceAll } = await import('./store.js?v=1.0.1');
+        const { replaceAll } = await import('./store.js?v=1.1.0');
         for (const s of names) await replaceAll(s, []);
         await initialize();
         await refresh();
@@ -1603,7 +1626,20 @@ async function handleSubmit(e) {
     if (form.id === 'course-form') {
       const title = String(fd.get('title') || '').trim();
       if (!title) throw Error('اسم المساق مطلوب');
-      await put('courses', { id: makeId(), title, createdAt: new Date().toISOString() });
+      const id = makeId();
+      const code = normalizeCode(fd.get('code'));
+      await put('courses', { id, title, code, createdAt: new Date().toISOString() });
+      const hours = Number(fd.get('hours'));
+      if (hours > 0)
+        await put('grades', {
+          id,
+          courseId: id,
+          hours: String(hours),
+          finalMark: '',
+          target: '',
+          components: DEFAULT_COMPONENTS.map(c => ({ ...c, score: '', max: c.weight })),
+        });
+      await refresh();
       document.querySelector('.modal-backdrop')?.remove();
       toast('تمت إضافة المساق');
     }

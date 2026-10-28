@@ -1,6 +1,6 @@
 # Supabase backend (optional online features)
 
-Used only by **study groups** (chat) and **push notifications while the app is closed**.
+Used by **study groups** (chat), **push notifications while the app is closed**, **sync between the owner's devices** and the **AI lecture assistant**.
 Everything else in the app works offline without it.
 
 - Project: `xijpnqgaxvyigyrwcqmo` (region eu-central-1, free plan).
@@ -20,6 +20,16 @@ Everything else in the app works offline without it.
 | `scheduled_reminders` | reminder title + time (next 14 days) | the user |
 
 Abuse limits: 20 messages/minute per user, 20 owned groups, 200 members per group, 300 pending reminders.
+
+## Sync (email accounts)
+
+- `sync_records` (one row per local record, last-write-wins by client `mtime`, pulled by server `updated_at`) and the private `sync-files` bucket (`<user id>/<resource id>`). Both require a non-anonymous user.
+- Sign-in is an email magic link: set **Authentication → URL Configuration → Site URL** (and Redirect URLs) to the GitHub Pages address. The free plan's built-in email sender allows only a few emails per hour.
+
+## AI assistant
+
+- `functions/ai` (JWT checked in code). Secrets: `GEMINI_API_KEY` (Google AI Studio), `AI_ALLOWED_EMAILS` (comma-separated), optional `GEMINI_MODEL`, `AI_DAILY_LIMIT` (default 60).
+- Only the selected lecture text (≤ 60k chars) is sent; usage is counted in `private.ai_usage`.
 
 ## Push
 

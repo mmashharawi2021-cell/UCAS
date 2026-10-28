@@ -4,7 +4,7 @@
 // so listing resources never touches file blobs. Callers keep using the same
 // `get/put/remove('resources', …)` API; this module joins/splits blobs transparently.
 const NAME = 'ucas-academic-bridge';
-const VERSION = 3;
+const VERSION = 4;
 // Stores every backup must contain (present since v1).
 const CORE_STORES = ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'];
 // Added in v3 (timetable, notes, study sessions, exams, grade book, smart review).
@@ -12,6 +12,8 @@ const CORE_STORES = ['courses', 'resources', 'tasks', 'events', 'attempts', 'pro
 const STUDY_STORES = ['schedule', 'notes', 'sessions', 'exams', 'grades', 'reviews'];
 const STORES = [...CORE_STORES, ...STUDY_STORES];
 const FILES = 'files';
+// v4: deletion markers so deletes can be synced between devices.
+const TOMBSTONES = 'tombstones';
 const INDEXES = {
   resources: ['courseId'],
   tasks: ['courseId'],
@@ -55,6 +57,8 @@ export function openDB() {
         for (const store of STORES)
           if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(FILES)) db.createObjectStore(FILES, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(TOMBSTONES))
+          db.createObjectStore(TOMBSTONES, { keyPath: 'key' });
         for (const [store, fields] of Object.entries(INDEXES)) {
           const bucket = tx.objectStore(store);
           for (const field of fields)
@@ -143,29 +147,86 @@ export async function getFile(id) {
   return file?.blob || null;
 }
 
-export async function put(store, value) {
+/**
+ * Every write is stamped with `_mtime` (ms) so devices can sync with last-write-wins.
+ * opts.mtime: keep this time instead of now (0 = a default that any real edit beats).
+ * opts.pulled: the row came from the cloud; it is not pushed back.
+ */
+function stamp(value, opts = {}) {
+  const row = { ...value, _mtime: opts.mtime ?? Date.now() };
+  if (opts.pulled) row._pulled = true;
+  else delete row._pulled;
+  return row;
+}
+
+export async function put(store, value, opts = {}) {
   const db = await openDB();
   if (store !== 'resources') {
     const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).put(value);
+    tx.objectStore(store).put(stamp(value, opts));
     await txDone(tx);
     return value;
   }
   const { meta, blob } = splitResource(value);
   const tx = db.transaction(['resources', FILES], 'readwrite');
-  tx.objectStore('resources').put(meta);
+  tx.objectStore('resources').put(stamp(meta, opts));
   if (blob) tx.objectStore(FILES).put({ id: meta.id, blob });
   await txDone(tx);
   return value;
 }
 
-export async function remove(store, id) {
+export async function remove(store, id, opts = {}) {
   const db = await openDB();
   const names = store === 'resources' ? ['resources', FILES] : [store];
-  const tx = db.transaction(names, 'readwrite');
+  const tx = db.transaction([...names, TOMBSTONES], 'readwrite');
   for (const name of names) tx.objectStore(name).delete(id);
+  if (!opts.pulled)
+    tx.objectStore(TOMBSTONES).put({ key: `${store}:${id}`, store, rid: id, _mtime: Date.now() });
   await txDone(tx);
 }
+
+// ---------- sync support ----------
+
+/** Rows changed locally after `since` (ms), across all synced stores. Blobs excluded. */
+export async function changedSince(since) {
+  const out = [];
+  for (const store of STORES) {
+    for (const row of await all(store))
+      if ((row._mtime ?? 1) > since && !row._pulled) out.push({ store, row });
+  }
+  return out;
+}
+
+export async function tombstonesSince(since) {
+  const db = await openDB();
+  const rows = await request(
+    db.transaction(TOMBSTONES, 'readonly').objectStore(TOMBSTONES).getAll(),
+  );
+  return rows.filter(t => t._mtime > since);
+}
+
+export async function pruneTombstones(before) {
+  const db = await openDB();
+  const tx = db.transaction(TOMBSTONES, 'readwrite');
+  const bucket = tx.objectStore(TOMBSTONES);
+  for (const t of await request(bucket.getAll())) if (t._mtime < before) bucket.delete(t.key);
+  await txDone(tx);
+}
+
+/** Raw stored row (resources without their file). */
+export async function getRow(store, id) {
+  const db = await openDB();
+  return request(db.transaction(store, 'readonly').objectStore(store).get(id));
+}
+
+export async function setFile(id, blob) {
+  const db = await openDB();
+  const tx = db.transaction(FILES, 'readwrite');
+  tx.objectStore(FILES).put({ id, blob });
+  await txDone(tx);
+}
+
+export const syncedStores = STORES;
 
 export async function replaceAll(store, entries) {
   const db = await openDB();
@@ -191,15 +252,19 @@ export async function initialize() {
   if (!initialized) {
     if (!count) {
       for (let i = 0; i < initialCourses.length; i++) {
-        await put('courses', {
-          id: `course-${i + 1}`,
-          title: initialCourses[i],
-          code: '',
-          createdAt: new Date().toISOString(),
-        });
+        await put(
+          'courses',
+          {
+            id: `course-${i + 1}`,
+            title: initialCourses[i],
+            code: '',
+            createdAt: new Date().toISOString(),
+          },
+          { mtime: 0 },
+        );
       }
     }
-    await put('settings', { id: 'seeded', value: true });
+    await put('settings', { id: 'seeded', value: true }, { mtime: 0 });
   }
 }
 export function makeId() {

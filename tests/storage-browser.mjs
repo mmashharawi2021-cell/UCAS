@@ -72,7 +72,7 @@ try {
       byCourse: byCourse.length,
     };
   });
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.ok(migrated.stores.includes('files'));
   assert.equal(migrated.listHasBlob, false, 'resource lists must not carry blobs');
   assert.equal(migrated.hasFile, true);

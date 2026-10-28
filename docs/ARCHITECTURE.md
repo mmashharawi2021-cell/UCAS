@@ -35,7 +35,7 @@ To add a feature: put the logic in `js/lib/<name>.js` with unit tests, the UI in
 
 > Forms: read a form's id with `form.getAttribute('id')` — a field named `id` inside the form shadows `form.id`.
 
-## Data model (IndexedDB `ucas-academic-bridge`, version 3)
+## Data model (IndexedDB `ucas-academic-bridge`, version 4)
 
 | Store | Key | Notes |
 | --- | --- | --- |
@@ -52,7 +52,10 @@ To add a feature: put the logic in `js/lib/<name>.js` with unit tests, the UI in
 | `exams` | `id` | `{ courseId, title, type, date, duration, room, topics }`. Index: `courseId`. |
 | `grades` | course id | `{ hours, components[{name, weight, score, max}], finalMark, target }`. |
 | `reviews` | question key | Leitner record `{ courseId, q (snapshot), box, due, right, wrong }`. Index: `courseId`. |
+| `tombstones` | `store:id` | Deletion markers for sync (local only, pruned after 90 days). |
 | `settings` | `id` | Key/value rows: `seeded`, `question-bank`, `quiz-draft`, `last-backup`, … |
+
+Every write is stamped with `_mtime` (`put(store, row, { mtime })`; defaults use `mtime: 0` so real edits always win) and every delete leaves a tombstone; `js/cloud/sync.js` uses them for two-way sync.
 
 `store.js` hides the resources/files split: `put('resources', { …, blob })` writes both stores in one transaction; `get('resources', id)` returns the record with its `blob`; `all('resources')` returns metadata only; `getFile(id)` returns just the blob; `remove`/`replaceAll` keep both stores consistent.
 

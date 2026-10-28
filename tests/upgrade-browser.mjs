@@ -60,7 +60,7 @@ try {
     const r = await s.get('resources', 'old-file');
     return { version: (await s.openDB()).version, text: await r.blob.text() };
   }, VERSION);
-  assert.equal(result.version, 3);
+  assert.equal(result.version, 4);
   assert.equal(result.text, 'from the old release');
   console.log('✓ new release opened, schema migrated, old data intact');
   console.log('upgrade-browser: ok');

@@ -1,3 +1,5 @@
+import { highlight, splitFences } from '../lib/code-highlight.js?v=1.1.0';
+
 // Phase 1 — lecture notes with highlight colours (course tab "ملاحظاتي").
 // Note text is shown with escaping only; a tiny safe formatter turns **bold** and
 // "- " bullets into markup AFTER escaping, so pasted HTML never runs.
@@ -11,8 +13,19 @@ export const COLORS = {
 };
 
 /** Escape first, then apply a very small, safe subset of formatting. */
+/** Notes with ``` fenced code: prose is formatted, code is highlighted, both escaped. */
 export function formatNote(esc, text) {
-  return esc(text)
+  return splitFences(text)
+    .map(part =>
+      part.type === 'code'
+        ? `<div class="code-block"><div class="code-head"><span>${esc(part.lang || 'code')}</span><button class="btn-mini" type="button" data-act="code-copy">نسخ</button></div><pre dir="ltr"><code>${highlight(part.value, part.lang)}</code></pre></div>`
+        : formatProse(esc, part.value),
+    )
+    .join('');
+}
+
+function formatProse(esc, text) {
+  return esc(text.replace(/^\n+|\n+$/g, ''))
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/==(.+?)==/g, '<mark>$1</mark>')
     .split('\n')
@@ -42,7 +55,7 @@ function renderTab(ctx, course) {
         String(b.updatedAt).localeCompare(String(a.updatedAt)),
     );
   const total = state.notes.filter(n => n.courseId === course.id).length;
-  return `<div class="page-intro"><div><h2>ملاحظاتي على المحاضرات</h2><p>اكتب ملخصاتك وظلّل المهم بالألوان. اكتب **نص** للخط العريض و ==نص== للتظليل و - في بداية السطر للنقاط.</p></div><button class="primary-btn" data-act="note-add">${ic('plus')} ملاحظة جديدة</button></div>${
+  return `<div class="page-intro"><div><h2>ملاحظاتي على المحاضرات</h2><p>اكتب ملخصاتك وظلّل المهم بالألوان. اكتب **نص** للخط العريض و ==نص== للتظليل و - للنقاط، وضع الكود بين \`\`\` لتلوينه.</p></div><button class="primary-btn" data-act="note-add">${ic('plus')} ملاحظة جديدة</button></div>${
     total
       ? `<div class="notes-toolbar"><input class="input" type="search" placeholder="ابحث في ملاحظات المساق…" value="${esc(filter.query)}" data-act-change="note-filter-query" aria-label="بحث في الملاحظات"/><div class="color-filter" role="group" aria-label="تصفية حسب اللون">${Object.entries(
           COLORS,
@@ -83,6 +96,15 @@ function noteModal(ctx, note = null) {
 export const courseTabs = [{ id: 'notes', label: 'ملاحظاتي', render: renderTab }];
 
 export const actions = {
+  'code-copy': async (el, ctx) => {
+    const code = el.closest('.code-block')?.querySelector('code')?.textContent || '';
+    try {
+      await navigator.clipboard.writeText(code);
+      ctx.toast('تم نسخ الكود');
+    } catch {
+      ctx.toast('تعذر النسخ', true);
+    }
+  },
   'note-add': (el, ctx) => noteModal(ctx),
   'note-edit': (el, ctx) => {
     const n = ctx.state.notes.find(x => x.id === el.dataset.id);

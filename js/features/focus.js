@@ -9,7 +9,7 @@ import {
   streakDays,
   validTimer,
   weekRange,
-} from '../lib/focus.js?v=1.0.1';
+} from '../lib/focus.js?v=1.1.0';
 
 const KEY = 'focus-timer';
 let ticker = null;
