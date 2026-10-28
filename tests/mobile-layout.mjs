@@ -21,9 +21,18 @@ try {
       null,
       { timeout: 15000 },
     );
+    await page.waitForSelector('.premium-hero');
+    assert.equal(await page.locator('.premium-hero-score').count(), 1);
     await page.waitForSelector('.premium-focus');
     assert.equal(await page.locator('.premium-focus-card').count(), 3);
     assert.ok(await page.locator('.premium-progress [role="progressbar"]').count());
+    await page.evaluate(() => document.querySelector('[data-go="courses"]')?.click());
+    await page.waitForSelector('.premium-library-grid');
+    assert.ok((await page.locator('.premium-library-grid .premium-course-card').count()) > 0);
+    await page.fill('#course-filter', 'unlikely-course-search-zz');
+    assert.equal(await page.locator('.premium-library-grid .premium-course-card:visible').count(), 0);
+    await page.fill('#course-filter', '');
+    assert.ok((await page.locator('.premium-library-grid .premium-course-card:visible').count()) > 0);
     await page.evaluate(() => document.querySelector('[data-go="import"]')?.click());
     await page.waitForTimeout(500);
     const result = await page.evaluate(() => {
