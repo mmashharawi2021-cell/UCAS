@@ -1,9 +1,9 @@
 // Push notifications that arrive while the app is closed (optional, online).
 // The browser subscribes with the server's public VAPID key; the server keeps only
 // the subscription and the titles/times of upcoming reminders, synced from this device.
-import { cloudSession } from './groups.js?v=1.5.0';
-import { run, CloudError } from '../cloud/client.js?v=1.5.0';
-import { reminderRows, urlBase64ToUint8Array } from '../lib/cloud.js?v=1.5.0';
+import { cloudSession } from './groups.js?v=1.6.0';
+import { run, CloudError } from '../cloud/client.js?v=1.6.0';
+import { reminderRows, urlBase64ToUint8Array } from '../lib/cloud.js?v=1.6.0';
 
 const FLAG = 'ucas-push-endpoint';
 let syncTimer = null;

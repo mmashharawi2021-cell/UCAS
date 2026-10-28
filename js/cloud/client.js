@@ -1,7 +1,7 @@
 // Lazy Supabase client. Nothing is downloaded or contacted until a student opens an
 // online feature and agrees to it.
-import { SUPABASE_URL, SUPABASE_KEY, SUPABASE_JS } from './config.js?v=1.5.0';
-import { friendlyError } from '../lib/cloud.js?v=1.5.0';
+import { SUPABASE_URL, SUPABASE_KEY, SUPABASE_JS } from './config.js?v=1.6.0';
+import { friendlyError } from '../lib/cloud.js?v=1.6.0';
 
 const STORAGE_KEY = 'ucas-cloud-auth';
 let clientPromise = null;
