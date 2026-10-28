@@ -2710,3 +2710,79 @@ body,
     padding: 8px 10px;
   }
 }
+
+/* ===== v1.1 — personal study ===== */
+.code-pill {
+  display: inline-block;
+  direction: ltr;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--navy);
+  background: var(--soft);
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-inline-end: 4px;
+  vertical-align: middle;
+}
+.semester-panel {
+  margin-bottom: 16px;
+}
+.semester-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.semester-head h3 {
+  margin: 0 0 4px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.semester-head p {
+  margin: 0;
+}
+.sync-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sync-form .input {
+  flex: 1 1 220px;
+}
+.ai-panel .row-actions {
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+.ai-count {
+  width: auto;
+  min-width: 100px;
+}
+.ai-ask {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.ai-ask .textarea {
+  flex: 1;
+}
+.ai-result {
+  margin-top: 14px;
+}
+.ai-result h3 {
+  margin-top: 0;
+}
+.ai-question {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ai-question ol {
+  margin: 6px 0;
+  padding-inline-start: 20px;
+}
+.ai-question small {
+  display: block;
+}

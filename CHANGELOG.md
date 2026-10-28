@@ -1,5 +1,16 @@
 # Changelog — UCAS Academic Bridge
 
+## v1.1.0 — Personal study (28 Oct 2026)
+
+- **Your Fall 2026/2027 plan pre-filled:** course codes (GISS 2307 …), credit hours (19) and 55 previously passed hours; codes shown on course cards. Written as defaults that never override a real edit.
+- **Semesters:** "إنهاء الفصل" archives the term with its marks into a history, hides its courses (files and notes kept) and starts the next term; cumulative average combines the hours/average entered before using the app with every archived term. "Add course" now takes a code and credit hours.
+- **Sync between your devices** (email magic link): every change is timestamped locally (IndexedDB v4 adds deletion markers); last-write-wins two-way sync of all study data, lecture files in a private Storage bucket; automatic on changes, on open and when leaving the app. Nickname-only accounts cannot sync. An existing nickname account is upgraded in place by adding the email (groups/push kept).
+- **AI lecture assistant (Google Gemini)**, course tab «مساعد AI»: summarise a lecture (save as a note), generate exam questions (add to the question bank, so they feed mock exams and smart review), ask questions. The key lives only in Supabase secrets; only allowed emails; 60 calls/day; only the selected lecture's text is sent.
+- **Code in notes:** fenced ``` blocks are syntax-highlighted (Python/JS/SQL/C-like) with a copy button, every token escaped.
+- Fixed: an empty "previous average" no longer counts as 0 in the cumulative average.
+- Tests: `tests/personal.test.mjs`; `tests/personal-browser.mjs` runs two browsers (phone + laptop) against one simulated server.
+
+
 ## v1.0.1 — Upgrade fix (28 Oct 2026)
 
 - **Fixed:** after updating, phones that had opened an older version could show «تعذر تشغيل التخزين المحلي» because the browser mixed the new app with an old cached `store.js`.

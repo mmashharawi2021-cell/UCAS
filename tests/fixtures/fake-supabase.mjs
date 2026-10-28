@@ -10,6 +10,17 @@ const db = (globalThis.__fakeDB ??= {
 });
 const ME = '11111111-1111-4111-8111-111111111111';
 let signedIn = !!localStorage.getItem('ucas-cloud-auth');
+// Email account (sync/AI). Set by the magic-link landing (#access_token=…&email=…).
+const EMAIL_KEY = 'fake-email-user';
+function currentUser() {
+  const email = localStorage.getItem(EMAIL_KEY);
+  if (email) return { id: 'email-' + email, email, is_anonymous: false };
+  return signedIn ? { id: ME, is_anonymous: true } : null;
+}
+{
+  const m = /access_token=[^&]+.*email=([^&]+)/.exec(location.hash);
+  if (m) localStorage.setItem(EMAIL_KEY, decodeURIComponent(m[1]));
+}
 const channels = new Set();
 let seq = 1;
 
@@ -53,6 +64,7 @@ class Query {
     return this;
   }
   gt(k, v) {
+    if (k === 'updated_at') this.remoteGt = v;
     this.filters.push(r => r[k] > v);
     return this;
   }
@@ -127,19 +139,46 @@ class Query {
     return ok(rows.map(r => pick(r, this.cols)));
   }
   then(resolve, reject) {
-    try {
-      resolve(this.run());
-    } catch (err) {
-      resolve(fail(err.message));
-    }
-    return Promise.resolve().then(() => {}, reject);
+    // sync_records lives on the shared test server (exposed by the test), others in memory.
+    const exec =
+      this.table === 'sync_records' && globalThis.__fakeRemote
+        ? () => globalThis.__fakeRemote('sync', this.remoteQuery())
+        : () => this.run();
+    return Promise.resolve()
+      .then(exec)
+      .then(resolve, err => resolve(fail(err.message)))
+      .catch(reject);
+  }
+  remoteQuery() {
+    return {
+      mode: this.mode,
+      rows: this.rows,
+      gt: this.remoteGt,
+      limit: this.max,
+      user: currentUser()?.id,
+    };
   }
 }
 
 const client = {
   auth: {
     async getSession() {
-      return ok({ session: signedIn ? { user: { id: ME } } : null });
+      const user = currentUser();
+      return ok({ session: user ? { user } : null });
+    },
+    async signInWithOtp({ email, options }) {
+      globalThis.__fakeLastLink = `${options.emailRedirectTo}#access_token=fake&type=magiclink&email=${encodeURIComponent(email)}`;
+      return ok({});
+    },
+    async updateUser({ email }, options = {}) {
+      globalThis.__fakeLastLink = `${options.emailRedirectTo}#access_token=fake&type=email_change&email=${encodeURIComponent(email)}`;
+      return ok({ user: currentUser() });
+    },
+    async signOut() {
+      localStorage.removeItem(EMAIL_KEY);
+      localStorage.removeItem('ucas-cloud-auth');
+      signedIn = false;
+      return ok({});
     },
     async signInAnonymously() {
       if (globalThis.__fakeAnonDisabled)
@@ -156,6 +195,32 @@ const client = {
     },
   },
   from: table => new Query(table),
+  storage: {
+    from: () => ({
+      async upload(path, blob) {
+        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+        await globalThis.__fakeRemote('upload', { path, bytes, type: blob.type });
+        return ok({ path });
+      },
+      async download(path) {
+        const file = await globalThis.__fakeRemote('download', { path });
+        if (!file) return fail('not found');
+        return ok(new Blob([new Uint8Array(file.bytes)], { type: file.type }));
+      },
+      async remove(paths) {
+        await globalThis.__fakeRemote('remove', { paths });
+        return ok([]);
+      },
+    }),
+  },
+  functions: {
+    async invoke(name, { body }) {
+      const res = await globalThis.__fakeRemote('invoke', { name, body, user: currentUser() });
+      if (res.error)
+        return { data: null, error: { context: { json: async () => ({ error: res.error }) } } };
+      return ok(res);
+    },
+  },
   async rpc(name, args) {
     if (name === 'create_group') {
       if (!db.profiles.some(p => p.id === ME)) return fail('set a nickname first');
