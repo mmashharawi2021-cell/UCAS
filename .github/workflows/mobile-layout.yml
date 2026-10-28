@@ -8,6 +8,8 @@ on:
       - 'js/app.js'
       - 'tests/mobile-layout.mjs'
       - 'tests/study-browser.mjs'
+      - 'tests/pdf-browser.mjs'
+      - 'js/pdf-text.js'
       - 'js/study.js'
       - '.github/workflows/mobile-layout.yml'
   workflow_dispatch:
@@ -36,3 +38,4 @@ jobs:
         run: |
           node tests/mobile-layout.mjs
           node tests/study-browser.mjs
+          node tests/pdf-browser.mjs
