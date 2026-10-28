@@ -70,3 +70,14 @@ test('Moodle Connect is registered in the app and offline shell', () => {
   assert.match(sw, /moodle-connect-core\.js/);
   assert.match(html, /js\/moodle-connect\.js\?v=1\.5\.0/);
 });
+
+test('UCAS Chrome Companion bridge remains optional and respects offline data', () => {
+  const app = read('js/app.js');
+  const sw = read('sw.js');
+  const bridge = read('js/companion.js');
+  assert.match(app, /data-action="companion-scan"/);
+  assert.match(app, /data-action="companion-auto"/);
+  assert.match(sw, /js\/companion\.js/);
+  assert.match(bridge, /safeMoodleActivityURL/);
+  assert.match(bridge, /importCompanionSnapshot/);
+});

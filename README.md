@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v1.5.0
+# UCAS Academic Bridge — v1.6.0
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
@@ -34,6 +34,15 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 
 - A redesigned study home with a real completion ring and practical navigation, redesigned course library with instant filtering, and a Gemini study workspace inside each course.
 - Styles in `premium-v2.css` are versioned, cached for offline use and layered above the original `styles.css`.
+
+## UCAS Moodle Companion (optional desktop Chrome extension)
+
+- A separate Chrome Manifest V3 extension scans the student's own Moodle dashboard and visible course activity links after **official Moodle sign-in**. No Moodle API credentials, passwords, cookie access or OAuth authorization are used.
+- Moodle page snapshots are sanitized to course names/IDs and allowlisted activity links. An opt-in hourly scan runs only when desktop Chrome is running with an authenticated Moodle session.
+- From the Moodle UCAS page, click **مزامنة من Moodle** to import course/activity metadata into local UCAS IndexedDB. New courses are matched to existing study courses without overwriting study materials.
+- No automatic protected PDF downloads or grade collection in this release. Moodle may require reauthentication, and a page-theme change may break extraction.
+- **Chrome on Android does not support regular extensions**; desktop Chrome is required. Installing the unpacked extension is a one-time action per computer (updating an unpacked extension requires updating its folder).
+- The ZIP of the extension is distributed to the site owner separately; it must not contain personal MHT data or login tokens.
 
 ## Moodle Connect (official OAuth, gated)
 

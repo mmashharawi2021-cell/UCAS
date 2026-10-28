@@ -1,5 +1,7 @@
-# UCAS 1.5.0 — Moodle Connect pending university approval
+# UCAS 1.6.0 — Desktop Chrome Moodle Companion
 
-Source code now includes Moodle OAuth 2 Authorization Code + PKCE interface and conditional read-only course synchronization. This is an integration foundation, **not** a connected live Moodle account or proven API access. University registration, read scopes, actual API routes and CORS authorization are outstanding. Existing academic files, imports, Supabase options and offline features are unchanged.
+This release adds a browser-extension bridge and local course/activity import to the existing Import and Moodle sections. The extension ZIP is distributed separately for desktop Chrome, requires a student's **normal Moodle sign-in**, and scans only readable dashboard/course links. An hourly opt-in scan runs only while Chrome and the session remain active. The UI cannot turn on the extension by itself; user installation is required.
 
-See docs/MOODLE_CONNECT.md for activation steps and limitations.
+No Moodle login bypass, official API privileges, course PDF downloads, grades, or continuous cloud background sync are claimed. All original import paths and local data remain intact. The university may change its Moodle HTML and terms; validate with one test account.
+
+See README and docs/MOODLE_CONNECT.md.
