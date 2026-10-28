@@ -100,6 +100,7 @@ const state = {
   importTab: 'drive',
   collapsed: false,
   mobileMenu: false,
+  homeExtrasOpen: false,
   query: '',
   activeQuiz: null,
   quizDraft: null,
@@ -462,7 +463,7 @@ function homePage() {
   ${sectionHead('مساحة الأولويات', '<span class="premium-section-hint">ابدأ بالأهم</span>')}${premiumOverview()}
   ${sectionHead('مساقاتي', `<button class="link" data-go="courses">جميع المساقات ${ic('chevron', 14)}</button>`)}
   <div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('') || noData('ابدأ مساقك الأول', 'أضف مساقًا لتنظيم محاضراتك', 'book')}</div>
-  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
+  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches && !state.homeExtrasOpen ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
   <div>${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
   ${features.homeWidgets(ctx)}
   <div class="premium-footer-grid"><div>${sectionHead('تقويمي الأسبوعي')}<div class="panel">${weekly()}</div></div><div>${sectionHead('نظرة على تقدمي')}<div class="panel">${progressBars()}</div></div></div>
@@ -1964,6 +1965,11 @@ async function init() {
       const empty = document.getElementById('course-filter-empty');
       if (empty) empty.hidden = visible !== 0;
     });
+    document.addEventListener('toggle', e => {
+      if (e.target.matches?.('details.premium-home-extras')) {
+        state.homeExtrasOpen = e.target.open;
+      }
+    }, true);
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') document.querySelector('.modal-backdrop')?.remove();
       if (e.key === 'Enter' && e.target.id === 'global-search') {
