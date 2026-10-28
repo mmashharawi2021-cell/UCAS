@@ -1,3 +1,5 @@
+# Latest: v0.5 — Drive-assisted import, 28 October 2026
+
 ## v0.4.1 — Moodle MHT/MHTML import from mobile Chrome
 
 - Accepts `.mht` and `.mhtml` plus `.html` and `.htm`.
