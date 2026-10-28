@@ -73,3 +73,31 @@ button:not(:disabled):active{transform:scale(.975);transition-duration:.09s}
  .drive-panel .primary-btn,.drive-panel .outline-btn,.drive-open-link{width:100%;max-width:100%;min-height:46px;justify-content:center}
  .drive-panel .form-grid{grid-template-columns:1fr}
 }
+
+
+/* v0.5.1 — keep Drive import and all nested grids inside the mobile viewport.
+   HTML file controls have a large intrinsic min-width on Android Chrome. */
+html,body,#app,.shell,.main-area{max-width:100%;min-width:0}
+.main-area,.content,.page-stage,.panel,.drive-import,.drive-panel,.drive-panel form,
+.drive-hero,.quick-actions,.quick-action,.form-grid,.tabs,.upload-zone{min-width:0}
+.content,.page-stage,.panel,.drive-import,.drive-panel,.drive-hero{width:100%;max-width:100%}
+.drive-import,.drive-panel,.drive-panel form{grid-template-columns:minmax(0,1fr)}
+.quick-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.quick-action{width:100%;max-width:100%}
+.quick-action>div,.drive-hero>div,.page-intro>div{min-width:0;overflow-wrap:anywhere}
+.drive-panel input[type=file],.upload-zone input[type=file],
+.drive-panel input,.drive-panel select{display:block;width:100%;max-width:100%;min-width:0}
+.drive-panel .upload-zone,.drive-panel .field{min-width:0;max-width:100%}
+.drive-import p,.drive-panel p,.drive-label{overflow-wrap:anywhere}
+.tabs{max-width:100%}
+.tabs>.tab{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:860px){
+ .shell,.shell.collapsed{display:block;width:100%;max-width:100%;min-width:0}
+ .main-area,.content,.page-stage{width:100%;max-width:100%;min-width:0}
+}
+@media(max-width:560px){
+ .quick-actions{grid-template-columns:minmax(0,1fr)}
+ .quick-action{padding:15px}
+ .drive-hero{min-width:0}
+ .drive-panel{padding:12px}
+}
