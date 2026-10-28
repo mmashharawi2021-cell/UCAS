@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://moodle.ucas.edu.ps; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://moodle.ucas.edu.ps; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';"
+    />
     <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#112b4a" />
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
@@ -12,33 +15,71 @@
   </head>
   <body>
     <div class="connect-shell">
-      <header><a href="./" class="back">العودة إلى UCAS</a><div class="brand">UCAS <span>STUDIO</span></div></header>
+      <header>
+        <a href="./" class="back">العودة إلى UCAS</a>
+        <div class="brand">UCAS <span>STUDIO</span></div>
+      </header>
       <main>
         <section class="heading">
           <div class="eyebrow">ACADEMIC INTEGRATIONS · MOODLE</div>
           <h1>Moodle Connect</h1>
-          <p>اربط حسابك الجامعي بتفويض رسمي، ثم استورد المساقات المسموح بعرضها دون مشاركة كلمة المرور مع UCAS.</p>
+          <p>
+            اربط حسابك الجامعي بتفويض رسمي، ثم استورد المساقات المسموح بعرضها دون مشاركة كلمة المرور
+            مع UCAS.
+          </p>
         </section>
         <section class="panel">
-          <div class="panel-head"><h2>حالة الاتصال</h2><strong id="connection-state" role="status">جاري التحقق…</strong></div>
+          <div class="panel-head">
+            <h2>حالة الاتصال</h2>
+            <strong id="connection-state" role="status">جاري التحقق…</strong>
+          </div>
           <p id="connection-detail" class="detail"></p>
           <div class="actions">
             <button id="connect" disabled>ربط حساب Moodle رسميًا</button>
             <button id="sync" hidden>مزامنة المساقات الآن</button>
             <button id="disconnect" class="secondary" hidden>فصل الاتصال</button>
           </div>
-          <p class="privacy">الاتصال عبر OAuth 2.0 وPKCE. لا نطلب كلمة مرور Moodle، ولا نخزن رمز الوصول في IndexedDB أو في مستودع GitHub. المزامنة التلقائية تعمل فقط أثناء فتح هذه الصفحة واتصالها الفعلي.</p>
+          <p class="privacy">
+            الاتصال عبر OAuth 2.0 وPKCE. لا نطلب كلمة مرور Moodle، ولا نخزن رمز الوصول في IndexedDB
+            أو في مستودع GitHub. المزامنة التلقائية تعمل فقط أثناء فتح هذه الصفحة واتصالها الفعلي.
+          </p>
         </section>
         <section class="panel">
-          <div class="panel-head"><h2>المساقات المكتشفة</h2><span id="count">0</span></div>
-          <div id="courses" class="course-list"><p class="detail">ستظهر المساقات هنا بعد نجاح الربط وتوفر واجهة قراءة معتمدة من الجامعة.</p></div>
+          <div class="panel-head">
+            <h2>المساقات المكتشفة</h2>
+            <span id="count">0</span>
+          </div>
+          <div id="courses" class="course-list">
+            <p class="detail">
+              ستظهر المساقات هنا بعد نجاح الربط وتوفر واجهة قراءة معتمدة من الجامعة.
+            </p>
+          </div>
         </section>
         <section class="panel fallback">
           <h2>بديل متاح الآن</h2>
-          <p>إذا لم توافق الجامعة على OAuth حتى الآن، استمر باستيراد ملفات المحاضرات وروابطها أو صفحات MHT المسموح بها يدويًا.</p>
-          <div class="actions"><a href="./" class="secondary">فتح مركز الاستيراد</a><a href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">فتح Moodle الرسمي</a></div>
+          <p>
+            إذا لم توافق الجامعة على OAuth حتى الآن، استمر باستيراد ملفات المحاضرات وروابطها أو
+            صفحات MHT المسموح بها يدويًا.
+          </p>
+          <div class="actions">
+            <a href="./" class="secondary">فتح مركز الاستيراد</a
+            ><a
+              href="https://moodle.ucas.edu.ps/login/index.php"
+              target="_blank"
+              rel="noopener noreferrer"
+              >فتح Moodle الرسمي</a
+            >
+          </div>
         </section>
-        <details class="technical"><summary>ما المطلوب لتفعيل الربط؟</summary><p>يجب أن يسجل مسؤول Moodle تطبيق UCAS من نوع Public Client، ويوافق على نطاقات قراءة المساقات، ويسجل عنوان العودة الخاص بهذه الصفحة، ويحدد مسار OAuth ومسار REST المتاحين فعليًا ويتيح CORS للأصل الخاص بـGitHub Pages.</p><code>https://mmashharawi2021-cell.github.io/UCAS/moodle-connect.html</code></details>
+        <details class="technical">
+          <summary>ما المطلوب لتفعيل الربط؟</summary>
+          <p>
+            يجب أن يسجل مسؤول Moodle تطبيق UCAS من نوع Public Client، ويوافق على نطاقات قراءة
+            المساقات، ويسجل عنوان العودة الخاص بهذه الصفحة، ويحدد مسار OAuth ومسار REST المتاحين
+            فعليًا ويتيح CORS للأصل الخاص بـGitHub Pages.
+          </p>
+          <code>https://mmashharawi2021-cell.github.io/UCAS/moodle-connect.html</code>
+        </details>
       </main>
     </div>
     <script type="module" src="js/moodle-connect.js?v=1.5.0"></script>
