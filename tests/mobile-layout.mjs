@@ -24,8 +24,36 @@ try {
     await page.waitForSelector('.premium-hero');
     assert.equal(await page.locator('.premium-hero-score').count(), 1);
     await page.waitForSelector('.premium-focus');
+    assert.ok(await page.locator('.premium-home-extras').count());
     assert.equal(await page.locator('.premium-focus-card').count(), 3);
     assert.ok(await page.locator('.premium-progress [role="progressbar"]').count());
+    if (width <= 600) {
+      assert.equal(await page.locator('.premium-home-extras').evaluate(e => e.open), false);
+      const compact = await page.evaluate(() => ({
+        header: document.querySelector('.topbar').getBoundingClientRect().height,
+        hero: document.querySelector('.premium-hero').getBoundingClientRect().height,
+        scrollWidth: document.documentElement.scrollWidth,
+        courses: [...document.querySelectorAll('.home-courses .premium-course-card')]
+          .filter(e => getComputedStyle(e).display !== 'none')
+          .map(e => ({
+            left: e.getBoundingClientRect().left,
+            right: e.getBoundingClientRect().right,
+          })),
+      }));
+      assert.ok(compact.header <= 66, 'Header is too tall: ' + compact.header);
+      assert.ok(compact.hero <= 440, 'Hero is too tall: ' + compact.hero);
+      assert.equal(compact.courses.length, 2);
+      assert.ok(compact.courses.every(c => c.left >= -1 && c.right <= width + 1));
+      assert.ok(compact.scrollWidth <= width + 2);
+      await page.locator('.premium-home-extras summary').click();
+      assert.equal(await page.locator('.premium-home-extras').evaluate(e => e.open), true);
+    }
+    await page.evaluate(() => document.querySelector('[data-action="toggle-menu"]')?.click());
+    if (width <= 768) {
+      assert.ok(await page.locator('.shell.mobile-open .sidebar').count());
+      await page.locator('.mobile-menu-close').click();
+      assert.equal(await page.locator('.shell.mobile-open').count(), 0);
+    }
     await page.evaluate(() => document.querySelector('[data-go="courses"]')?.click());
     await page.waitForSelector('.premium-library-grid');
     assert.ok((await page.locator('.premium-library-grid .premium-course-card').count()) > 0);

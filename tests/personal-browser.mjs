@@ -91,7 +91,7 @@ async function device(name) {
   page.on('pageerror', e => page.errors.push(`${name}: ${e.message}`));
   page.on('dialog', d => d.accept());
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.home-widgets');
+  await page.waitForSelector('.premium-hero');
   return page;
 }
 const click = (page, sel) => page.evaluate(s => document.querySelector(s).click(), sel);

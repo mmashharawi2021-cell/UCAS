@@ -1,7 +1,7 @@
 // Study groups with live chat (online, optional). Accounts are nickname-only
 // (Supabase anonymous sign-in). Only the nickname, group names and messages are stored
 // on the server; local study data never leaves the device through this feature.
-import { ensureSession, hasStoredSession, run, CloudError } from '../cloud/client.js?v=1.3.0';
+import { ensureSession, hasStoredSession, run, CloudError } from '../cloud/client.js?v=1.4.0';
 import {
   validateNickname,
   normalizeInviteCode,
@@ -10,7 +10,7 @@ import {
   readLaunchParams,
   validateMessage,
   messageTime,
-} from '../lib/cloud.js?v=1.3.0';
+} from '../lib/cloud.js?v=1.4.0';
 
 const CONSENT_KEY = 'ucas-cloud-consent';
 const PAGE = 50;

@@ -35,6 +35,8 @@ try {
   };
 
   await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.premium-hero');
+  await page.locator('.premium-home-extras summary').click();
   await page.waitForSelector('.home-widgets');
   step('home widgets render');
 
@@ -272,6 +274,7 @@ try {
 
   // ---- Home widgets reflect data ----
   await page.reload();
+  await page.locator('.premium-home-extras summary').click();
   await page.waitForSelector('.home-widgets');
   const home = await page.locator('.home-widgets').innerText();
   assert.match(home, /محاضرات اليوم/);

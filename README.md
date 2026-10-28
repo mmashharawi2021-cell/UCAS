@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v1.3.0
+# UCAS Academic Bridge — v1.4.0
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
@@ -23,6 +23,12 @@ CHROME_PATH=/path/to/chrome npm run test:browser
 ```
 
 Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for how the code is organised.
+
+## Mobile UX 1.4
+
+- On mobile the home page shows concise priorities, two fully visible course cards, and an expandable section for secondary widgets, calendars and reports.
+- The menu has a dedicated close button and scrollable items, and no navigation option is permanently hidden.
+- Additional stylesheet `mobile-ux.css` remains part of the PWA's offline shell.
 
 ## Premium UI 2.0
 

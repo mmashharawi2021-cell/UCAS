@@ -2,8 +2,8 @@
 // 1) Phone calendar export (.ics with alarms): real reminders even when the site is closed.
 // 2) In-app notifications while the app is open (tasks, exams, lectures in the next hours).
 // Push notifications to a closed app need a push server; not part of this static site.
-import { buildCalendar } from '../lib/ics-export.js?v=1.3.0';
-import { todaySlots } from '../lib/timetable.js?v=1.3.0';
+import { buildCalendar } from '../lib/ics-export.js?v=1.4.0';
+import { todaySlots } from '../lib/timetable.js?v=1.4.0';
 
 const KEY = 'reminder-settings';
 const DEFAULTS = { minutes: 60, inApp: true, semesterEnd: '' };
