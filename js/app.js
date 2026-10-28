@@ -430,9 +430,19 @@ function premiumOverview() {
   </section>`;
 }
 function homePage() {
-  const upcoming = pending().filter(t => t.due).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3);
-  const recent = state.resources.slice().sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || ''))).slice(0, 3);
-  const date = new Date().toLocaleDateString('ar-PS', { weekday: 'long', day: 'numeric', month: 'long' });
+  const upcoming = pending()
+    .filter(t => t.due)
+    .sort((a, b) => a.due.localeCompare(b.due))
+    .slice(0, 3);
+  const recent = state.resources
+    .slice()
+    .sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')))
+    .slice(0, 3);
+  const date = new Date().toLocaleDateString('ar-PS', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
   const total = state.resources.length;
   const done = state.resources.filter(r => r.completed).length;
   const percentage = total ? Math.round((done / total) * 100) : 0;
@@ -482,7 +492,9 @@ function progressBars() {
     )}</div><div class="notice" style="margin-top:16px">هذه مؤشرات للنشاط داخل المنصة، وليست علامات جامعية رسمية.</div>`;
 }
 function coursesPage() {
-  const totalResources = state.resources.filter(r => state.courses.some(c => c.id === r.courseId)).length;
+  const totalResources = state.resources.filter(r =>
+    state.courses.some(c => c.id === r.courseId),
+  ).length;
   return `<section class="premium-library-intro"><div class="premium-library-copy"><span class="premium-kicker">MY LEARNING LIBRARY</span><h1>مكتبة مساقاتي</h1><p>مساحة واحدة لجميع محاضراتك وملاحظاتك وملفاتك الدراسية</p><div class="premium-library-counters"><span><strong>${state.courses.length}</strong> مساقات</span><span><strong>${totalResources}</strong> مصادر محفوظة</span></div></div><div class="premium-library-art" aria-hidden="true">${ic('book', 70)}</div></section>
   <div class="premium-library-toolbar"><label class="premium-library-search">${ic('search', 17)}<input id="course-filter" type="search" placeholder="ابحث باسم المساق أو رمزه..." autocomplete="off" aria-label="تصفية المساقات"/></label><button class="primary-btn" data-action="add-course">${ic('plus')} إضافة مساق</button></div>
   <div class="premium-library-label"><h2>جميع المساقات</h2><span id="course-filter-count" role="status">${state.courses.length} مساقات</span></div>
@@ -1941,7 +1953,9 @@ async function init() {
       if (e.target.id !== 'course-filter') return;
       const query = e.target.value.trim().toLocaleLowerCase('ar');
       let visible = 0;
-      for (const card of document.querySelectorAll('.premium-library-grid [data-course-searchable]')) {
+      for (const card of document.querySelectorAll(
+        '.premium-library-grid [data-course-searchable]',
+      )) {
         card.hidden = !card.dataset.courseSearchable.includes(query);
         if (!card.hidden) visible++;
       }
