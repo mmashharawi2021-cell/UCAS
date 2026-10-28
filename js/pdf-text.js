@@ -17,17 +17,49 @@ export async function getPdfLibrary(){
  }
  return libraryPromise;
 }
+function itemGap(previous,item){
+ if(!previous?.transform||!item?.transform)return null;
+ const prevX=Number(previous.transform[4]),nextX=Number(item.transform[4]);
+ const width=Number(previous.width);
+ if(!Number.isFinite(prevX)||!Number.isFinite(nextX)||!Number.isFinite(width))return null;
+ const direction=String(previous.dir||item.dir||'ltr').toLowerCase();
+ const gap=direction==='rtl' ? prevX-(nextX+Number(item.width||0)) : nextX-(prevX+width);
+ return Number.isFinite(gap)?gap:null;
+}
 export function normalizePageItems(items){
  const rows=[];
- let current='';
+ let current='',previous=null;
  for(const item of items||[]){
   const str=String(item?.str||'');
-  if(str.trim())current+=str;
-  if(item?.hasEOL && current.trim()){rows.push(current.trim());current='';}
-  else if(str && !item?.hasEOL)current+=' ';
+  if(str){
+   const gap=itemGap(previous,item);
+   const prevStr=String(previous?.str||'');
+   // PDF.js already includes many word spaces. Never unconditionally insert
+   // spaces between glyphs: Arabic PDFs may expose one glyph per item.
+   const betweenWords=gap===null
+    ? /[A-Za-z0-9]$/.test(prevStr)&&/^[A-Za-z0-9]/.test(str)
+    : gap>Math.max(2,Math.abs(Number(item.height||previous?.height||10))*0.20);
+   if(current && !/\s$/.test(current)&&!/^\s/.test(str)&&betweenWords)current+=' ';
+   current+=str;
+   previous=item;
+  }
+  if(item?.hasEOL){
+   if(current.trim())rows.push(current.trim());
+   current='';previous=null;
+  }
  }
  if(current.trim())rows.push(current.trim());
  return rows.join('\n').replace(/[ \t]{2,}/g,' ').trim();
+}
+export function pdfTextQuality(text){
+ const source=String(text||'');
+ const arabicWords=source.match(/[\u0621-\u064A]+/g)||[];
+ const singles=arabicWords.filter(w=>w.length===1).length;
+ const arabicChars=arabicWords.reduce((n,w)=>n+w.length,0);
+ const invalid=(source.match(/\uFFFD/g)||[]).length;
+ const brokenArabic=arabicChars>=35&&arabicWords.length>=20&&singles/arabicWords.length>0.46;
+ const corrupted=brokenArabic||(source.length>40&&invalid/source.length>0.035);
+ return {corrupted,reason:brokenArabic?'حروف عربية متقطعة':invalid?'رموز غير معروفة':'',arabicChars,arabicSingletonRatio:arabicWords.length?singles/arabicWords.length:0};
 }
 export async function extractPdfText(file,{maxPages=MAX_PAGES,maxChars=MAX_TEXT_CHARS,loader=getPdfLibrary}={}){
  if(!file||typeof file.arrayBuffer!=='function')throw new Error('ملف PDF غير صالح');
@@ -58,6 +90,8 @@ export async function extractPdfText(file,{maxPages=MAX_PAGES,maxChars=MAX_TEXT_
    }
   }
   if(!pages.length)throw new Error('ملف PDF لا يحتوي على نص قابل للاستخراج. قد يكون عبارة عن صور ممسوحة ضوئيًا ويتطلب OCR.');
+  const quality=pdfTextQuality(pages.map(p=>p.text).join('\n'));
+  if(quality.corrupted)throw new Error('النص المستخرج من PDF غير مقروء ('+quality.reason+'). جرّب ملف PDF الأصلي باللغة الإنجليزية أو نسخة نصية قابلة للنسخ، بدل إنشاء بطاقات غير دقيقة.');
   return {
    text:pages.map(x=>x.text).join('\n'),
    pages,
