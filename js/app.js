@@ -301,7 +301,7 @@ function navItems() {
 function layout(content) {
   const selected = state.page === 'course' ? 'courses' : state.page;
   return `<div data-page="${esc(state.page)}" class="shell ${state.collapsed ? 'collapsed' : ''} ${state.mobileMenu ? 'mobile-open' : ''}">
-<aside class="sidebar" aria-label="التنقل الرئيسي"><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS <span class="premium-logo-word">STUDIO</span></div><div class="logo-sub">مساحة التعلم الأكاديمي</div></div></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
+<aside class="sidebar" aria-label="التنقل الرئيسي" ${state.mobileMenu ? 'data-open="true"' : ''}><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS <span class="premium-logo-word">STUDIO</span></div><div class="logo-sub">مساحة التعلم الأكاديمي</div></div><button class="mobile-menu-close" data-action="close-menu" aria-label="إغلاق القائمة">${ic('close', 19)}</button></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
     .map(
       n =>
         `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}>${ic(n.icon)}<span>${n.label}</span></button>`,
@@ -462,11 +462,11 @@ function homePage() {
   ${sectionHead('مساحة الأولويات', '<span class="premium-section-hint">ابدأ بالأهم</span>')}${premiumOverview()}
   ${sectionHead('مساقاتي', `<button class="link" data-go="courses">جميع المساقات ${ic('chevron', 14)}</button>`)}
   <div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('') || noData('ابدأ مساقك الأول', 'أضف مساقًا لتنظيم محاضراتك', 'book')}</div>
-  <div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
+  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
   <div>${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
   ${features.homeWidgets(ctx)}
   <div class="premium-footer-grid"><div>${sectionHead('تقويمي الأسبوعي')}<div class="panel">${weekly()}</div></div><div>${sectionHead('نظرة على تقدمي')}<div class="panel">${progressBars()}</div></div></div>
-  <div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>يمكنك استيراد المصادر يدويًا دون مشاركة كلمة مرور الجامعة.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div>`;
+  <div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>يمكنك استيراد المصادر يدويًا دون مشاركة كلمة مرور الجامعة.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div></div></details>`;
 }
 function progressBars() {
   const total = state.resources.length;
