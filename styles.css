@@ -101,3 +101,17 @@ html,body,#app,.shell,.main-area{max-width:100%;min-width:0}
  .drive-hero{min-width:0}
  .drive-panel{padding:12px}
 }
+
+/* v0.6 offline study: source-first research and flashcards */
+.study-search-form{display:grid;gap:12px;margin:18px 0}
+.study-search-form .primary-btn{justify-self:start}
+.study-results{display:grid;gap:10px;margin:18px 0;min-height:60px}
+.study-results h3{font-size:15px}
+.study-match{display:grid;gap:8px;border:1px solid var(--line);background:var(--soft);padding:15px;border-radius:14px;min-width:0}
+.study-match strong,.study-match small,.study-match p{overflow-wrap:anywhere}
+.study-match p{font-size:13px;line-height:1.85;white-space:pre-wrap}
+.study-match small{display:block;font-size:11px}
+.study-match .outline-btn{justify-self:start}
+.study-answer{padding:12px;background:var(--surface);border-radius:9px;border-inline-start:3px solid var(--navy)}
+.study-actions{display:flex;flex-wrap:wrap;gap:9px}
+@media(max-width:560px){.study-search-form .primary-btn,.study-actions .outline-btn{width:100%;justify-content:center}.study-actions{display:grid;grid-template-columns:minmax(0,1fr)}.study-match{padding:11px}}
