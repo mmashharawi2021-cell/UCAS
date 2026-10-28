@@ -107,7 +107,7 @@ export function formatChatGPTStudyPrompt(course,question,matches){
 }
 
 export function buildDefinitionQuiz(cards,limit=8){
- const usable=(cards||[]).filter(c=>c.term&&c.definition&&c.source)
+ const usable=(cards||[]).filter(c=>c.kind!=='passage'&&c.term&&c.definition&&c.source)
   .filter((c,i,a)=>a.findIndex(x=>normalizeArabic(x.definition)===normalizeArabic(c.definition))===i)
   .slice(0,24);
  if(usable.length<4)return [];
