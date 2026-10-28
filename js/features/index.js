@@ -17,8 +17,10 @@ import * as grades from './grades.js';
 import * as report from './report.js';
 import * as share from './share.js';
 import * as reminders from './reminders.js';
+import * as groups from './groups.js';
+import * as push from './push.js';
 
-const modules = [schedule, notes, focus, exams, grades, report, share, reminders];
+const modules = [schedule, notes, focus, exams, grades, report, share, reminders, push, groups];
 const collect = key => modules.flatMap(m => m[key] || []);
 const lookup = key => Object.assign({}, ...modules.map(m => m[key] || {}));
 
