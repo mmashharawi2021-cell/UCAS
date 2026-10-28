@@ -5,7 +5,7 @@ import {normalizeArabic,queryTerms,segmentText,searchStudySources,extractReviewC
 const docs=[{id:'a',name:'Lecture1.txt',module:'الوحدة الأولى',text:'إدارة المشاريع: عملية تخطيط الأنشطة والموارد بهدف تحقيق الأهداف.\nالرقابة: متابعة سير العمل ومقارنة النتائج بالخطة الأصلية.\nالتقييم: تحديد مدى تحقق أهداف المشروع ونتائجه الفعلية.\nالاستشعار عن بعد: جمع بيانات عن سطح الأرض دون تماس مباشر.\nنظم المعلومات الجغرافية: نظم لمعالجة وتحليل وتمثيل البيانات المكانية.\nقواعد البيانات: طريقة منظمة لحفظ البيانات واسترجاعها.'}];
 test('normalizes Arabic orthography for useful course retrieval',()=>{
  assert.equal(normalizeArabic('إِدارة المَشاريع'),'ادارة المشاريع');
- assert.deepEqual(queryTerms('ما الفرق في إِدارة المشاريع؟'),['الفرق','اداره','المشاريع']);
+ assert.deepEqual(queryTerms('ما الفرق في إِدارة المشاريع؟'),['الفرق','ادارة','المشاريع']);
  assert.ok(segmentText(docs[0].text).length>=4);
 });
 test('search only returns text actually present in source and explicit source names',()=>{
