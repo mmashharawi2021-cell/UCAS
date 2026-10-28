@@ -46,3 +46,22 @@ test('includes all agreed initial workflows in UI source', () => {
   ])
     assert.ok(source.includes(keyword), keyword);
 });
+test('release version is the same everywhere', () => {
+  const version = JSON.parse(read('package.json')).version;
+  assert.match(read('sw.js'), new RegExp(`const VERSION = '${version.replace(/\./g, '\\.')}'`));
+  assert.match(
+    read('js/app.js'),
+    new RegExp(`const APP_VERSION = '${version.replace(/\./g, '\\.')}'`),
+  );
+  const html = read('index.html');
+  assert.ok(html.includes(`styles.css?v=${version}`), 'index.html styles version');
+  assert.ok(html.includes(`js/app.js?v=${version}`), 'index.html app version');
+});
+test('installable PWA icons are present', () => {
+  const manifest = JSON.parse(read('manifest.webmanifest'));
+  const sizes = manifest.icons.map(i => i.sizes);
+  assert.ok(sizes.includes('192x192') && sizes.includes('512x512'));
+  assert.ok(manifest.icons.some(i => i.purpose === 'maskable'));
+  for (const icon of manifest.icons) assert.ok(existsSync(resolve(root, icon.src)), icon.src);
+  assert.match(read('index.html'), /rel="apple-touch-icon"/);
+});
