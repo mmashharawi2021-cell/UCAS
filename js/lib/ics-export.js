@@ -1,6 +1,6 @@
 // Build an .ics calendar (RFC 5545) so deadlines, exams and lectures get real reminders
 // from the phone's own calendar app — they work even when this site is closed.
-import { toMinutes } from './timetable.js?v=1.6.0';
+import { toMinutes } from './timetable.js?v=1.7.0';
 
 const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
