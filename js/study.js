@@ -55,6 +55,29 @@ export function extractReviewCards(documents,limit=8){
  }
  return result;
 }
+
+/** Fallback for lecture PDFs and narrative notes with no explicit term-definition lines.
+ * These are literal source excerpts, never invented definitions or AI summaries.
+ */
+export function extractPassageCards(documents,limit=10){
+ const cards=[],seen=new Set();
+ for(const doc of documents||[]){
+  const chunks=Array.isArray(doc.pages)&&doc.pages.length
+   ? doc.pages.flatMap(p=>segmentText(p.text).map(excerpt=>({excerpt,page:p.page})))
+   : segmentText(doc.text).map(excerpt=>({excerpt,page:null}));
+  for(const chunk of chunks){
+   const excerpt=chunk.excerpt.trim().slice(0,380);
+   if(excerpt.length<45)continue;
+   const key=normalizeArabic(excerpt.slice(0,100));
+   if(seen.has(key))continue;
+   seen.add(key);
+   cards.push({kind:'passage',term:'مقتطف للمراجعة '+(cards.length+1),definition:excerpt,source:doc.name,module:doc.module||'مصادر المساق',page:chunk.page});
+   if(cards.length>=limit)return cards;
+  }
+ }
+ return cards;
+}
+
 export async function loadCourseText(resources,courseId,officePreview,{maxSources=MAX_SOURCES,pdfPreview=null}={}){
  const documents=[],unsupported=[],errors=[];
  const selected=(resources||[]).filter(r=>r.courseId===courseId && r.kind==='file' && r.blob).slice(0,maxSources);
