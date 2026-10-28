@@ -4,10 +4,24 @@
 // so listing resources never touches file blobs. Callers keep using the same
 // `get/put/remove('resources', …)` API; this module joins/splits blobs transparently.
 const NAME = 'ucas-academic-bridge';
-const VERSION = 2;
-const STORES = ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'];
+const VERSION = 3;
+// Stores every backup must contain (present since v1).
+const CORE_STORES = ['courses', 'resources', 'tasks', 'events', 'attempts', 'progress', 'settings'];
+// Added in v3 (timetable, notes, study sessions, exams, grade book, smart review).
+// Optional in backups so files made by older versions still restore.
+const STUDY_STORES = ['schedule', 'notes', 'sessions', 'exams', 'grades', 'reviews'];
+const STORES = [...CORE_STORES, ...STUDY_STORES];
 const FILES = 'files';
-const INDEXES = { resources: ['courseId'], tasks: ['courseId'], attempts: ['courseId'] };
+const INDEXES = {
+  resources: ['courseId'],
+  tasks: ['courseId'],
+  attempts: ['courseId'],
+  schedule: ['courseId'],
+  notes: ['courseId'],
+  sessions: ['courseId'],
+  exams: ['courseId'],
+  reviews: ['courseId'],
+};
 let openPromise;
 export const initialCourses = [
   'إدارة مشاريع نظم المعلومات الجغرافية',
@@ -282,13 +296,16 @@ export async function backup() {
 export async function restore(data) {
   if (!data || data.format !== 'ucas-bridge-backup' || data.version !== 1 || !data.stores)
     throw new Error('ملف النسخة الاحتياطية غير صالح');
-  for (const store of STORES)
+  for (const store of CORE_STORES)
     if (!Array.isArray(data.stores[store])) throw new Error(`النسخة لا تحتوي على ${store}`);
+  for (const store of STUDY_STORES)
+    if (data.stores[store] !== undefined && !Array.isArray(data.stores[store]))
+      throw new Error(`النسخة تحتوي على بيانات غير صالحة في ${store}`);
   // Decode and validate the complete backup before changing any local data.
   const replacement = {};
   const files = [];
   for (const store of STORES) {
-    replacement[store] = data.stores[store].map(row => {
+    replacement[store] = (data.stores[store] || []).map(row => {
       if (!row || typeof row.id !== 'string' || !row.id)
         throw new Error(`سجل غير صالح ضمن ${store}`);
       if (!row.blobData) return row;
