@@ -16,6 +16,10 @@ on:
       - 'js/store.js'
       - 'sw.js'
       - 'tests/storage-browser.mjs'
+      - 'tests/features-browser.mjs'
+      - 'js/features/**'
+      - 'js/lib/**'
+      - 'js/ui.js'
       - '.github/workflows/mobile-layout.yml'
   workflow_dispatch:
 permissions:
@@ -43,5 +47,6 @@ jobs:
         run: |
           node tests/mobile-layout.mjs
           node tests/storage-browser.mjs
+          node tests/features-browser.mjs
           node tests/study-browser.mjs
           node tests/pdf-browser.mjs

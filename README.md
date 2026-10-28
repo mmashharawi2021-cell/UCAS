@@ -1,4 +1,4 @@
-# UCAS Academic Bridge — v0.8.0
+# UCAS Academic Bridge — v0.9.0
 
 منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
 
@@ -33,12 +33,16 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - Per-course study assistant: local search over TXT/MD/DOCX/PPTX and text PDFs with page references; optional in-browser OCR (Arabic/English) for scanned PDFs; flashcards and definition quizzes from `Term: definition` lines.
 - Tasks, weekly view, in-app reminders; practice question bank and quiz history; progress metrics.
 - Data protection: persistent-storage request, storage usage meter, backup reminder, JSON backup/restore (files included).
+- **Timetable**, **lecture notes** with highlights, **Pomodoro study timer** with per-course study time.
+- **Exam dates with countdown**, **timed mock exams**, **smart review** of wrong answers, **question import** (text/CSV).
+- **Grade book and weighted average** (semester and cumulative), **weekly report**.
+- **Course packs** to share notes/questions with classmates; **phone-calendar export** with reminders.
 
 ## Not included (by design or not built yet)
 
 - No Moodle login, API access or scraping; no Google Drive OAuth/auto-sync.
 - No AI provider integration — see [docs/SECURE_AI_GATEWAY.md](docs/SECURE_AI_GATEWAY.md) for the required design before adding one.
-- No cloud sync between devices, no scheduled push notifications, no recurring ICS expansion.
+- No cloud sync between devices, no live study groups, no push notifications while the app is closed (use the calendar export), no recurring ICS *import*.
 
 ## Security & privacy
 

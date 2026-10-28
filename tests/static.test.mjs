@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -64,4 +64,17 @@ test('installable PWA icons are present', () => {
   assert.ok(manifest.icons.some(i => i.purpose === 'maskable'));
   for (const icon of manifest.icons) assert.ok(existsSync(resolve(root, icon.src)), icon.src);
   assert.match(read('index.html'), /rel="apple-touch-icon"/);
+});
+test('service worker caches every app module', () => {
+  const sw = read('sw.js');
+  const walk = dir =>
+    readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap(e =>
+      e.isDirectory()
+        ? walk(`${dir}/${e.name}`)
+        : e.name.endsWith('.js')
+          ? [`${dir}/${e.name}`]
+          : [],
+    );
+  for (const file of walk('js'))
+    assert.ok(sw.includes(`./${file}`), `${file} missing from SHELL in sw.js`);
 });

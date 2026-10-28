@@ -32,6 +32,10 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - **New external origins** (CDNs, APIs) must be pinned and added to the CSP in `index.html`.
 - **Honest UI.** Do not label features as AI, sync or official grades unless they are.
 
+## Adding a feature
+
+See "Feature modules" in `docs/ARCHITECTURE.md`: pure logic in `js/lib/` (with unit tests), UI in `js/features/`, register it in `js/features/index.js`, and list both files in `SHELL` in `sw.js`.
+
 ## Release checklist
 
 1. Update the version in `package.json`, `APP_VERSION` in `js/app.js`, `VERSION` in `sw.js` and both `?v=` strings in `index.html` (the unit tests fail if they differ).

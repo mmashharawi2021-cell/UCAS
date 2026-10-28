@@ -1,6 +1,6 @@
 // Service worker: caches the public app shell only — never user data.
 // Bump VERSION on every release (keep it equal to package.json "version").
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 const CACHE = `ucas-bridge-shell-${VERSION}`;
 const SHELL = [
   './',
@@ -16,6 +16,25 @@ const SHELL = [
   './js/study.js',
   './js/pdf-text.js',
   './js/ocr.js',
+  './js/ui.js',
+  './js/lib/countdown.js',
+  './js/lib/focus.js',
+  './js/lib/grades.js',
+  './js/lib/ics-export.js',
+  './js/lib/pack.js',
+  './js/lib/question-import.js',
+  './js/lib/report.js',
+  './js/lib/review.js',
+  './js/lib/timetable.js',
+  './js/features/exams.js',
+  './js/features/focus.js',
+  './js/features/grades.js',
+  './js/features/index.js',
+  './js/features/notes.js',
+  './js/features/reminders.js',
+  './js/features/report.js',
+  './js/features/schedule.js',
+  './js/features/share.js',
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
