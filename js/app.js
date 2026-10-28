@@ -22,7 +22,8 @@ import { esc, ic } from './ui.js?v=1.6.0';
 import { parseICS } from './ics.js?v=1.6.0';
 import { previewOffice } from './office.js?v=1.6.0';
 import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.6.0';
-import { companionRequest, importCompanionSnapshot } from './companion.js?v=1.6.0';
+import { companionRequest, importCompanionSnapshot } from './companion.js?v=1.7.0';
+import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=1.7.0';
 import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.6.0';
 import {
   loadCourseText,
@@ -114,6 +115,12 @@ const state = {
   moodleImportError: null,
   companionStatus: '',
   companionAuto: false,
+  companionFiles: [],
+  companionFileFailures: [],
+  companionFileBusy: false,
+  companionFileCancel: false,
+  companionFileProgress: '',
+  companionFileResult: '',
   storage: { usage: null, quota: null, persisted: false, supported: false },
   // v0.9 study features
   schedule: [],
@@ -563,6 +570,31 @@ function moodleHTMLForm() {
 function moodleImportForm() {
   return `<form id="moodle-form" class="moodle-import-form"><div class="notice info">ألصق نص محاضرة أو تعليمات تكليف تملك صلاحية الاطلاع عليها. تُحفظ نسخة نصية في متصفحك فقط. لا تلصق كلمات مرور أو رموز وصول أو بيانات زملائك.</div><div class="form-grid"><div class="field"><label for="moodle-course">المساق</label><select id="moodle-course" class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label for="moodle-title">عنوان المادة</label><input id="moodle-title" class="input" name="title" maxlength="150" required placeholder="مثال: المحاضرة الثانية — مفهوم قواعد البيانات"/></div></div><div class="field"><label for="moodle-text">النص المنسوخ من Moodle</label><textarea id="moodle-text" name="content" class="textarea" maxlength="120000" rows="8" required placeholder="انسخ النص الدراسي من صفحة المساق أو المحاضرة في Moodle ثم ألصقه هنا..."></textarea><p class="muted tiny">لا يُجلب أي محتوى محمي تلقائيًا؛ أنت تحدد ما يُحفظ.</p></div><button class="primary-btn" type="submit">${ic('plus')} حفظ المادة داخل المساق</button></form>`;
 }
+function companionFilesPanel() {
+  const list = state.companionFiles;
+  const groups = new Map();
+  for (const item of list) {
+    const key = item.courseId;
+    if (!groups.has(key)) groups.set(key, { title: item.courseTitle || 'مساق Moodle', items: [] });
+    groups.get(key).items.push(item);
+  }
+  return `<section class="panel companion-file-panel" aria-labelledby="companion-file-title">
+    <div class="panel-heading"><h3 id="companion-file-title">ملفات المساقات — نقل مباشر إلى مكتبة UCAS</h3><span class="pill">${list.length} ملف</span></div>
+    <p class="muted tiny">ابدأ بفحص ملفات المساقات المتاحة لحسابك، وراجع القائمة ثم اختر الملفات التي تريد حفظها. التنزيل يتم بموافقتك وبحد 35 MB لكل ملف؛ لا تُجمع العلامات أو واجبات الطلاب أو بيانات الجلسة.</p>
+    <div class="row-actions">
+      <button class="primary-btn" data-action="companion-files-discover" ${state.companionFileBusy ? 'disabled' : ''}>فحص ملفات المساقات</button>
+      ${list.length ? `<button class="outline-btn" data-action="companion-files-select-all" ${state.companionFileBusy ? 'disabled' : ''}>تحديد الكل</button><button class="outline-btn" data-action="companion-files-deselect-all" ${state.companionFileBusy ? 'disabled' : ''}>إلغاء التحديد</button><button class="primary-btn" data-action="companion-files-import" ${state.companionFileBusy ? 'disabled' : ''}>استيراد الملفات المحددة إلى UCAS</button>` : ''}
+      ${state.companionFileBusy ? '<button class="outline-btn" data-action="companion-files-cancel">إيقاف بعد الملف الحالي</button>' : ''}
+    </div>
+    <p class="muted tiny companion-files-status" role="status" aria-live="polite">${esc(state.companionFileProgress || 'لم يتم فحص ملفات المحاضرات بعد')}</p>
+    <progress class="companion-files-progress" max="100" value="0" ${state.companionFileBusy ? '' : 'hidden'} aria-label="تقدم نقل ملف Moodle"></progress>
+    ${state.companionFileResult ? `<div class="notice info">${esc(state.companionFileResult)}</div>` : ''}
+    ${state.companionFileFailures.length ? `<details><summary>تعذر فحص ${state.companionFileFailures.length} مساق</summary><ul>${state.companionFileFailures.slice(0,20).map(f => `<li>${esc(f.course)}: ${esc(f.reason)}</li>`).join('')}</ul></details>` : ''}
+    <div class="companion-file-catalog">${[...groups.values()].map(group => `<details class="companion-file-group"><summary><strong>${esc(group.title)}</strong> <span class="pill">${group.items.length} ملف</span></summary><div class="companion-file-list">${group.items.map(file => `<label class="companion-file-item"><input type="checkbox" data-companion-file="${esc(file.id)}" checked ${state.companionFileBusy ? 'disabled' : ''}><span><strong>${esc(file.name)}</strong><small>${esc(file.module)}</small></span></label>`).join('')}</div></details>`).join('')}</div>
+    <p class="muted tiny">تُحفظ الملفات في IndexedDB على هذا الكمبيوتر. لا تُرفع إلى مستودع GitHub؛ لن تنتقل تلقائيًا إلى الهاتف دون تفعيل المزامنة السحابية الاختيارية على حسابك.</p>
+  </section>`;
+}
+
 function moodlePage() {
   const count = state.resources.filter(r => r.origin?.startsWith('moodle')).length;
   return `<section class="panel moodle-companion-panel" style="margin-bottom:18px">
@@ -571,7 +603,7 @@ function moodlePage() {
 <div class="row-actions"><button class="primary-btn" data-action="companion-scan">مزامنة من Moodle</button><button class="outline-btn" data-action="companion-last">استيراد آخر فحص</button><button class="outline-btn" data-action="companion-auto">${state.companionAuto ? 'تعطيل' : 'تفعيل'} الفحص كل ساعة</button></div>
 <p class="muted tiny" role="status" aria-live="polite">${esc(state.companionStatus || 'ثبّت إضافة UCAS Moodle Companion مرة واحدة على Chrome للكمبيوتر. لا تدعم نسخة Chrome على Android الإضافات.')}</p>
 <p class="muted tiny">لا تُحمّل هذه النسخة ملفات PDF المحمية أو علامات Moodle. تُستورد روابط الأنشطة وأسماء التكليفات دون افتراض موعد تسليم.</p>
-</section><div class="panel moodle-connect-intro" style="margin-bottom:18px"><div class="panel-heading"><h3>ربط Moodle الرسمي (OAuth)</h3><span class="pill">يتطلب تفعيل الجامعة</span></div><p class="muted tiny">اتصال قراءة فقط بعد تفويض حسابك على موقع الجامعة، دون تخزين كلمة المرور. لم تؤكد الجامعة بعد توفير صلاحيات API لتطبيق UCAS.</p><a class="primary-btn" href="moodle-connect.html">فتح Moodle Connect</a></div>${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3><button class="link" data-go="import">مركز الاستيراد ${ic('chevron', 14)}</button></div>${moodleImportForm()}</div><div class="quick-actions"><button class="quick-action" data-action="moodle-files">${ic('upload')}<div><strong>ملفات المحاضرات</strong><p class="muted tiny">PDF وDOCX وPPTX</p></div></button><button class="quick-action" data-action="moodle-ics">${ic('calendar')}<div><strong>تقويم Moodle</strong><p class="muted tiny">ملف ICS من بوابة الجامعة</p></div></button><button class="quick-action" data-action="moodle-links">${ic('link')}<div><strong>روابط المواد</strong><p class="muted tiny">روابط مسموح بها</p></div></button></div>`;
+</section>${companionFilesPanel()}<div class="panel moodle-connect-intro" style="margin-bottom:18px"><div class="panel-heading"><h3>ربط Moodle الرسمي (OAuth)</h3><span class="pill">يتطلب تفعيل الجامعة</span></div><p class="muted tiny">اتصال قراءة فقط بعد تفويض حسابك على موقع الجامعة، دون تخزين كلمة المرور. لم تؤكد الجامعة بعد توفير صلاحيات API لتطبيق UCAS.</p><a class="primary-btn" href="moodle-connect.html">فتح Moodle Connect</a></div>${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3><button class="link" data-go="import">مركز الاستيراد ${ic('chevron', 14)}</button></div>${moodleImportForm()}</div><div class="quick-actions"><button class="quick-action" data-action="moodle-files">${ic('upload')}<div><strong>ملفات المحاضرات</strong><p class="muted tiny">PDF وDOCX وPPTX</p></div></button><button class="quick-action" data-action="moodle-ics">${ic('calendar')}<div><strong>تقويم Moodle</strong><p class="muted tiny">ملف ICS من بوابة الجامعة</p></div></button><button class="quick-action" data-action="moodle-links">${ic('link')}<div><strong>روابط المواد</strong><p class="muted tiny">روابط مسموح بها</p></div></button></div>`;
 }
 function driveImportPanel(options) {
   return (
@@ -1368,6 +1400,68 @@ async function handleClick(e) {
     return;
   }
   switch (d.action) {
+    case 'companion-files-discover': {
+      if (state.companionFileBusy) break;
+      state.companionFileBusy = true;
+      state.companionFileProgress = 'يتم البحث عن ملفات المحاضرات في المساقات المرتبطة…';
+      state.companionFileResult = '';
+      render();
+      try {
+        const result = await companionRequest('FILE_SCAN');
+        state.companionFiles = validateFileCatalog(result.files || []);
+        state.companionFileFailures = (result.failures || []).slice(0, 100);
+        state.companionFileProgress = `اكتُشف ${state.companionFiles.length} ملف. راجع ما تريد استيراده، ثم اضغط زر الاستيراد.`;
+      } catch (error) {
+        state.companionFileProgress = error.message || 'تعذر اكتشاف الملفات';
+        toast(state.companionFileProgress, true);
+      } finally {
+        state.companionFileBusy = false;
+        render();
+      }
+      break;
+    }
+    case 'companion-files-select-all':
+    case 'companion-files-deselect-all': {
+      if (state.companionFileBusy) break;
+      const checked = d.action === 'companion-files-select-all';
+      for (const item of document.querySelectorAll('[data-companion-file]')) item.checked = checked;
+      break;
+    }
+    case 'companion-files-cancel':
+      state.companionFileCancel = true;
+      state.companionFileProgress = 'سيُوقف النقل بعد إنهاء الجزء الحالي…';
+      { const el = document.querySelector('.companion-files-status'); if (el) el.textContent = state.companionFileProgress; }
+      break;
+    case 'companion-files-import': {
+      if (state.companionFileBusy) break;
+      const ids = new Set([...document.querySelectorAll('[data-companion-file]:checked')].map(el => el.dataset.companionFile));
+      const chosen = state.companionFiles.filter(f => ids.has(f.id));
+      if (!chosen.length) return toast('حدد ملفًا واحدًا على الأقل', true);
+      state.companionFileBusy = true;
+      state.companionFileCancel = false;
+      state.companionFileResult = '';
+      state.companionFileProgress = 'بدء استيراد الملفات إلى مكتبتك المحلية…';
+      render();
+      try {
+        const result = await transferCompanionFiles(chosen, progress => {
+          state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
+          const label = document.querySelector('.companion-files-status');
+          if (label) label.textContent = state.companionFileProgress;
+          const bar = document.querySelector('.companion-files-progress');
+          if (bar) bar.value = progress.percent;
+        }, () => state.companionFileCancel);
+        state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.errors.length ? ' أخطاء: ' + result.errors.slice(0, 5).join(' | ') : ''}`;
+        await refresh();
+      } catch (error) {
+        state.companionFileResult = error.message || 'تعذر نقل الملفات';
+        toast(state.companionFileResult, true);
+      } finally {
+        state.companionFileBusy = false;
+        state.companionFileCancel = false;
+        render();
+      }
+      break;
+    }
     case 'companion-scan':
     case 'companion-last': {
       state.companionStatus = 'يتم التحقق من إضافة Chrome وجلسة Moodle…';
