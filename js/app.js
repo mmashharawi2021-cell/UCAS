@@ -3,7 +3,7 @@ import {parseICS} from './ics.js';
 import {previewOffice} from './office.js';
 import {cleanMoodlePaste,readMoodleCourseFile} from './moodle.js';
 import {validateStudyFiles,parseDriveReference,normalizeDriveTitle} from './drive.js';
-import {loadCourseText,searchStudySources,extractReviewCards,buildDefinitionQuiz,formatChatGPTStudyPrompt} from './study.js';
+import {loadCourseText,searchStudySources,extractReviewCards,extractPassageCards,buildDefinitionQuiz,formatChatGPTStudyPrompt} from './study.js';
 import {extractPdfText} from './pdf-text.js';
 
 const titles={home:'الرئيسية',courses:'مساقاتي',moodle:'ربط Moodle',import:'مركز الاستيراد',quizzes:'الاختبارات التدريبية',tasks:'التكليفات والتقويم',progress:'التقدم الدراسي',settings:'الإعدادات',search:'نتائج البحث'};
@@ -119,7 +119,7 @@ function assistantModal(){
   '<div class="notice info"><strong>مراجعة محلية من ملفات المساق</strong><p>ابحث داخل PDF النصي وTXT وDOCX وPPTX. ستظهر مقتطفات موثقة بأسماء الملفات ورقم صفحة PDF. يعتمد PDF.js على تحميل مكتبة برمجية خارجية عند أول استخدام، لكن بيانات الملفات لا تُرفع إلى خادم. الملفات المصورة تحتاج OCR منفصلًا.</p></div>',
   '<form id="study-search-form" class="study-search-form"><div class="field"><label for="study-query">ما الموضوع الذي تريد مراجعته؟</label><input class="input" id="study-query" name="query" maxlength="200" placeholder="مثال: إدارة المشاريع" required></div><button type="submit" class="primary-btn">البحث في ملفات المساق</button></form>',
   '<div id="study-results" class="study-results" aria-live="polite"><p class="muted tiny">اكتب كلمة أو سؤالًا لعرض المقتطفات التي تتضمنه.</p></div>',
-  '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من التعريفات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
+  '<div class="study-actions"><button type="button" class="outline-btn" data-action="study-cards">بطاقات مراجعة من المحاضرات</button><button type="button" class="outline-btn" data-action="study-start-quiz">اختبار من التعريفات</button><button type="button" class="outline-btn" data-action="study-copy" disabled>نسخ المقتطفات إلى ChatGPT</button></div>',
   '<p class="muted tiny">النسخ إلى ChatGPT لا يحدث إلا عند ضغطك على الزر. الاختبارات محلية ومبنية على التعريفات النصية؛ راجع صحتها من المصدر.</p>'
  ].join('');
  modal('مساعد الدراسة — '+c.title,html,true);
@@ -164,22 +164,37 @@ async function runStudySearch(query){
 }
 async function renderStudyCards(){
  const slot=document.getElementById('study-results');if(!slot)return;
- slot.textContent='جاري استخراج التعريفات…';
+ slot.textContent='جاري إعداد بطاقات المراجعة من الملفات…';
  try{
   await loadStudyDocumentsForCurrentCourse();
-  studySession.cards=extractReviewCards(studySession.documents,12);
+  const definitions=extractReviewCards(studySession.documents,12);
+  const fallback=definitions.length===0;
+  const cards=fallback?extractPassageCards(studySession.documents,10):definitions;
+  studySession.cards=cards;
   slot.replaceChildren();
-  if(!studySession.cards.length){appendStudyNotice(slot,'لم تظهر تعريفات بصيغة «مصطلح: تعريف». يمكنك استخدام البحث النصي بدلًا منها.');return;}
-  for(let i=0;i<studySession.cards.length;i++){
-   const c=studySession.cards[i],article=document.createElement('article');
+  const copy=document.querySelector('[data-action="study-copy"]');
+  if(fallback){
+   studySession.matches=cards.map(c=>({sourceId:null,source:c.source,module:c.module,excerpt:c.definition,page:c.page}));
+   studySession.question='اشرح أفكار المقتطفات التالية من المحاضرة، ثم اقترح أسئلة تدريبية مع الاستشهاد بالمصادر.';
+   if(copy)copy.disabled=!cards.length;
+  }
+  if(!cards.length){
+   appendStudyNotice(slot,'لم نجد نصوصًا كافية لإعداد بطاقات. استورد PDF نصيًا أو ملف TXT أو Word أو PowerPoint، وتأكد من ربطه بهذا المساق.');
+   const details=studySession.lastLoad;
+   if(details?.errors?.length)appendStudyNotice(slot,'تعذرت قراءة بعض الملفات: '+details.errors.slice(0,2).join('، '));
+   return;
+  }
+  if(fallback)appendStudyNotice(slot,'لم تظهر تعريفات صريحة، لذا هذه بطاقات مقتطفات حرفية من المحاضرة وليست تعريفات أو ملخصات منشأة بالذكاء الاصطناعي.');
+  for(let i=0;i<cards.length;i++){
+   const c=cards[i],article=document.createElement('article');
    article.className='study-match';
    const title=document.createElement('strong');title.textContent=c.term;
-   const source=document.createElement('small');source.className='muted';source.textContent=c.source+' / '+c.module;
-   const button=document.createElement('button');button.type='button';button.className='outline-btn';button.dataset.action='study-reveal';button.dataset.index=String(i);button.setAttribute('aria-expanded','false');button.textContent='إظهار التعريف';
+   const source=document.createElement('small');source.className='muted';source.textContent=c.source+' / '+c.module+(c.page?' · صفحة '+c.page:'');
+   const button=document.createElement('button');button.type='button';button.className='outline-btn';button.dataset.action='study-reveal';button.dataset.index=String(i);button.setAttribute('aria-expanded','false');button.textContent=fallback?'عرض المقتطف':'إظهار التعريف';
    const answer=document.createElement('p');answer.className='study-answer';answer.hidden=true;
    article.append(title,source,button,answer);slot.appendChild(article);
   }
- }catch(error){slot.textContent='تعذر إنشاء بطاقات المراجعة: '+String(error?.message||error);}
+ }catch(error){slot.textContent='تعذر إعداد بطاقات المراجعة: '+String(error?.message||error);}
 }
 async function startStudyDefinitionQuiz(){
  try{
@@ -236,7 +251,7 @@ case 'assistant':assistantModal();break;
 case 'study-cards':await renderStudyCards();break;
 case 'study-start-quiz':await startStudyDefinitionQuiz();break;
 case 'study-copy':await copyStudyPrompt();break;
-case 'study-reveal':{const card=studySession.cards[Number(d.index)];if(!card)break;const answer=link.parentElement.querySelector('.study-answer');if(!answer)break;const show=answer.hidden;answer.hidden=!show;answer.textContent=show?card.definition:'';link.setAttribute('aria-expanded',String(show));link.textContent=show?'إخفاء التعريف':'إظهار التعريف';break;}
+case 'study-reveal':{const card=studySession.cards[Number(d.index)];if(!card)break;const answer=link.parentElement.querySelector('.study-answer');if(!answer)break;const show=answer.hidden;answer.hidden=!show;answer.textContent=show?card.definition:'';link.setAttribute('aria-expanded',String(show));link.textContent=show?(card.kind==='passage'?'إخفاء المقتطف':'إخفاء التعريف'):(card.kind==='passage'?'عرض المقتطف':'إظهار التعريف');break;}
 case 'notifications':dueNotifications();break;
 case 'theme':setTheme(state.mode==='dark'?'light':'dark');break;
 case 'search':modal('البحث في المساقات والمصادر',`<form id="search-form"><div class="field"><label>كلمة البحث</label><input name="query" class="input" required placeholder="اسم مساق أو محاضرة أو تكليف" autofocus/></div><button class="primary-btn" type="submit">${ic('search')} بحث</button></form>`);break;
