@@ -122,7 +122,7 @@ try {
     });
   });
   await page.locator('[data-action="companion-files-discover"]').click();
-  await page.waitForSelector('[data-companion-file]');
+  await page.waitForSelector('[data-companion-file]', { state: 'attached' });
   await page.locator('[data-action="companion-files-import"]').click();
   await page.waitForFunction(
     () => document.querySelector('.companion-file-panel')?.textContent.includes('1 جديد'),
