@@ -4,7 +4,7 @@ Reviewed for October 2026 repository source. Describes implementation intent, no
 
 ## Default local mode
 
-Courses, files, tasks, notes, quizzes, exams, grades and progress are held in IndexedDB in this browser profile. The PWA caches public app files only, not personal study documents. Local JSON backups contain academic data and are **unencrypted**. Browser site-data deletion may erase local study material.
+Courses, files, tasks, notes, quizzes, exams, grades and progress are held in IndexedDB in this browser profile. The PWA caches public app files only, not personal study documents. Local backups (ZIP; older JSON backups still restore) contain academic data and files and are **unencrypted**. Browser site-data deletion may erase local study material.
 
 ## Optional cloud features
 

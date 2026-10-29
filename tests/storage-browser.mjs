@@ -101,6 +101,63 @@ try {
   assert.equal(roundTrip.afterWipe, null, 'clearing resources must clear files too');
   assert.equal(roundTrip.text, 'legacy content');
 
+  // 3b) ZIP backup (v2): byte-exact round trip, legacy JSON via the same entry point,
+  // and a corrupted archive is rejected without touching existing data.
+  const archive = await page.evaluate(async () => {
+    const store = await import('./js/store.js');
+    const bytes = new Uint8Array(3 * 1024 * 1024).map((_, i) => (i * 7) % 256);
+    await store.put('resources', {
+      id: 'big-1',
+      kind: 'file',
+      name: 'lecture.pdf',
+      type: 'application/pdf',
+      size: bytes.length,
+      courseId: 'c1',
+      blob: new Blob([bytes], { type: 'application/pdf' }),
+    });
+    const zip = await store.backupArchive();
+    const magic = String.fromCharCode(...new Uint8Array(await zip.slice(0, 2).arrayBuffer()));
+    await store.replaceAll('resources', []);
+    await store.restoreFile(new File([zip], 'b.zip'));
+    const big = await store.get('resources', 'big-1');
+    const same = new Uint8Array(await big.blob.arrayBuffer()).every((v, i) => v === bytes[i]);
+    const legacy = await store.get('resources', 'legacy-1');
+
+    const raw = new Uint8Array(await zip.arrayBuffer());
+    raw[raw.length - 200_000] ^= 0xff; // inside the last file entry
+    await store.remove('resources', 'legacy-1');
+    let error = '';
+    try {
+      await store.restoreFile(new File([raw], 'bad.zip'));
+    } catch (err) {
+      error = err.message;
+    }
+    const untouched =
+      !(await store.get('resources', 'legacy-1')) && !!(await store.getFile('big-1'));
+
+    await store.restoreFile(new File([zip], 'b.zip'));
+    const json = await store.backup();
+    await store.restoreFile(new File([JSON.stringify(json)], 'old.json'));
+    return {
+      magic,
+      type: big.blob.type,
+      size: big.blob.size,
+      same,
+      legacyText: await legacy.blob.text(),
+      error,
+      untouched,
+      jsonRestored: !!(await store.getFile('big-1')),
+    };
+  });
+  assert.equal(archive.magic, 'PK');
+  assert.equal(archive.type, 'application/pdf');
+  assert.equal(archive.size, 3 * 1024 * 1024);
+  assert.ok(archive.same, 'restored file bytes must match');
+  assert.equal(archive.legacyText, 'legacy content');
+  assert.match(archive.error, /تالف/);
+  assert.ok(archive.untouched, 'a rejected restore must not change local data');
+  assert.ok(archive.jsonRestored, 'legacy JSON backups still restore');
+
   // 4) UI: backup reminder on home, storage panel in settings, file still opens.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.backup-reminder');
@@ -108,6 +165,16 @@ try {
   await page.waitForSelector('.storage-panel');
   const panel = await page.locator('.storage-panel').innerText();
   assert.match(panel, /المستخدم/);
+  // The settings button downloads a ZIP that the restore input accepts back.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => document.querySelector('[data-action="export"]').click()),
+  ]);
+  assert.match(download.suggestedFilename(), /^ucas-bridge-backup-\d{4}-\d{2}-\d{2}\.zip$/);
+  page.once('dialog', d => d.accept());
+  await page.setInputFiles('#restore-file', await download.path());
+  await page.locator('.toast:not(.error)', { hasText: 'تمت استعادة النسخة' }).waitFor();
+  await page.evaluate(() => document.querySelector('[data-go="settings"]')?.click());
   await page.evaluate(() => document.querySelector('[data-go="courses"]').click());
   await page.waitForSelector('[data-course="course-1"]');
   await page.locator('[data-course="course-1"]').first().click();

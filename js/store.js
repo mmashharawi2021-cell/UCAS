@@ -3,6 +3,8 @@
 // Schema v2: file contents live in a separate `files` store keyed by resource id,
 // so listing resources never touches file blobs. Callers keep using the same
 // `get/put/remove('resources', …)` API; this module joins/splits blobs transparently.
+import { crc32, readZip, zipBlobs } from './lib/zip.js?v=1.7.0';
+
 const NAME = 'ucas-academic-bridge';
 const VERSION = 4;
 // Stores every backup must contain (present since v1).
@@ -328,59 +330,95 @@ function base64ToBytes(data) {
 }
 
 /**
- * Backup format v1 (unchanged on purpose so older app versions can restore it):
- * resource rows carry their file as `blobData` (base64) + `blobType`.
+ * Rows of every store, with each file handed to `encode(blob)` for serialising.
+ * Resource rows carry their file inline (no `hasFile`) plus `blobType`.
  */
-export async function backup() {
-  const data = {
-    format: 'ucas-bridge-backup',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    stores: {},
-  };
+async function collectBackup(encode) {
+  const stores = {};
   for (const store of STORES) {
-    const rows = await all(store);
-    data.stores[store] = [];
-    for (const row of rows) {
+    stores[store] = [];
+    for (const row of await all(store)) {
       const blob = store === 'resources' && row.hasFile ? await getFile(row.id) : row.blob;
       if (!blob) {
-        data.stores[store].push(row);
+        stores[store].push(row);
         continue;
       }
       const { blob: _inline, hasFile: _hasFile, ...meta } = row;
-      data.stores[store].push({
+      stores[store].push({
         ...meta,
-        blobData: await blobToBase64(blob),
+        ...(await encode(blob)),
         blobType: blob.type || row.type || 'application/octet-stream',
       });
     }
   }
-  return data;
+  return { format: 'ucas-bridge-backup', exportedAt: new Date().toISOString(), stores };
 }
 
-export async function restore(data) {
-  if (!data || data.format !== 'ucas-bridge-backup' || data.version !== 1 || !data.stores)
+/**
+ * Backup format v1 (JSON, kept so older app versions can restore it):
+ * resource rows carry their file as `blobData` (base64) + `blobType`.
+ * Limited by the browser's maximum string length; the app now exports v2.
+ */
+export async function backup() {
+  const data = await collectBackup(async blob => ({ blobData: await blobToBase64(blob) }));
+  return { ...data, version: 1 };
+}
+
+/**
+ * Backup format v2: a stored ZIP with `backup.json` (v1 layout, files replaced by
+ * `blobFile` entry names) and one raw entry per file. Files are referenced, not
+ * copied, so the size is bounded by disk space rather than memory.
+ */
+export async function backupArchive() {
+  const entries = [];
+  const data = await collectBackup(async blob => {
+    const name = `files/${entries.length + 1}`;
+    entries.push({ name, blob });
+    return { blobFile: name };
+  });
+  const manifest = new Blob([JSON.stringify({ ...data, version: 2 })], {
+    type: 'application/json',
+  });
+  return zipBlobs([{ name: 'backup.json', blob: manifest }, ...entries]);
+}
+
+function checkBackup(data, version) {
+  if (!data || data.format !== 'ucas-bridge-backup' || data.version !== version || !data.stores)
     throw new Error('ملف النسخة الاحتياطية غير صالح');
   for (const store of CORE_STORES)
     if (!Array.isArray(data.stores[store])) throw new Error(`النسخة لا تحتوي على ${store}`);
   for (const store of STUDY_STORES)
     if (data.stores[store] !== undefined && !Array.isArray(data.stores[store]))
       throw new Error(`النسخة تحتوي على بيانات غير صالحة في ${store}`);
-  // Decode and validate the complete backup before changing any local data.
+}
+
+/** Decode and validate the complete backup before changing any local data. */
+async function decodeStores(data, readBlob) {
   const replacement = {};
   const files = [];
   for (const store of STORES) {
-    replacement[store] = (data.stores[store] || []).map(row => {
+    replacement[store] = [];
+    for (const row of data.stores[store] || []) {
       if (!row || typeof row.id !== 'string' || !row.id)
         throw new Error(`سجل غير صالح ضمن ${store}`);
-      if (!row.blobData) return row;
-      const { blobData, blobType, ...meta } = row;
-      const blob = new Blob([base64ToBytes(blobData)], { type: blobType });
-      if (store !== 'resources') return { ...meta, blob };
+      const blob = await readBlob(row);
+      if (!blob) {
+        replacement[store].push(row);
+        continue;
+      }
+      const { blobData: _data, blobFile: _file, blobType: _type, ...meta } = row;
+      if (store !== 'resources') {
+        replacement[store].push({ ...meta, blob });
+        continue;
+      }
       files.push({ id: meta.id, blob });
-      return { ...meta, hasFile: true, size: meta.size ?? blob.size };
-    });
+      replacement[store].push({ ...meta, hasFile: true, size: meta.size ?? blob.size });
+    }
   }
+  return { replacement, files };
+}
+
+async function replaceEverything({ replacement, files }) {
   const db = await openDB();
   // One IndexedDB transaction ensures restore is all-or-nothing.
   const tx = db.transaction([...STORES, FILES], 'readwrite');
@@ -388,4 +426,33 @@ export async function restore(data) {
   for (const store of STORES) for (const row of replacement[store]) tx.objectStore(store).put(row);
   for (const file of files) tx.objectStore(FILES).put(file);
   await txDone(tx);
+}
+
+/** Restore a parsed v1 (JSON) backup. */
+export async function restore(data) {
+  checkBackup(data, 1);
+  const decoded = await decodeStores(data, async row =>
+    row.blobData ? new Blob([base64ToBytes(row.blobData)], { type: row.blobType }) : null,
+  );
+  await replaceEverything(decoded);
+}
+
+/** Restore a backup file chosen by the user: v2 ZIP, or a legacy v1 JSON. */
+export async function restoreFile(file) {
+  const magic = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  if (magic[0] !== 0x50 || magic[1] !== 0x4b) return restore(JSON.parse(await file.text()));
+  const entries = new Map((await readZip(file)).map(e => [e.name, e]));
+  const manifest = entries.get('backup.json');
+  if (!manifest) throw new Error('ملف النسخة الاحتياطية غير صالح');
+  const data = JSON.parse(await manifest.blob.text());
+  checkBackup(data, 2);
+  const decoded = await decodeStores(data, async row => {
+    if (!row.blobFile) return null;
+    const entry = entries.get(row.blobFile);
+    const label = row.name || row.id;
+    if (!entry) throw new Error(`ملف مفقود في النسخة: ${label}`);
+    if ((await crc32(entry.blob)) !== entry.crc) throw new Error(`ملف تالف في النسخة: ${label}`);
+    return entry.blob.slice(0, entry.size, row.blobType || 'application/octet-stream');
+  });
+  await replaceEverything(decoded);
 }

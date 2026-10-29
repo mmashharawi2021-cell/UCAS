@@ -3,6 +3,7 @@ node_modules/
 *.log
 # Never commit personal study data or backups
 ucas-bridge-backup-*.json
+ucas-bridge-backup-*.zip
 *.mht
 *.mhtml
 .env*

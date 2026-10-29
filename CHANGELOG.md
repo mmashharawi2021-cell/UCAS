@@ -1,5 +1,11 @@
 # Changelog — UCAS Academic Bridge
 
+## Unreleased
+
+- Backups are now a stored ZIP (format v2): files are written as raw entries instead of base64 inside one JSON string, so large libraries no longer hit the browser string limit (420 MB of files failed as JSON with "Invalid string length" and succeeded as ZIP in local Chrome testing). Restore verifies a CRC-32 per file and stays all-or-nothing; legacy v1 JSON backups still restore. Older app versions cannot read v2 backups.
+- Browser tests run on Windows/macOS Chrome (Web Share fallback), CI installs from package-lock.json and runs the full browser suite on every push to main.
+- Claude Code configuration (CLAUDE.md, .claude/agents wrappers) and documentation fixes for Moodle Companion file import.
+
 ## v1.7.0 — Moodle course file transfer (29 Oct 2026)
 
 - Add file-catalog preview and explicit selected-file transfer from Chrome Moodle Companion 0.2 to IndexedDB study library.

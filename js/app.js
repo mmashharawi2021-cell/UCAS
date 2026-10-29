@@ -6,8 +6,8 @@ import {
   put,
   remove,
   makeId,
-  backup,
-  restore,
+  backupArchive,
+  restoreFile,
   requestPersistence,
   storageStatus,
   exportStores,
@@ -789,7 +789,7 @@ function settingsPage() {
     )
     .join(
       '',
-    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>تعمل الوظائف الدراسية الأساسية محليًا دون حساب. تحفظ الملفات والملاحظات أولًا في متصفح هذا الجهاز.</li><li>عند تفعيل المزامنة بحساب بريد إلكتروني، تُرفع بيانات الدراسة والملفات إلى مساحة سحابية خاصة بالحساب عبر Supabase.</li><li>عند استخدام مجموعات الدراسة، تُرسل أسماء المجموعات والاسم المستعار والرسائل إلى Supabase لعرضها لأعضاء المجموعة.</li><li>عند استخدام مساعد Gemini وبعد موافقتك، يُرسل نص المحاضرة المحددة وسؤالك إلى الخدمة لمعالجته؛ لا تُرسل الملفات تلقائيًا بمجرد استيرادها.</li><li>لا يطلب الموقع كلمة مرور Moodle ولا ينفذ مزامنة مباشرة معه. النسخ الاحتياطية JSON غير مشفرة حاليًا؛ احفظها بمكان آمن.</li><li>عند مسح بيانات الموقع قد تفقد البيانات المحلية. راجع <a href="https://github.com/mmashharawi2021-cell/UCAS/blob/main/docs/PRIVACY_DATA_FLOWS.md" target="_blank" rel="noopener noreferrer">شرح تدفقات البيانات</a> قبل تفعيل الخدمات السحابية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — الدراسة المحلية افتراضيًا، والمزامنة والمجموعات وميزات AI خدمات سحابية اختيارية.</div></div>`;
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في ملف ZIP واحد. حجم النسخة يقارب حجم الملفات المحفوظة. يمكن أيضًا استعادة نسخ JSON القديمة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".zip,.json,application/zip,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>تعمل الوظائف الدراسية الأساسية محليًا دون حساب. تحفظ الملفات والملاحظات أولًا في متصفح هذا الجهاز.</li><li>عند تفعيل المزامنة بحساب بريد إلكتروني، تُرفع بيانات الدراسة والملفات إلى مساحة سحابية خاصة بالحساب عبر Supabase.</li><li>عند استخدام مجموعات الدراسة، تُرسل أسماء المجموعات والاسم المستعار والرسائل إلى Supabase لعرضها لأعضاء المجموعة.</li><li>عند استخدام مساعد Gemini وبعد موافقتك، يُرسل نص المحاضرة المحددة وسؤالك إلى الخدمة لمعالجته؛ لا تُرسل الملفات تلقائيًا بمجرد استيرادها.</li><li>لا يطلب الموقع كلمة مرور Moodle ولا ينفذ مزامنة مباشرة معه. النسخ الاحتياطية غير مشفرة حاليًا؛ احفظها بمكان آمن.</li><li>عند مسح بيانات الموقع قد تفقد البيانات المحلية. راجع <a href="https://github.com/mmashharawi2021-cell/UCAS/blob/main/docs/PRIVACY_DATA_FLOWS.md" target="_blank" rel="noopener noreferrer">شرح تدفقات البيانات</a> قبل تفعيل الخدمات السحابية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — الدراسة المحلية افتراضيًا، والمزامنة والمجموعات وميزات AI خدمات سحابية اختيارية.</div></div>`;
 }
 function searchPage() {
   const q = state.query.trim().toLowerCase();
@@ -1715,12 +1715,11 @@ async function handleClick(e) {
     }
     case 'export':
       try {
-        const data = await backup();
-        const file = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const file = await backupArchive();
         const url = URL.createObjectURL(file);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `ucas-bridge-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `ucas-bridge-backup-${new Date().toISOString().slice(0, 10)}.zip`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 60000);
         await put('settings', { id: 'last-backup', value: new Date().toISOString() });
@@ -2055,8 +2054,7 @@ async function handleChange(e) {
     if (!confirm('استعادة النسخة ستستبدل جميع البيانات الموجودة على هذا الجهاز. هل تريد المتابعة؟'))
       return;
     try {
-      const data = JSON.parse(await el.files[0].text());
-      await restore(data);
+      await restoreFile(el.files[0]);
       await refresh();
       toast('تمت استعادة النسخة الاحتياطية');
     } catch (err) {

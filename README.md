@@ -66,7 +66,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - In-app previews: PDF (native viewer), text, DOCX/PPTX text extraction.
 - Per-course study assistant: local search over TXT/MD/DOCX/PPTX and text PDFs with page references; optional in-browser OCR (Arabic/English) for scanned PDFs; flashcards and definition quizzes from `Term: definition` lines.
 - Tasks, weekly view, in-app reminders; practice question bank and quiz history; progress metrics.
-- Data protection: persistent-storage request, storage usage meter, backup reminder, JSON backup/restore (files included).
+- Data protection: persistent-storage request, storage usage meter, backup reminder, ZIP backup/restore with per-file checksums (files included; legacy JSON backups still restore).
 - **Timetable**, **lecture notes** with highlights, **Pomodoro study timer** with per-course study time.
 - **Exam dates with countdown**, **timed mock exams**, **smart review** of wrong answers, **question import** (text/CSV).
 - **Grade book and weighted average** (semester and cumulative), **weekly report**.
@@ -84,7 +84,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 ## Security & privacy
 
 - Never enter Moodle passwords or tokens in the app. Only import material you are allowed to copy.
-- Core study data is local-first in IndexedDB. Optional sync uploads study records and files to an account-private Supabase bucket; groups store metadata and chat; AI sends the selected lecture text and question to Gemini after explicit consent. An unlocked browser profile can expose local study data. JSON backups are unencrypted.
+- Core study data is local-first in IndexedDB. Optional sync uploads study records and files to an account-private Supabase bucket; groups store metadata and chat; AI sends the selected lecture text and question to Gemini after explicit consent. An unlocked browser profile can expose local study data. Backups are unencrypted.
 - Clearing site data deletes everything — keep backups.
 - PDF.js and Tesseract.js are loaded from pinned public CDN versions on first use and process content locally unless the user chooses cloud sync or explicitly invokes the AI assistant. Do not share Moodle credentials.
 - Never commit API keys, personal study files or backups to this public repository.
