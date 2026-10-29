@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "UCAS Moodle Companion",
   "description": "With your permission, imports your own Moodle course links and supported lecture attachments directly into UCAS local study library. No passwords or cookies are copied.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "permissions": ["tabs", "storage", "alarms"],
   "host_permissions": ["https://moodle.ucas.edu.ps/*"],
   "background": {

@@ -35,6 +35,22 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - A redesigned study home with a real completion ring and practical navigation, redesigned course library with instant filtering, and a Gemini study workspace inside each course.
 - Styles in `premium-v2.css` are versioned, cached for offline use and layered above the original `styles.css`.
 
+## Moodle Companion 0.3 — Scan report, Office files and retry
+
+- After **فحص ملفات المساقات**, a per-course report explains courses without files. It is built from counts only and lists:
+  - the activity types on the course page (links, forums, assignments…);
+  - the content pages that could not be opened;
+  - files in unsupported formats and untrusted links that were skipped.
+  - With extension 0.2 the site falls back to the activity links saved by the last sync and asks for an update.
+- DOCX, PPTX and XLSX files with their standard MIME types now transfer; 0.2.0 refused them as unsafe.
+- Embed, frame and pop-up resources download through Moodle's `redirect=1` link. Files embedded in pages are discovered.
+- Each selected file gets its own result: added, updated, unchanged, failed with a reason, or not transferred.
+  - **إعادة محاولة** re-runs only the files that didn't transfer.
+  - An expired Moodle session stops the run once, with a sign-in message, instead of failing every file.
+- Longer timeouts for slow connections, with messages that name the step that timed out. Leftover transfer tabs are closed automatically.
+- The extension source now lives in `companion-extension/`; `npm run pack:companion` builds the distributable ZIP in `dist/`.
+- Live verification on a real UCAS Moodle account is still pending. The automated tests use simulated Moodle pages and messages only.
+
 ## Moodle Companion 0.2 — Download real lecture attachments
 
 - Desktop Chrome extension can now **discover attachments** in the student's visible Moodle resource activities and folder/page/book materials after official login. It does not read submissions, grades, cookies, passwords or HTML source.

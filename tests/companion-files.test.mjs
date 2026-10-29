@@ -1,7 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateFileCatalog, MAX_COMPANION_FILE_BYTES } from '../js/companion-files.js';
+import {
+  validateFileCatalog,
+  MAX_COMPANION_FILE_BYTES,
+  typeForName,
+} from '../js/companion-files.js';
+
+test('stored Moodle files get their type from the file extension only', () => {
+  assert.equal(typeForName('Lecture 1.PDF'), 'application/pdf');
+  assert.equal(
+    typeForName('week.pptx'),
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  );
+  assert.equal(typeForName('notes.md'), 'text/markdown');
+  for (const name of ['diagram.svg', 'page.html', 'feed.xml', 'noextension', 'x.pdf.exe'])
+    assert.equal(typeForName(name), 'application/octet-stream', name);
+});
 
 const valid = {
   id: '12345678-1234-4123-8123-123456789012',

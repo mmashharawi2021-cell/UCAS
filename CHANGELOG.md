@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Moodle Companion 0.3.0 (source added in `companion-extension/`):
+  - Accepts Office Open XML files that 0.2.0 refused because their MIME type contains "xml". Markup and script types are matched exactly and still refused.
+  - Waits for each course page to load before reading it, retries while the page script loads, and stops the whole scan with one message when the Moodle session has expired.
+  - Downloads embed, frame and pop-up resources through `redirect=1`, with a fallback to the resource page's own file link. Discovers files embedded in pages.
+  - Returns a counts-only report per course; the service worker sanitizes it again before the site sees it.
+  - Closes transfer tabs left behind by timed-out downloads.
+- Site:
+  - Per-course scan report (`js/lib/moodle-diagnostics.js`), including a fallback for extension 0.2.
+  - Per-file transfer results with retry; one sign-in message for an expired session.
+  - Step-specific timeouts and messages (file scan 10 min, file download 8 min).
+- Tests:
+  - Service-worker unit tests with a fake Chrome API (`tests/companion-extension.test.mjs`).
+  - A content-script browser test on simulated Moodle pages with network access blocked (`tests/companion-extension-browser.mjs`).
+  - Diagnostics unit tests, and site tests for the report and retry.
+
 - Backups are now a stored ZIP (format v2): files are written as raw entries instead of base64 inside one JSON string, so large libraries no longer hit the browser string limit (420 MB of files failed as JSON with "Invalid string length" and succeeded as ZIP in local Chrome testing). Restore verifies a CRC-32 per file and stays all-or-nothing; legacy v1 JSON backups still restore. Older app versions cannot read v2 backups.
 - Browser tests run on Windows/macOS Chrome (Web Share fallback), CI installs from package-lock.json and runs the full browser suite on every push to main.
 - Claude Code configuration (CLAUDE.md, .claude/agents wrappers) and documentation fixes for Moodle Companion file import.

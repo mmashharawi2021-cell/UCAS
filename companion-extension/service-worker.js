@@ -2,31 +2,57 @@
 // We never read or save cookies, password inputs, HTML documents or session tokens.
 const MOODLE = 'https://moodle.ucas.edu.ps';
 const DASHBOARD = `${MOODLE}/my/courses.php`;
+const SITE_ORIGIN = 'https://mmashharawi2021-cell.github.io';
+// Requests must come from the UCAS bridge in the top frame of a UCAS tab.
+const fromSite = sender =>
+  sender.frameId === 0 &&
+  sender.origin === SITE_ORIGIN &&
+  Boolean(sender.tab?.url?.startsWith(`${SITE_ORIGIN}/UCAS/`));
+const VERSION = chrome.runtime.getManifest().version;
+const SESSION_EXPIRED =
+  'انتهت جلسة Moodle. افتح موقع الجامعة وسجّل الدخول بنفس متصفح Chrome ثم أعد المحاولة.';
 let running = null;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 function message(e) {
   return e?.message || String(e);
 }
-async function ready(tabId) {
-  for (let n = 0; n < 55; n++) {
+const sessionExpired = () => Object.assign(Error(SESSION_EXPIRED), { code: 'login' });
+// Wait for the tab to finish loading. Right after tabs.update the tab can still describe the
+// previous page as complete, so then also wait to see it load or change URL.
+async function ready(tabId, before = null) {
+  let loading = before === null;
+  for (let n = 0; n < 120; n++) {
     const tab = await chrome.tabs.get(tabId);
-    if (tab.status === 'complete') return;
+    if (tab.status !== 'complete' || tab.pendingUrl) loading = true;
+    else if (loading || tab.url !== before) return;
     await pause(250);
   }
   throw Error('تأخر تحميل Moodle؛ تحقق من الاتصال والإنترنت');
 }
-async function read(tabId) {
+async function navigate(tabId, url) {
+  const before = (await chrome.tabs.get(tabId)).url || '';
+  await chrome.tabs.update(tabId, { url });
+  await ready(tabId, before);
+}
+// Ask the tab's Moodle content script, retrying while it is still being injected.
+async function ask(tabId, request, failure) {
   for (let n = 0; n < 18; n++) {
     try {
-      const data = await chrome.tabs.sendMessage(tabId, { type: 'UCAS_MOODLE_READ' });
-      if (data) return data;
+      const reply = await chrome.tabs.sendMessage(tabId, request);
+      if (reply) return reply;
     } catch {
       /* content script not ready yet */
     }
     await pause(350);
   }
-  throw Error('لم تستطع الإضافة قراءة صفحة Moodle. افتحها رسميًا وتأكد من تسجيل الدخول.');
+  throw Error(failure);
 }
+const read = tabId =>
+  ask(
+    tabId,
+    { type: 'UCAS_MOODLE_READ' },
+    'لم تستطع الإضافة قراءة صفحة Moodle. افتحها رسميًا وتأكد من تسجيل الدخول.',
+  );
 async function scan() {
   if (running) return running;
   running = (async () => {
@@ -36,10 +62,7 @@ async function scan() {
       tabId = tab.id;
       await ready(tabId);
       let snapshot = await read(tabId);
-      if (snapshot.kind === 'login')
-        throw Error(
-          'انتهت جلسة Moodle. افتح موقع الجامعة وسجّل الدخول بنفس متصفح Chrome ثم أعد المحاولة.',
-        );
+      if (snapshot.kind === 'login') throw sessionExpired();
       for (let retry = 0; retry < 10 && (!snapshot.courses || !snapshot.courses.length); retry++) {
         await pause(800);
         snapshot = await read(tabId);
@@ -51,14 +74,15 @@ async function scan() {
         failures = [];
       for (const course of courses) {
         try {
-          await chrome.tabs.update(tabId, { url: course.url });
-          await ready(tabId);
-          let page = await read(tabId);
-          if (page.kind === 'login') throw Error('تحتاج جلسة Moodle إلى تسجيل دخول جديد');
+          await navigate(tabId, course.url);
+          const page = await read(tabId);
+          if (page.kind === 'login') throw sessionExpired();
           if (page.kind !== 'course' || page.data?.id !== course.id)
             throw Error('لم تُفتح صفحة المساق المتوقعة');
           details.push({ ...course, activities: page.data.activities });
         } catch (e) {
+          // Every later course would fail the same way: stop and ask for a new sign-in.
+          if (e.code === 'login') throw e;
           details.push({ ...course, activities: [] });
           failures.push({ course: course.title.slice(0, 70), reason: message(e).slice(0, 160) });
         }
@@ -79,11 +103,7 @@ async function scan() {
 }
 chrome.runtime.onMessage.addListener((request, sender, respond) => {
   // UCAS content script only. Prevent webpages or Moodle tabs from invoking the import bridge.
-  if (
-    !sender.tab?.url?.startsWith('https://mmashharawi2021-cell.github.io/UCAS/') &&
-    !sender.url?.startsWith('chrome-extension://')
-  )
-    return;
+  if (!fromSite(sender) && !sender.url?.startsWith('chrome-extension://')) return;
   const action = request?.type;
   if (!['UCAS_COMPANION_SCAN', 'UCAS_COMPANION_LAST', 'UCAS_COMPANION_AUTO'].includes(action))
     return;
@@ -92,6 +112,7 @@ chrome.runtime.onMessage.addListener((request, sender, respond) => {
       const data = await chrome.storage.local.get(['lastSnapshot', 'autoEnabled']);
       return {
         ok: true,
+        version: VERSION,
         snapshot: data.lastSnapshot || null,
         autoEnabled: data.autoEnabled === true,
       };
@@ -104,7 +125,7 @@ chrome.runtime.onMessage.addListener((request, sender, respond) => {
       return { ok: true, enabled };
     }
     return { ok: true, snapshot: await scan() };
-  })().then(respond, error => respond({ ok: false, error: message(error) }));
+  })().then(respond, error => respond({ ok: false, error: message(error), code: error?.code }));
   return true;
 });
 chrome.alarms.onAlarm.addListener(async alarm => {
@@ -117,7 +138,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   }
 });
 
-// v0.2 file workflow. Explicit user-triggered discovery and sequential, bounded transfer.
+// File workflow (since v0.2). Explicit user-triggered discovery and sequential, bounded transfer.
 // The UCAS website can request a file ONLY by an opaque ID in the extension's own catalog.
 // File URL paths never cross into the website; no Moodle tokens/cookies are copied.
 const fileSessions = new Map();
@@ -142,6 +163,37 @@ function safeAttachmentURL(s) {
     return false;
   }
 }
+// Per-course scan report for the site: counts only (activity types, scanned pages, skipped
+// links), never URLs, names or page text.
+function courseReport(raw) {
+  const count = v => (Number.isSafeInteger(v) && v >= 0 ? Math.min(v, 100000) : 0);
+  const counts = (value, key) =>
+    Object.fromEntries(
+      Object.entries(value && typeof value === 'object' ? value : {})
+        .filter(([k]) => key.test(k))
+        .slice(0, 30)
+        .map(([k, v]) => [k, count(v)]),
+    );
+  return {
+    activities: counts(raw?.activities, /^[a-z][a-z0-9_]{0,29}$/),
+    pages: count(raw?.pages),
+    pageErrors: count(raw?.pageErrors),
+    unsupported: counts(raw?.unsupported, /^\.[a-z0-9]{1,8}$/),
+    untrusted: count(raw?.untrusted),
+    limited: raw?.limited === true,
+  };
+}
+// The site moves one file at a time. Close transfer tabs left by a request that timed out or
+// by a service worker that was stopped mid-transfer (its in-memory sessions are gone).
+async function closeTransfers() {
+  for (const [id, session] of fileSessions) {
+    fileSessions.delete(id);
+    await chrome.tabs.remove(session.tabId).catch(() => {});
+  }
+  const { transferTab } = await chrome.storage.session.get('transferTab');
+  if (Number.isInteger(transferTab)) await chrome.tabs.remove(transferTab).catch(() => {});
+  await chrome.storage.session.remove('transferTab');
+}
 async function fileCatalog() {
   if (discovering) return discovering;
   discovering = (async () => {
@@ -149,12 +201,17 @@ async function fileCatalog() {
     const snapshot = stored.lastSnapshot;
     if (!snapshot?.courses?.length)
       throw Error('يجب أولًا الضغط على «مزامنة من Moodle» لجلب قائمة المساقات');
+    await closeTransfers();
     const catalog = [],
-      failures = [];
+      failures = [],
+      report = [];
     let tabId;
     try {
       const tab = await chrome.tabs.create({ url: DASHBOARD, active: false });
       tabId = tab.id;
+      await ready(tabId);
+      // An early sign-in check; if the dashboard can't be read, each course checks again.
+      if ((await read(tabId).catch(() => null))?.kind === 'login') throw sessionExpired();
       for (const course of snapshot.courses.slice(0, 100)) {
         if (catalog.length >= MAX_FILE_ITEMS) break;
         if (
@@ -162,12 +219,18 @@ async function fileCatalog() {
           course.url !== `${MOODLE}/course/view.php?id=${course.id}`
         )
           continue;
+        const courseTitle = String(course.title || '').slice(0, 150);
         try {
-          await chrome.tabs.update(tabId, { url: course.url });
-          await ready(tabId);
-          const result = await chrome.tabs.sendMessage(tabId, { type: 'UCAS_MOODLE_FILES' });
-          if (!result || result.error || result.courseId !== course.id)
-            throw Error(result?.error || 'تعذرت قراءة ملفات المساق');
+          await navigate(tabId, course.url);
+          const result = await ask(
+            tabId,
+            { type: 'UCAS_MOODLE_FILES' },
+            'تعذرت قراءة ملفات المساق',
+          );
+          if (result.code === 'login') throw sessionExpired();
+          if (result.error || result.courseId !== course.id)
+            throw Error(result.error || 'تعذرت قراءة ملفات المساق');
+          let files = 0;
           for (const f of result.files || []) {
             if (catalog.length >= MAX_FILE_ITEMS || !safeAttachmentURL(f.url)) continue;
             const sourceKey = await shaText(course.id + '|' + f.url);
@@ -175,18 +238,20 @@ async function fileCatalog() {
             catalog.push({
               id: crypto.randomUUID(),
               courseId: course.id,
-              courseTitle: String(course.title || '').slice(0, 150),
+              courseTitle,
               name: String(f.name || 'ملف Moodle').slice(0, 180),
               module: String(f.section || 'مصادر المساق').slice(0, 120),
               sourceKey,
               url: f.url,
             });
+            files++;
           }
+          report.push({ courseId: course.id, courseTitle, files, ...courseReport(result.report) });
         } catch (error) {
-          failures.push({
-            course: String(course.title || '').slice(0, 80),
-            reason: message(error).slice(0, 160),
-          });
+          if (error.code === 'login') throw error;
+          const reason = message(error).slice(0, 160);
+          failures.push({ course: courseTitle.slice(0, 80), reason });
+          report.push({ courseId: course.id, courseTitle, files: 0, error: reason });
         }
         await pause(220);
       }
@@ -194,9 +259,15 @@ async function fileCatalog() {
       if (tabId !== undefined) await chrome.tabs.remove(tabId).catch(() => {});
     }
     await chrome.storage.local.set({
-      companionFileCatalog: { at: Date.now(), files: catalog, failures },
+      companionFileCatalog: { at: Date.now(), files: catalog, failures, report },
     });
-    return { ok: true, files: catalog.map(({ url, ...meta }) => meta), failures };
+    return {
+      ok: true,
+      version: VERSION,
+      files: catalog.map(({ url, ...meta }) => meta),
+      failures,
+      report,
+    };
   })();
   try {
     return await discovering;
@@ -214,6 +285,7 @@ async function getStoredFile(fileId) {
 }
 async function openTransfer(fileId) {
   const file = await getStoredFile(fileId);
+  await closeTransfers();
   let tabId;
   try {
     const tab = await chrome.tabs.create({
@@ -221,15 +293,18 @@ async function openTransfer(fileId) {
       active: false,
     });
     tabId = tab.id;
+    await chrome.storage.session.set({ transferTab: tabId });
     await ready(tabId);
     const check = await read(tabId);
+    if (check.kind === 'login') throw sessionExpired();
     if (check.kind !== 'course' || check.data?.id !== file.courseId)
-      throw Error('جلسة Moodle منتهية أو المساق غير متاح');
+      throw Error('المساق غير متاح لجلسة Moodle الحالية');
     const opened = await chrome.tabs.sendMessage(tabId, {
       type: 'UCAS_MOODLE_FILE_OPEN',
       url: file.url,
       name: file.name,
     });
+    if (opened?.code === 'login') throw sessionExpired();
     if (!opened || opened.error || !opened.handle || opened.size > MAX_FILE_BYTES)
       throw Error(opened?.error || 'تعذر تنزيل الملف');
     const sessionId = crypto.randomUUID();
@@ -245,7 +320,10 @@ async function openTransfer(fileId) {
       module: file.module,
     };
   } catch (error) {
-    if (tabId !== undefined) await chrome.tabs.remove(tabId).catch(() => {});
+    if (tabId !== undefined) {
+      await chrome.tabs.remove(tabId).catch(() => {});
+      await chrome.storage.session.remove('transferTab');
+    }
     throw error;
   }
 }
@@ -278,12 +356,13 @@ async function closeTransfer(request) {
       /* closing */
     }
     await chrome.tabs.remove(session.tabId).catch(() => {});
+    await chrome.storage.session.remove('transferTab');
   }
   return { ok: true };
 }
 chrome.runtime.onMessage.addListener((request, sender, respond) => {
   // Extension data is released only to the owner's exact UCAS site origin.
-  if (!sender.tab?.url?.startsWith('https://mmashharawi2021-cell.github.io/UCAS/')) return;
+  if (!fromSite(sender)) return;
   if (
     ![
       'UCAS_COMPANION_FILE_SCAN',
@@ -300,13 +379,15 @@ chrome.runtime.onMessage.addListener((request, sender, respond) => {
       const saved = (await chrome.storage.local.get('companionFileCatalog')).companionFileCatalog;
       return {
         ok: true,
+        version: VERSION,
         files: (saved?.files || []).map(({ url, ...meta }) => meta),
         failures: saved?.failures || [],
+        report: saved?.report || [],
       };
     }
     if (request.type === 'UCAS_COMPANION_FILE_OPEN') return openTransfer(request.fileId);
     if (request.type === 'UCAS_COMPANION_FILE_CHUNK') return readChunk(request);
     return closeTransfer(request);
-  })().then(respond, error => respond({ ok: false, error: message(error) }));
+  })().then(respond, error => respond({ ok: false, error: message(error), code: error?.code }));
   return true;
 });

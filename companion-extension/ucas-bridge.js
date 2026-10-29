@@ -25,9 +25,9 @@
       {
         type: 'UCAS_COMPANION_' + d.type,
         enabled: d.enabled === true,
-        fileId: d.fileId,
-        sessionId: d.sessionId,
-        offset: d.offset,
+        fileId: typeof d.fileId === 'string' ? d.fileId.slice(0, 64) : undefined,
+        sessionId: typeof d.sessionId === 'string' ? d.sessionId.slice(0, 64) : undefined,
+        offset: Number.isSafeInteger(d.offset) ? d.offset : undefined,
       },
       result => {
         const err = chrome.runtime.lastError;

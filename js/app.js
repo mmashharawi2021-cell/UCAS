@@ -24,6 +24,11 @@ import { previewOffice } from './office.js?v=1.7.0';
 import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.7.0';
 import { companionRequest, importCompanionSnapshot } from './companion.js?v=1.7.0';
 import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=1.7.0';
+import {
+  activityTypesFromLinks,
+  describeCourseScan,
+  normalizeScanReport,
+} from './lib/moodle-diagnostics.js?v=1.7.0';
 import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.7.0';
 import {
   loadCourseText,
@@ -121,6 +126,10 @@ const state = {
   companionFileCancel: false,
   companionFileProgress: '',
   companionFileResult: '',
+  companionFileReport: null,
+  companionFileResults: [],
+  companionFileScanned: false,
+  companionVersion: '',
   storage: { usage: null, quota: null, persisted: false, supported: false },
   // v0.9 study features
   schedule: [],
@@ -570,6 +579,86 @@ function moodleHTMLForm() {
 function moodleImportForm() {
   return `<form id="moodle-form" class="moodle-import-form"><div class="notice info">ألصق نص محاضرة أو تعليمات تكليف تملك صلاحية الاطلاع عليها. تُحفظ نسخة نصية في متصفحك فقط. لا تلصق كلمات مرور أو رموز وصول أو بيانات زملائك.</div><div class="form-grid"><div class="field"><label for="moodle-course">المساق</label><select id="moodle-course" class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label for="moodle-title">عنوان المادة</label><input id="moodle-title" class="input" name="title" maxlength="150" required placeholder="مثال: المحاضرة الثانية — مفهوم قواعد البيانات"/></div></div><div class="field"><label for="moodle-text">النص المنسوخ من Moodle</label><textarea id="moodle-text" name="content" class="textarea" maxlength="120000" rows="8" required placeholder="انسخ النص الدراسي من صفحة المساق أو المحاضرة في Moodle ثم ألصقه هنا..."></textarea><p class="muted tiny">لا يُجلب أي محتوى محمي تلقائيًا؛ أنت تحدد ما يُحفظ.</p></div><button class="primary-btn" type="submit">${ic('plus')} حفظ المادة داخل المساق</button></form>`;
 }
+// Why each linked course has (or lacks) files, from the extension's counts-only report or,
+// for extensions older than 0.3, from the activity links the metadata sync saved.
+function companionScanReport() {
+  if (!state.companionFileScanned) return '';
+  const linked = state.courses.filter(c => c.moodleId);
+  const legacy = !Array.isArray(state.companionFileReport);
+  const perCourse = new Map();
+  for (const f of state.companionFiles)
+    perCourse.set(f.courseId, (perCourse.get(f.courseId) || 0) + 1);
+  const entries = legacy
+    ? linked.map(c => ({ courseId: c.moodleId, courseTitle: c.title }))
+    : [...normalizeScanReport(state.companionFileReport).values()];
+  const rows = entries.map(entry => {
+    const course = linked.find(c => c.moodleId === entry.courseId);
+    const files = legacy ? perCourse.get(entry.courseId) || 0 : entry.files;
+    const info = legacy
+      ? {
+          files,
+          legacy: true,
+          activities: activityTypesFromLinks(
+            state.resources
+              .filter(r => r.courseId === course?.id && r.origin === 'moodle-companion')
+              .map(r => r.url),
+          ),
+        }
+      : entry;
+    return {
+      title: course?.title || entry.courseTitle || 'مساق Moodle',
+      files,
+      lines: describeCourseScan(info),
+    };
+  });
+  if (!rows.length) return '';
+  const empty = rows.filter(r => !r.files).length;
+  return `<details class="companion-scan-report" ${empty ? 'open' : ''}><summary>تقرير فحص المساقات: ${rows.length - empty} فيها ملفات، ${empty} بلا ملفات قابلة للنقل</summary><ul class="companion-scan-list">${rows.map(r => `<li><strong>${esc(r.title)}</strong> <span class="pill">${r.files} ملف</span>${r.lines.length ? `<ul>${r.lines.map(line => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>${state.companionVersion ? `<p class="muted tiny">إصدار الإضافة: ${esc(state.companionVersion)}</p>` : ''}</details>`;
+}
+const TRANSFER_STATUS = {
+  added: 'أُضيف',
+  updated: 'حُدّث',
+  unchanged: 'بدون تغيير',
+  failed: 'تعذر النقل',
+  skipped: 'لم يُنقل',
+};
+const retryable = r => r.status === 'failed' || r.status === 'skipped';
+function companionTransferResults() {
+  const results = state.companionFileResults;
+  if (!results.length) return '';
+  const retry = results.filter(retryable).length;
+  return `<details class="companion-file-results" ${retry ? 'open' : ''}><summary>نتائج نقل الملفات (${results.length})</summary><ul>${results.map(r => `<li class="companion-result-${esc(r.status)}"><strong>${esc(r.name)}</strong>: ${esc(TRANSFER_STATUS[r.status] || r.status)}${r.reason ? ` — ${esc(r.reason)}` : ''}</li>`).join('')}</ul>${retry ? `<button class="outline-btn" data-action="companion-files-retry" ${state.companionFileBusy ? 'disabled' : ''}>إعادة محاولة ${retry} ملف لم يُنقل</button>` : ''}</details>`;
+}
+async function importCompanionFiles(chosen) {
+  state.companionFileBusy = true;
+  state.companionFileCancel = false;
+  state.companionFileResult = '';
+  state.companionFileProgress = 'بدء استيراد الملفات إلى مكتبتك المحلية…';
+  render();
+  try {
+    const result = await transferCompanionFiles(
+      chosen,
+      progress => {
+        state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
+        const label = document.querySelector('.companion-files-status');
+        if (label) label.textContent = state.companionFileProgress;
+        const bar = document.querySelector('.companion-files-progress');
+        if (bar) bar.value = progress.percent;
+      },
+      () => state.companionFileCancel,
+    );
+    state.companionFileResults = result.results;
+    state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.sessionExpired ? ' انتهت جلسة Moodle: سجّل الدخول في Chrome ثم اضغط إعادة المحاولة.' : ''}`;
+    await refresh();
+  } catch (error) {
+    state.companionFileResult = error.message || 'تعذر نقل الملفات';
+    toast(state.companionFileResult, true);
+  } finally {
+    state.companionFileBusy = false;
+    state.companionFileCancel = false;
+    render();
+  }
+}
 function companionFilesPanel() {
   const list = state.companionFiles;
   const groups = new Map();
@@ -597,6 +686,8 @@ function companionFilesPanel() {
             .join('')}</ul></details>`
         : ''
     }
+    ${companionScanReport()}
+    ${companionTransferResults()}
     <div class="companion-file-catalog">${[...groups.values()].map(group => `<details class="companion-file-group"><summary><strong>${esc(group.title)}</strong> <span class="pill">${group.items.length} ملف</span></summary><div class="companion-file-list">${group.items.map(file => `<label class="companion-file-item"><input type="checkbox" data-companion-file="${esc(file.id)}" checked ${state.companionFileBusy ? 'disabled' : ''}><span><strong>${esc(file.name)}</strong><small>${esc(file.module)}</small></span></label>`).join('')}</div></details>`).join('')}</div>
     <p class="muted tiny">تُحفظ الملفات في IndexedDB على هذا الكمبيوتر. لا تُرفع إلى مستودع GitHub؛ لن تنتقل تلقائيًا إلى الهاتف دون تفعيل المزامنة السحابية الاختيارية على حسابك.</p>
   </section>`;
@@ -1414,9 +1505,16 @@ async function handleClick(e) {
       state.companionFileResult = '';
       render();
       try {
+        // A quick request first, so a missing extension isn't reported as a slow scan.
+        await companionRequest('LAST');
         const result = await companionRequest('FILE_SCAN');
         state.companionFiles = validateFileCatalog(result.files || []);
         state.companionFileFailures = (result.failures || []).slice(0, 100);
+        state.companionFileReport = Array.isArray(result.report) ? result.report : null;
+        state.companionVersion =
+          typeof result.version === 'string' ? result.version.slice(0, 20) : '';
+        state.companionFileResults = [];
+        state.companionFileScanned = true;
         state.companionFileProgress = `اكتُشف ${state.companionFiles.length} ملف. راجع ما تريد استيراده، ثم اضغط زر الاستيراد.`;
       } catch (error) {
         state.companionFileProgress = error.message || 'تعذر اكتشاف الملفات';
@@ -1451,33 +1549,15 @@ async function handleClick(e) {
       );
       const chosen = state.companionFiles.filter(f => ids.has(f.id));
       if (!chosen.length) return toast('حدد ملفًا واحدًا على الأقل', true);
-      state.companionFileBusy = true;
-      state.companionFileCancel = false;
-      state.companionFileResult = '';
-      state.companionFileProgress = 'بدء استيراد الملفات إلى مكتبتك المحلية…';
-      render();
-      try {
-        const result = await transferCompanionFiles(
-          chosen,
-          progress => {
-            state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
-            const label = document.querySelector('.companion-files-status');
-            if (label) label.textContent = state.companionFileProgress;
-            const bar = document.querySelector('.companion-files-progress');
-            if (bar) bar.value = progress.percent;
-          },
-          () => state.companionFileCancel,
-        );
-        state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.errors.length ? ' أخطاء: ' + result.errors.slice(0, 5).join(' | ') : ''}`;
-        await refresh();
-      } catch (error) {
-        state.companionFileResult = error.message || 'تعذر نقل الملفات';
-        toast(state.companionFileResult, true);
-      } finally {
-        state.companionFileBusy = false;
-        state.companionFileCancel = false;
-        render();
-      }
+      await importCompanionFiles(chosen);
+      break;
+    }
+    case 'companion-files-retry': {
+      if (state.companionFileBusy) break;
+      const again = new Set(state.companionFileResults.filter(retryable).map(r => r.id));
+      const chosen = state.companionFiles.filter(f => again.has(f.id));
+      if (!chosen.length) return toast('لا توجد ملفات لإعادة المحاولة', true);
+      await importCompanionFiles(chosen);
       break;
     }
     case 'companion-scan':
