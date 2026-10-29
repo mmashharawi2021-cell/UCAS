@@ -35,7 +35,7 @@ Method (`.claude/ai-kit/02-AI-AGENTS/ORCHESTRATOR.md`): Discovery → Scope → 
 | CI, versions, changelog, release | you | `ucas-release` | release-readiness |
 | New dependency, tool or architecture decision | you (built-in Plan agent for design) | `ucas-security` for supply chain | stack-selection, architecture-review |
 
-- Do trivial or single-file work yourself; don't start a subagent for it. Each task gets one owner and at most one independent reviewer, with at most two skills loaded.
+- Owner's standing rule: the specialist subagents do the work. Give implementation to the matching engineer agent and review to the matching reviewer; you plan, brief, check evidence and report which agent did what. Keep only trivial one-line fixes yourself. Each task gets one owner and at most one independent reviewer, with at most two skills loaded.
 - Path-scoped rules in `.claude/rules/` load when you touch an area. They restate that area's owner, reviewer and checks.
 - Use the built-in Explore agent for wide searches. Give a specialised agent a bounded brief: goal, files, constraints and the tests to run. It reports back in the AGENT-CONTRACT order. Subagents have restricted tools and can't start further agents.
 - For multi-step work, start from `.claude/ai-kit/10-PROJECT-CONFIG/TASK.template.md`. Record approved decisions as ADRs (`DECISION-LOG.template.md`) in `docs/DECISIONS.md`.
