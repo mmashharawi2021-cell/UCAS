@@ -245,6 +245,84 @@ try {
   assert.equal(retried.blobType, 'application/pdf');
   assert.equal(await page.locator('[data-action="companion-files-retry"]').count(), 0);
 
+  // A later sync brings Moodle's due date and the student's submission for the same task.
+  const synced = await page.evaluate(async () => {
+    const { importCompanionSnapshot } = await import('./js/companion.js?v=1.7.0');
+    const store = await import('./js/store.js?v=1.7.0');
+    const stats = await importCompanionSnapshot({
+      version: 1,
+      courses: [
+        {
+          id: '821',
+          title: 'ادارة مشاريع نظم المعلومات الجغرافية - محاضر',
+          url: 'https://moodle.ucas.edu.ps/course/view.php?id=821',
+          activities: [
+            {
+              id: '99',
+              type: 'assign',
+              title: 'واجب الأسبوع الثاني',
+              section: 'الأسبوع الثاني',
+              url: 'https://moodle.ucas.edu.ps/mod/assign/view.php?id=99',
+              due: '2026-11-03T23:59',
+              submitted: true,
+            },
+          ],
+        },
+      ],
+    });
+    const task = (await store.all('tasks')).find(t => t.origin === 'moodle-companion');
+    return { updated: stats.tasksUpdated, due: task.due, done: task.done };
+  });
+  assert.deepEqual(synced, { updated: 1, due: '2026-11-03T23:59', done: true });
+  // Impossible dates are ignored, and tasks the student created by hand are never changed.
+  const guarded = await page.evaluate(async () => {
+    const { importCompanionSnapshot } = await import('./js/companion.js?v=1.7.0');
+    const store = await import('./js/store.js?v=1.7.0');
+    const course = (await store.all('courses')).find(c => c.moodleId === '821');
+    await store.put('tasks', {
+      id: 'manual-1',
+      title: 'مهمة يدوية',
+      courseId: course.id,
+      due: '',
+      done: false,
+    });
+    await importCompanionSnapshot({
+      version: 1,
+      courses: [
+        {
+          id: '821',
+          title: 'ادارة مشاريع نظم المعلومات الجغرافية - محاضر',
+          url: 'https://moodle.ucas.edu.ps/course/view.php?id=821',
+          activities: [
+            {
+              id: '98',
+              type: 'assign',
+              title: 'مهمة يدوية',
+              url: 'https://moodle.ucas.edu.ps/mod/assign/view.php?id=98',
+              due: '2026-12-01T10:00',
+              submitted: true,
+            },
+            {
+              id: '97',
+              type: 'assign',
+              title: 'تكليف بتاريخ خاطئ',
+              url: 'https://moodle.ucas.edu.ps/mod/assign/view.php?id=97',
+              due: '2026-99-99T99:99',
+            },
+          ],
+        },
+      ],
+    });
+    const tasks = await store.all('tasks');
+    return {
+      manual: tasks.find(t => t.id === 'manual-1'),
+      bad: tasks.find(t => t.title === 'تكليف بتاريخ خاطئ')?.due,
+    };
+  });
+  assert.equal(guarded.manual.done, false);
+  assert.equal(guarded.manual.due, '');
+  assert.equal(guarded.bad, '');
+
   console.log('companion-browser: sanitized import, diagnostics, deduplication and retry passed');
 } finally {
   await browser.close();

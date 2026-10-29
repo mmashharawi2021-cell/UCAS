@@ -95,6 +95,13 @@ const pages = {
     },
     body: pdf,
   },
+  // Assignment pages: English activity dates + submitted, Arabic status table + not submitted.
+  '/mod/assign/view.php?id=701': html(
+    `<div data-region="activity-dates"><div><strong>Opened:</strong> Sunday, 1 November 2026, 12:00 AM</div><div><strong>Due:</strong> Tuesday, 3 November 2026, 11:59 PM</div></div><div class="submissionstatustable"><table class="generaltable"><tr><th>Submission status</th><td class="submissionstatussubmitted">Submitted for grading</td></tr></table></div>`,
+  ),
+  '/mod/assign/view.php?id=702': html(
+    `<div class="no-overflow"><table><tr><th>Due date</th><td>Monday, 1 January 2024, 9:00 AM</td></tr></table><p class="submissionstatussubmitted">fake</p></div><div class="submissionstatustable"><table class="generaltable"><tr><th>حالة التسليم</th><td class="submissionstatus">لم تتم أي محاولة</td></tr><tr><th>تاريخ التسليم</th><td>الأحد، 15 تشرين الثاني 2026، 2:30 م</td></tr></table></div>`,
+  ),
   // An expired session: Moodle shows its login page instead of the file.
   '/mod/resource/view.php?id=103&redirect=1': loginPage,
   '/login/index.php': loginPage,
@@ -215,6 +222,13 @@ try {
   assert.deepEqual([generic.name, generic.type], ['notes.pdf', 'application/pdf']);
   await send({ type: 'UCAS_MOODLE_FILE_CLOSE', handle: generic.handle });
   console.log('✓ SVG, RSS and XSL under document names are refused; types follow the extension');
+
+  const work = await send({ type: 'UCAS_MOODLE_ASSIGN', ids: ['701', '702', 'x'] });
+  assert.deepEqual(work.assignments, [
+    { id: '701', due: '2026-11-03T23:59', submitted: true },
+    { id: '702', due: '2026-11-15T14:30', submitted: false },
+  ]);
+  console.log('✓ assignment due dates (English and Arabic) and submitted state');
 
   const expired = await send({
     type: 'UCAS_MOODLE_FILE_OPEN',

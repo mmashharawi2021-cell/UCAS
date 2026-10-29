@@ -56,7 +56,14 @@ try {
     }
     await page.evaluate(() => document.querySelector('[data-go="courses"]')?.click());
     await page.waitForSelector('.premium-library-grid');
+    // Moodle tools live only on the Moodle page; the import center keeps general sources.
     await page.evaluate(() => document.querySelector('[data-go="import"]')?.click());
+    await page.waitForSelector('[data-import-tab="drive"]');
+    assert.equal(
+      await page.locator('.moodle-connect-intro, [data-import-tab="moodle"]').count(),
+      0,
+    );
+    await page.evaluate(() => document.querySelector('[data-go="moodle"]')?.click());
     await page.waitForSelector('.moodle-connect-intro a[href="moodle-connect.html"]');
     await page.evaluate(() => document.querySelector('[data-go="courses"]')?.click());
     await page.waitForSelector('.premium-library-grid');

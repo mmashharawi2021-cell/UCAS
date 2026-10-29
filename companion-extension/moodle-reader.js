@@ -471,10 +471,138 @@
       bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
     return { offset, count: bytes.length, base64: btoa(bin) };
   }
+  // Assignment dates and the student's own submission state. Only the due date and a
+  // submitted yes/no leave the page: never files, feedback, grades or other students' data.
+  const MONTHS = {
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
+    jan: 1,
+    feb: 2,
+    mar: 3,
+    apr: 4,
+    jun: 6,
+    jul: 7,
+    aug: 8,
+    sep: 9,
+    sept: 9,
+    oct: 10,
+    nov: 11,
+    dec: 12,
+    يناير: 1,
+    فبراير: 2,
+    مارس: 3,
+    أبريل: 4,
+    ابريل: 4,
+    مايو: 5,
+    يونيو: 6,
+    يوليو: 7,
+    أغسطس: 8,
+    اغسطس: 8,
+    سبتمبر: 9,
+    أكتوبر: 10,
+    اكتوبر: 10,
+    نوفمبر: 11,
+    ديسمبر: 12,
+    'كانون الثاني': 1,
+    شباط: 2,
+    آذار: 3,
+    نيسان: 4,
+    أيار: 5,
+    حزيران: 6,
+    تموز: 7,
+    آب: 8,
+    أيلول: 9,
+    'تشرين الأول': 10,
+    'تشرين الثاني': 11,
+    'كانون الأول': 12,
+  };
+  const DUE_LABEL =
+    /^(?:due(?: date)?|تاريخ التسليم|موعد التسليم|تاريخ الاستحقاق|الاستحقاق|مستحق)\s*:?\s*/i;
+  // "Monday, 3 November 2026, 11:59 PM" (or Arabic) -> "2026-11-03T23:59" in the student's time.
+  function parseDue(raw) {
+    const text = String(raw || '')
+      .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/\s+/g, ' ')
+      .trim();
+    const m =
+      /(\d{1,2})\s+([^\d,،]+?)\s*,?\s*(\d{4})[,،]?\s+(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)?/i.exec(text);
+    const month = m && MONTHS[m[2].trim().toLowerCase()];
+    if (!month) return '';
+    let hour = Number(m[4]);
+    const half = (m[6] || '').toUpperCase();
+    if ((half === 'PM' || half === 'م') && hour < 12) hour += 12;
+    if ((half === 'AM' || half === 'ص') && hour === 12) hour = 0;
+    const day = Number(m[1]);
+    if (day < 1 || day > 31 || hour > 23 || Number(m[5]) > 59) return '';
+    const two = n => String(n).padStart(2, '0');
+    return `${m[3]}-${two(month)}-${two(day)}T${two(hour)}:${m[5]}`;
+  }
+  function assignmentInfo(dom) {
+    let due = '';
+    for (const el of dom.querySelectorAll(
+      '[data-region="activity-dates"] div, .activity-dates div, .activity-dates span',
+    )) {
+      const line = el.textContent.replace(/\s+/g, ' ').trim();
+      if (DUE_LABEL.test(line)) due = parseDue(line.replace(DUE_LABEL, ''));
+      if (due) break;
+    }
+    if (!due)
+      // Only Moodle's own status table, never tables in the teacher's description.
+      for (const row of dom.querySelectorAll('.submissionstatustable tr')) {
+        const head = row.querySelector('th, td.c0');
+        const cell = row.querySelector('td:last-child');
+        if (head && cell && head !== cell && DUE_LABEL.test(head.textContent.trim())) {
+          due = parseDue(cell.textContent);
+          if (due) break;
+        }
+      }
+    const submitted = Boolean(
+      dom.querySelector('.submissionstatustable [class*="submissionstatussubmitted"]'),
+    );
+    return { due, submitted };
+  }
+  async function assignments(ids) {
+    if (onLoginPage(document)) throw loginError();
+    const out = [];
+    for (const [index, id] of ids.slice(0, 40).entries()) {
+      if (!/^\d{1,12}$/.test(String(id))) continue;
+      if (index) await pause(150);
+      try {
+        const r = await fetch(`${ORIGIN}/mod/assign/view.php?id=${id}`, {
+          credentials: 'include',
+          redirect: 'follow',
+          cache: 'no-store',
+        });
+        const at = new URL(r.url);
+        if (at.origin === ORIGIN && at.pathname.startsWith('/login/')) throw loginError();
+        if (r.status === 429 || r.status === 503) break;
+        if (!r.ok || at.origin !== ORIGIN) continue;
+        const body = await readLimited(r, MAX_PAGE_BYTES);
+        if (!body) continue;
+        const dom = new DOMParser().parseFromString(await body.text(), 'text/html');
+        if (onLoginPage(dom)) throw loginError();
+        out.push({ id: String(id), ...assignmentInfo(dom) });
+      } catch (error) {
+        if (error?.code === 'login') throw error;
+      }
+    }
+    return { assignments: out };
+  }
   chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     if (
       ![
         'UCAS_MOODLE_FILES',
+        'UCAS_MOODLE_ASSIGN',
         'UCAS_MOODLE_FILE_OPEN',
         'UCAS_MOODLE_FILE_CHUNK',
         'UCAS_MOODLE_FILE_CLOSE',
@@ -483,6 +611,8 @@
       return;
     (async () => {
       if (msg.type === 'UCAS_MOODLE_FILES') return discover();
+      if (msg.type === 'UCAS_MOODLE_ASSIGN')
+        return assignments(Array.isArray(msg.ids) ? msg.ids : []);
       if (msg.type === 'UCAS_MOODLE_FILE_OPEN') return openFile(msg.url, msg.name);
       if (msg.type === 'UCAS_MOODLE_FILE_CHUNK') return fileChunk(msg.handle, msg.offset);
       sessions.delete(msg.handle);

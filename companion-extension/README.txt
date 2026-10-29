@@ -1,4 +1,4 @@
-# UCAS Moodle Companion 0.4.0
+# UCAS Moodle Companion 0.5.0
 
 Desktop Chrome extension for user-authorized import of their own Moodle UCAS course attachments.
 
@@ -9,6 +9,9 @@ Desktop Chrome extension for user-authorized import of their own Moodle UCAS cou
 4. Open `https://mmashharawi2021-cell.github.io/UCAS/`, visit **ربط Moodle**, then click **مزامنة من Moodle** to link course IDs.
 5. Click **فحص ملفات المساقات** to see a preview and the per-course scan report, choose which files you want, then click **استيراد الملفات المحددة**.
 6. Leave the UCAS tab open until the transfer completes. All downloaded files are stored in the local IndexedDB study library of **that desktop browser**, not in the public GitHub repository. Optional account cloud sync may later upload records to a user-authorized private backend; review its separate settings first.
+
+## What's new in 0.5.0
+- **مزامنة من Moodle** also opens each assignment page you can see and reads two things only: the due date (English or Arabic) and whether Moodle shows your own submission as submitted (its `submissionstatussubmitted` marker). Files, feedback, grades and other students' data are never read. UCAS uses this to sort assignments by deadline, warn about work due within two days or two weeks, and move submitted work to its completed list. Assignment requests are paced like content pages.
 
 ## What's new in 0.4.0
 - The per-file limit is 200 MiB (was 35 MiB). Bigger files, or files that don't fit in the browser's storage, are saved as a link to their Moodle page; the site receives that page address only in this case. Chunks are 512 KiB.
@@ -35,4 +38,4 @@ Desktop Chrome extension for user-authorized import of their own Moodle UCAS cou
 - Chrome for Android does not support ordinary Chrome extensions. A desktop session is necessary; files imported locally on desktop will not appear automatically on Android unless the existing optional account cloud sync is separately configured.
 - The user must have permission to download the materials. Do not redistribute copyright-protected lecture files.
 
-Version: 0.4.0 · UCAS app: 1.7.0
+Version: 0.5.0 · UCAS app: 1.7.0

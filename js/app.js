@@ -15,6 +15,7 @@ import {
 import { features } from './features/index.js?v=1.7.0';
 import { normalizeCode } from './lib/semester.js?v=1.7.0';
 import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.7.0';
+import { attentionCount, dueLabel, groupTasks } from './lib/deadlines.js?v=1.7.0';
 
 const APP_VERSION = '1.7.0';
 const BACKUP_REMINDER_DAYS = 7;
@@ -318,17 +319,37 @@ function navItems() {
     { id: 'settings', icon: 'settings', label: 'الإعدادات' },
   ];
 }
+// Sidebar sections; pages that a feature module doesn't register are skipped.
+const NAV_SECTIONS = [
+  { title: 'الدراسة', ids: ['home', 'courses', 'schedule', 'tasks', 'exams', 'quizzes', 'focus'] },
+  { title: 'التقدم', ids: ['grades', 'progress', 'report'] },
+  { title: 'المصادر والتواصل', ids: ['import', 'moodle', 'groups'] },
+];
+function navButton(n, selected, badge = 0, urgent = false) {
+  return `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}><span class="nav-icon">${ic(n.icon)}</span><span class="nav-label">${n.label}</span>${badge ? `<span class="nav-badge ${urgent ? 'urgent' : ''}" aria-label="${badge} تكليف يحتاج انتباهك">${badge}</span>` : ''}</button>`;
+}
+function sidebarNav(selected) {
+  const items = navItems();
+  const g = groupTasks(state.tasks);
+  const badge = attentionCount(state.tasks);
+  const urgent = g.overdue.length + g.urgent.length > 0;
+  const sections = NAV_SECTIONS.map(section => {
+    const buttons = section.ids
+      .map(id => items.find(n => n.id === id))
+      .filter(Boolean)
+      .map(n => (n.id === 'tasks' ? navButton(n, selected, badge, urgent) : navButton(n, selected)))
+      .join('');
+    return buttons
+      ? `<div class="nav-section"><span class="sidebar-section">${section.title}</span>${buttons}</div>`
+      : '';
+  }).join('');
+  const settings = items.find(n => n.id === 'settings');
+  return `<nav class="nav-group" aria-label="أقسام المنصة">${sections}</nav><div class="sidebar-bottom">${settings ? navButton(settings, selected) : ''}<div class="nav-footer">${ic('shield', 15)}<span>بياناتك الدراسية محفوظة على جهازك، والخدمات السحابية اختيارية</span></div></div>`;
+}
 function layout(content) {
   const selected = state.page === 'course' ? 'courses' : state.page;
   return `<div data-page="${esc(state.page)}" class="shell ${state.collapsed ? 'collapsed' : ''} ${state.mobileMenu ? 'mobile-open' : ''}">
-<aside class="sidebar" aria-label="التنقل الرئيسي" ${state.mobileMenu ? 'data-open="true"' : ''}><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS <span class="premium-logo-word">STUDIO</span></div><div class="logo-sub">مساحة التعلم الأكاديمي</div></div><button class="mobile-menu-close" data-action="close-menu" aria-label="إغلاق القائمة">${ic('close', 19)}</button></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
-    .map(
-      n =>
-        `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}>${ic(n.icon)}<span>${n.label}</span></button>`,
-    )
-    .join(
-      '',
-    )}</nav><div class="nav-footer">${ic('shield', 15)}<br>البيانات الدراسية محليًا افتراضيًا<br>الخدمات السحابية اختيارية</div></aside>
+<aside class="sidebar" aria-label="التنقل الرئيسي" ${state.mobileMenu ? 'data-open="true"' : ''}><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS <span class="premium-logo-word">STUDIO</span></div><div class="logo-sub">مساحة التعلم الأكاديمي</div></div><button class="mobile-menu-close" data-action="close-menu" aria-label="إغلاق القائمة">${ic('close', 19)}</button></div>${sidebarNav(selected)}</aside>
 ${state.mobileMenu ? `<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>` : ''}
 <div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS / ACADEMIC STUDIO</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
     { id: 'home', icon: 'home', label: 'الرئيسية' },
@@ -424,6 +445,26 @@ function storagePanel() {
   const last = lastBackupAt();
   return `<div class="panel storage-panel"><h2>حماية البيانات والمساحة</h2><p class="muted tiny" style="margin:8px 0">${status}</p><div class="progress-track" role="progressbar" aria-label="المساحة المستخدمة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div><p class="muted tiny" style="margin:8px 0 14px">المستخدم: <bdi dir="ltr">${formatBytes(st.usage)}</bdi> من <bdi dir="ltr">${formatBytes(st.quota)}</bdi> متاحة للموقع${last ? ` · آخر نسخة احتياطية: ${esc(new Date(last).toLocaleString('ar'))}` : ' · لا توجد نسخة احتياطية بعد'}</p>${st.supported && !st.persisted ? `<button class="outline-btn" data-action="persist-storage">${ic('check')} طلب تخزين دائم</button>` : ''}</div>`;
 }
+function deadlineAlert() {
+  const g = groupTasks(state.tasks);
+  const hot = [...g.overdue, ...g.urgent, ...g.soon];
+  if (!hot.length) return '';
+  const severe = g.overdue.length + g.urgent.length;
+  const parts = [
+    g.overdue.length && `${g.overdue.length} متأخر`,
+    g.urgent.length && `${g.urgent.length} خلال يومين`,
+    g.soon.length && `${g.soon.length} خلال أسبوعين`,
+  ]
+    .filter(Boolean)
+    .join('، ');
+  return `<section class="deadline-alert ${severe ? 'deadline-danger' : 'deadline-warn'}" role="status" aria-label="تنبيه التكليفات"><div class="deadline-alert-head">${ic('bell', 18)}<strong>تكليفات تحتاج انتباهك: ${parts}</strong></div><ul>${hot
+    .slice(0, 4)
+    .map(
+      t =>
+        `<li><span class="deadline-title">${esc(t.title)}</span><small>${esc(courseName(t.courseId))}</small><span class="pill ${g.soon.includes(t) ? 'warn' : 'danger'}">${esc(dueLabel(t.due))}</span></li>`,
+    )
+    .join('')}</ul></section>`;
+}
 function premiumOverview() {
   const nextTask = pending()
     .filter(t => t.due && Number.isFinite(new Date(t.due).getTime()))
@@ -442,8 +483,8 @@ function premiumOverview() {
   return `<section class="premium-focus" aria-labelledby="premium-focus-title">
     <div class="premium-focus-head"><div><span class="premium-kicker">STUDY WORKSPACE</span><h2 id="premium-focus-title">مساحة الدراسة اليوم</h2><p>خطوات عملية من بياناتك المسجلة داخل المنصة</p></div><span class="premium-edition">PREMIUM</span></div>
     <div class="premium-focus-grid">
-      <article class="premium-focus-card"><div class="premium-card-title">${ic('calendar')} <span>التكليف التالي</span></div><h3>${nextTask ? esc(nextTask.title) : 'لا يوجد تكليف مجدول'}</h3><p>${nextTask ? `${esc(courseName(nextTask.courseId))} · ${fmtDate(nextTask.due)}` : 'أضف موعدًا لتظهر أولوياتك هنا'}</p><button class="premium-text-link" data-go="tasks">فتح التكليفات ${ic('chevron', 14)}</button></article>
-      <article class="premium-focus-card"><div class="premium-card-title">${ic('award')} <span>الامتحان القادم</span></div><h3>${nextExam ? esc(nextExam.title) : 'لا يوجد امتحان قادم'}</h3><p>${nextExam ? `${esc(courseName(nextExam.courseId))} · ${fmtDate(nextExam.date)}` : 'أضف مواعيد الامتحانات لتخطيط المراجعة'}</p><button class="premium-text-link" data-go="exams">مركز الامتحانات ${ic('chevron', 14)}</button></article>
+      <article class="premium-focus-card"><div class="premium-card-title">${ic('calendar')} <span>التكليف التالي</span></div><h3>${nextTask ? esc(nextTask.title) : 'لا يوجد تكليف مجدول'}</h3><p>${nextTask ? `${esc(courseName(nextTask.courseId))} · ${fmtDate(nextTask.due)}` : 'أضف موعدًا لتظهر أولوياتك هنا'}</p></article>
+      <article class="premium-focus-card"><div class="premium-card-title">${ic('award')} <span>الامتحان القادم</span></div><h3>${nextExam ? esc(nextExam.title) : 'لا يوجد امتحان قادم'}</h3><p>${nextExam ? `${esc(courseName(nextExam.courseId))} · ${fmtDate(nextExam.date)}` : 'أضف مواعيد الامتحانات لتخطيط المراجعة'}</p></article>
       <article class="premium-focus-card premium-resume"><div class="premium-card-title">${ic('book')} <span>واصل التعلم</span></div><h3>${focusCourse ? esc(focusCourse.title) : 'ابدأ بإضافة مساق'}</h3><p>${focusCourse ? 'افتح المحاضرات والملاحظات والمساعد الدراسي لهذا المساق' : 'نظم مساقاتك ومحاضراتك من مكان واحد'}</p><button class="premium-text-link" ${focusCourse ? `data-course="${esc(focusCourse.id)}"` : 'data-go="courses"'}>متابعة الدراسة ${ic('chevron', 14)}</button></article>
     </div>
     <div class="premium-progress"><div><strong>إنجاز المصادر الدراسية</strong><span>${complete} من ${total} · ${completion}%</span></div><div class="progress-track" role="progressbar" aria-label="إنجاز المصادر الدراسية" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${completion}"><div style="width:${completion}%"></div></div></div>
@@ -466,24 +507,17 @@ function homePage() {
   const total = state.resources.length;
   const done = state.resources.filter(r => r.completed).length;
   const percentage = total ? Math.round((done / total) * 100) : 0;
-  return `<section class="hero premium-hero" aria-labelledby="premium-hero-title">
-    <div class="premium-hero-copy"><div class="premium-hero-date">${ic('calendar', 15)} ${esc(date)} <span class="premium-hero-divider" aria-hidden="true"></span> مساحة دراستك</div><div class="premium-hero-eyebrow">UCAS · YOUR ACADEMIC SPACE</div><h1 id="premium-hero-title">كل خطوة اليوم<br><em>تقرّبك من هدفك</em></h1><p>مساقاتك ومحاضراتك وتكليفاتك في مساحة هادئة، مصممة للتركيز والإنجاز</p>
-    <div class="premium-hero-buttons"><button class="primary-btn" data-go="courses">${ic('book')} متابعة المساقات</button><button class="outline-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div></div>
+  return `${deadlineAlert()}<section class="hero premium-hero" aria-labelledby="premium-hero-title">
+    <div class="premium-hero-copy"><div class="premium-hero-date">${ic('calendar', 15)} ${esc(date)} <span class="premium-hero-divider" aria-hidden="true"></span> مساحة دراستك</div><div class="premium-hero-eyebrow">UCAS · YOUR ACADEMIC SPACE</div><h1 id="premium-hero-title">كل خطوة اليوم<br><em>تقرّبك من هدفك</em></h1><p>مساقاتك ومحاضراتك وتكليفاتك في مساحة هادئة، مصممة للتركيز والإنجاز</p></div>
     <div class="premium-hero-score" aria-label="إنجاز المصادر ${percentage}%"><div class="premium-score-ring" style="--score:${percentage}%"><div><strong>${percentage}%</strong><span>إنجاز المصادر</span></div></div><p>${done} من ${total} مصدر مكتمل</p><span>تقدمك محسوب من بياناتك</span></div>
   </section>
-  <div class="premium-action-bar" aria-label="إجراءات سريعة">
-    <button data-go="schedule">${ic('calendar')} <span>جدولي</span></button>
-    <button data-go="quizzes">${ic('quiz')} <span>اختبار سريع</span></button>
-    <button data-go="tasks">${ic('check')} <span>التكليفات</span></button>
-    <button data-go="progress">${ic('chart')} <span>إنجازي</span></button>
-  </div>
   ${backupReminder()}
   <div class="stats-grid premium-stats">${stat('book', state.courses.length, 'مساق دراسي')}${stat('file', state.resources.length, 'مصدر ومحاضرة')}${stat('calendar', pending().length, 'تكليف قيد المتابعة')}${stat('quiz', state.attempts.length, 'محاولة اختبار')}</div>
   ${sectionHead('مساحة الأولويات', '<span class="premium-section-hint">ابدأ بالأهم</span>')}${premiumOverview()}
   ${sectionHead('مساقاتي', `<button class="link" data-go="courses">جميع المساقات ${ic('chevron', 14)}</button>`)}
   <div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('') || noData('ابدأ مساقك الأول', 'أضف مساقًا لتنظيم محاضراتك', 'book')}</div>
-  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches && !state.homeExtrasOpen ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
-  <div>${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
+  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches && !state.homeExtrasOpen ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', '')}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
+  <div>${sectionHead('أحدث المصادر', '')}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
   ${features.homeWidgets(ctx)}
   <div class="premium-footer-grid"><div>${sectionHead('تقويمي الأسبوعي')}<div class="panel">${weekly()}</div></div><div>${sectionHead('نظرة على تقدمي')}<div class="panel">${progressBars()}</div></div></div>
   <div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>يمكنك استيراد المصادر يدويًا دون مشاركة كلمة مرور الجامعة.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div></div></details>`;
@@ -547,7 +581,7 @@ function coursePage() {
     features.courseTabs.some(t => t.id === tab)
       ? features.courseTabs.find(t => t.id === tab).render(ctx, c)
       : tab === 'lessons'
-        ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div><button class="primary-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div>${
+        ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div></div>${
             Object.keys(groups).length
               ? Object.entries(groups)
                   .map(
@@ -702,7 +736,7 @@ function moodlePage() {
 <div class="row-actions"><button class="primary-btn" data-action="companion-scan">مزامنة من Moodle</button><button class="outline-btn" data-action="companion-last">استيراد آخر فحص</button><button class="outline-btn" data-action="companion-auto">${state.companionAuto ? 'تعطيل' : 'تفعيل'} الفحص كل ساعة</button></div>
 <p class="muted tiny" role="status" aria-live="polite">${esc(state.companionStatus || 'ثبّت إضافة UCAS Moodle Companion مرة واحدة على Chrome للكمبيوتر. لا تدعم نسخة Chrome على Android الإضافات.')}</p>
 <p class="muted tiny">تنزّل النسخة الجديدة ملفات المساق المتاحة بعد فحصها وموافقتك، وتحتفظ بها محليًا؛ لا تستخرج العلامات أو واجبات الطلاب الخاصة.</p>
-</section>${companionFilesPanel()}<div class="panel moodle-connect-intro" style="margin-bottom:18px"><div class="panel-heading"><h3>ربط Moodle الرسمي (OAuth)</h3><span class="pill">يتطلب تفعيل الجامعة</span></div><p class="muted tiny">اتصال قراءة فقط بعد تفويض حسابك على موقع الجامعة، دون تخزين كلمة المرور. لم تؤكد الجامعة بعد توفير صلاحيات API لتطبيق UCAS.</p><a class="primary-btn" href="moodle-connect.html">فتح Moodle Connect</a></div>${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3><button class="link" data-go="import">مركز الاستيراد ${ic('chevron', 14)}</button></div>${moodleImportForm()}</div><div class="quick-actions"><button class="quick-action" data-action="moodle-files">${ic('upload')}<div><strong>ملفات المحاضرات</strong><p class="muted tiny">PDF وDOCX وPPTX</p></div></button><button class="quick-action" data-action="moodle-ics">${ic('calendar')}<div><strong>تقويم Moodle</strong><p class="muted tiny">ملف ICS من بوابة الجامعة</p></div></button><button class="quick-action" data-action="moodle-links">${ic('link')}<div><strong>روابط المواد</strong><p class="muted tiny">روابط مسموح بها</p></div></button></div>`;
+</section>${companionFilesPanel()}<div class="panel moodle-connect-intro" style="margin-bottom:18px"><div class="panel-heading"><h3>ربط Moodle الرسمي (OAuth)</h3><span class="pill">يتطلب تفعيل الجامعة</span></div><p class="muted tiny">اتصال قراءة فقط بعد تفويض حسابك على موقع الجامعة، دون تخزين كلمة المرور. لم تؤكد الجامعة بعد توفير صلاحيات API لتطبيق UCAS.</p><a class="primary-btn" href="moodle-connect.html">فتح Moodle Connect</a></div>${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3></div>${moodleImportForm()}</div>`;
 }
 function driveImportPanel(options) {
   return (
@@ -718,9 +752,10 @@ function driveImportPanel(options) {
   );
 }
 function importPage() {
-  let tab = state.importTab;
+  // Moodle imports live on the Moodle page only.
+  let tab = state.importTab === 'moodle' ? 'drive' : state.importTab;
   let options = `<option value="">اختر المساق</option>${courseOption()}`;
-  return `${intro('مركز الاستيراد', 'استورد ملفات الدراسة وروابط Google Drive إلى مساقاتك دون تسجيل دخول للمنصة')}<div class="panel moodle-companion-panel" style="margin-bottom:16px"><div class="panel-heading"><h3>مزامنة Moodle من Chrome</h3><span class="pill">بدون API</span></div><p class="muted tiny">استيراد المساقات والأنشطة التي يتيحها حسابك الجامعي من خلال إضافة Chrome للكمبيوتر.</p><button class="primary-btn" data-go="moodle">فتح Moodle Companion</button></div><div class="panel moodle-connect-intro" style="margin-bottom:16px"><div class="panel-heading"><h3>ربط Moodle Connect</h3><span class="pill">ينتظر تفويض الجامعة</span></div><p class="muted tiny">جهزنا اتصال OAuth آمن لمزامنة المساقات. لم يُفعّل بعد دون تسجيل الجامعة لتطبيق UCAS ومنحه صلاحيات القراءة.</p><a class="outline-btn" href="moodle-connect.html">تفاصيل الربط والمتطلبات</a></div><div class="notice info" style="margin-bottom:22px">يمكنك الآن استخدام Chrome Companion لاستيراد ملفات المحاضرات من Moodle على الكمبيوتر، أو اختيار Google Drive وملفات الجهاز كبدائل. استيراد MHT من Moodle مؤجل مؤقتًا. جميع المصادر المستوردة تُحفظ في متصفحك، ولا تتم مزامنة الملفات تلقائيًا مع حساب Google.</div><div class="quick-actions"><button class="quick-action" data-import-tab="drive">${ic('cloud')}<div><strong>Google Drive</strong><p class="muted tiny">اختيار ملفات وحفظ الروابط</p></div></button><button class="quick-action" data-import-tab="files">${ic('upload')}<div><strong>رفع ملفات</strong><p class="muted tiny">PDF وDOCX وPPTX وTXT</p></div></button><button class="quick-action" data-import-tab="links">${ic('link')}<div><strong>روابط المحاضرات</strong><p class="muted tiny">روابط الويب والفيديو</p></div></button><button class="quick-action" data-import-tab="ics">${ic('calendar')}<div><strong>تقويم ICS</strong><p class="muted tiny">استيراد الأحداث والمواعيد</p></div></button></div><div class="tabs" style="margin-top:25px"><button class="tab ${tab === 'drive' ? 'active' : ''}" data-import-tab="drive">Google Drive</button><button class="tab ${tab === 'files' ? 'active' : ''}" data-import-tab="files">الملفات</button><button class="tab ${tab === 'links' ? 'active' : ''}" data-import-tab="links">الروابط</button><button class="tab ${tab === 'ics' ? 'active' : ''}" data-import-tab="ics">تقويم ICS</button><button class="tab ${tab === 'moodle' ? 'active' : ''}" data-import-tab="moodle">Moodle</button></div><div class="panel">${tab === 'moodle' ? `${moodleHTMLForm()}<div class="divider"></div>${moodleImportForm()}` : tab === 'files' ? `<form id="file-form"><div class="upload-zone">${ic('cloud')}<strong>ارفع ملفات المحاضرات والمراجع</strong><p>تظل الملفات محفوظة محليًا في متصفح هذا الجهاز</p><input id="source-files" name="files" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md" required/></div><div class="form-grid"><div class="field"><label for="file-course">المساق</label><select class="select" id="file-course" name="courseId" required>${options}</select></div><div class="field"><label for="file-module">الوحدة / المحاضرة</label><input id="file-module" class="input" name="module" placeholder="مثال: المحاضرة الأولى"/></div></div><button class="primary-btn" type="submit">${ic('upload')} حفظ الملفات في المكتبة</button></form>` : tab === 'links' ? `<form id="link-form"><div class="field"><label>عنوان المحاضرة أو المصدر</label><input class="input" name="name" required maxlength="180"/></div><div class="field"><label>رابط المصدر (HTTPS)</label><input class="input" type="url" name="url" required placeholder="https://..."/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required>${options}</select></div><div class="field"><label>الوحدة / المحاضرة</label><input class="input" name="module"/></div></div><button class="primary-btn" type="submit">${ic('plus')} حفظ الرابط</button></form>` : tab === 'ics' ? `<form id="ics-form"><div class="field"><label>اختر ملف تقويم ICS</label><input class="input" type="file" name="calendar" accept=".ics,text/calendar" required/></div><div class="notice warn" style="margin-bottom:15px">يدعم الاستيراد الحالي الأحداث الفردية. الأحداث المتكررة RRULE والمناطق الزمنية غير القياسية تحتاج معالجة إضافية قبل الاعتماد عليها كمواعيد نهائية.</div><button class="primary-btn" type="submit">${ic('calendar')} استيراد المواعيد</button></form>` : `${driveImportPanel(options)}`}</div>${sectionHead('ملفاتي المستوردة')}<div class="panel">${
+  return `${intro('مركز الاستيراد', 'استورد ملفات الدراسة وروابط Google Drive إلى مساقاتك دون تسجيل دخول للمنصة')}<div class="notice info" style="margin-bottom:22px">يمكنك الآن استخدام Chrome Companion لاستيراد ملفات المحاضرات من Moodle على الكمبيوتر، أو اختيار Google Drive وملفات الجهاز كبدائل. استيراد MHT من Moodle مؤجل مؤقتًا. جميع المصادر المستوردة تُحفظ في متصفحك، ولا تتم مزامنة الملفات تلقائيًا مع حساب Google.</div><div class="quick-actions"><button class="quick-action" data-import-tab="drive">${ic('cloud')}<div><strong>Google Drive</strong><p class="muted tiny">اختيار ملفات وحفظ الروابط</p></div></button><button class="quick-action" data-import-tab="files">${ic('upload')}<div><strong>رفع ملفات</strong><p class="muted tiny">PDF وDOCX وPPTX وTXT</p></div></button><button class="quick-action" data-import-tab="links">${ic('link')}<div><strong>روابط المحاضرات</strong><p class="muted tiny">روابط الويب والفيديو</p></div></button><button class="quick-action" data-import-tab="ics">${ic('calendar')}<div><strong>تقويم ICS</strong><p class="muted tiny">استيراد الأحداث والمواعيد</p></div></button></div><div class="tabs" style="margin-top:25px"><button class="tab ${tab === 'drive' ? 'active' : ''}" data-import-tab="drive">Google Drive</button><button class="tab ${tab === 'files' ? 'active' : ''}" data-import-tab="files">الملفات</button><button class="tab ${tab === 'links' ? 'active' : ''}" data-import-tab="links">الروابط</button><button class="tab ${tab === 'ics' ? 'active' : ''}" data-import-tab="ics">تقويم ICS</button></div><div class="panel">${tab === 'files' ? `<form id="file-form"><div class="upload-zone">${ic('cloud')}<strong>ارفع ملفات المحاضرات والمراجع</strong><p>تظل الملفات محفوظة محليًا في متصفح هذا الجهاز</p><input id="source-files" name="files" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md" required/></div><div class="form-grid"><div class="field"><label for="file-course">المساق</label><select class="select" id="file-course" name="courseId" required>${options}</select></div><div class="field"><label for="file-module">الوحدة / المحاضرة</label><input id="file-module" class="input" name="module" placeholder="مثال: المحاضرة الأولى"/></div></div><button class="primary-btn" type="submit">${ic('upload')} حفظ الملفات في المكتبة</button></form>` : tab === 'links' ? `<form id="link-form"><div class="field"><label>عنوان المحاضرة أو المصدر</label><input class="input" name="name" required maxlength="180"/></div><div class="field"><label>رابط المصدر (HTTPS)</label><input class="input" type="url" name="url" required placeholder="https://..."/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required>${options}</select></div><div class="field"><label>الوحدة / المحاضرة</label><input class="input" name="module"/></div></div><button class="primary-btn" type="submit">${ic('plus')} حفظ الرابط</button></form>` : tab === 'ics' ? `<form id="ics-form"><div class="field"><label>اختر ملف تقويم ICS</label><input class="input" type="file" name="calendar" accept=".ics,text/calendar" required/></div><div class="notice warn" style="margin-bottom:15px">يدعم الاستيراد الحالي الأحداث الفردية. الأحداث المتكررة RRULE والمناطق الزمنية غير القياسية تحتاج معالجة إضافية قبل الاعتماد عليها كمواعيد نهائية.</div><button class="primary-btn" type="submit">${ic('calendar')} استيراد المواعيد</button></form>` : `${driveImportPanel(options)}`}</div>${sectionHead('ملفاتي المستوردة')}<div class="panel">${
     state.resources.length
       ? state.resources
           .slice()
@@ -731,18 +766,29 @@ function importPage() {
       : noData('لا توجد ملفات بعد', 'المكتبة فارغة إلى حين استيراد أول مصدر', 'folder')
   }</div>`;
 }
-function taskRow(t) {
-  return `<article class="task-card"><label><input class="check-task" type="checkbox" data-toggle-task="${esc(t.id)}" ${t.done ? 'checked' : ''} aria-label="وضع مكتمل"/></label><div class="grow"><strong style="${t.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(t.title)}</strong><p>${esc(courseName(t.courseId))} · ${fmtDate(t.due)}</p></div><div class="row-actions"><span class="pill ${t.done ? 'success' : 'warn'}">${t.done ? 'مكتمل' : 'قيد الإنجاز'}</span><button class="btn-mini" data-delete-task="${esc(t.id)}" aria-label="حذف">${ic('trash', 16)}</button></div></article>`;
+const DUE_PILL = {
+  overdue: 'danger',
+  urgent: 'danger',
+  soon: 'warn',
+  later: '',
+  undated: '',
+  done: 'success',
+};
+function taskRow(t, level = 'later') {
+  const badge = level === 'done' ? 'مكتمل' : dueLabel(t.due);
+  const moodle = t.moodleActivityURL
+    ? ` · <a href="${esc(t.moodleActivityURL)}" target="_blank" rel="noopener noreferrer">فتح في Moodle</a>`
+    : '';
+  return `<article class="task-card task-${level}"><label><input class="check-task" type="checkbox" data-toggle-task="${esc(t.id)}" ${t.done ? 'checked' : ''} aria-label="وضع مكتمل"/></label><div class="grow"><strong>${esc(t.title)}</strong><p>${esc(courseName(t.courseId))}${t.due ? ` · ${fmtDate(t.due)}` : ''}${moodle}</p></div><div class="row-actions"><span class="pill ${DUE_PILL[level]}">${esc(badge)}</span><button class="btn-mini" data-delete-task="${esc(t.id)}" aria-label="حذف">${ic('trash', 16)}</button></div></article>`;
 }
 function tasksPage() {
-  const taskList = state.tasks
-    .slice()
-    .sort(
-      (a, b) =>
-        (a.done === b.done ? 0 : a.done ? 1 : -1) ||
-        (a.due || '9999').localeCompare(b.due || '9999'),
-    );
-  return `${intro('التكليفات والمواعيد', 'قائمة منظمة بمهامك ومواعيد التسليم', `<button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button>`)}<div class="split-layout"><div><div class="panel-heading"><h3>قائمة التكليفات</h3><span class="pill">${pending().length} غير مكتمل</span></div><div class="card-stack">${taskList.length ? taskList.map(taskRow).join('') : noData('لا توجد تكليفات', 'أضف مهمة جديدة يدويًا أو استورد تقويم ICS', 'calendar')}</div></div><div><div class="panel"><div class="panel-heading"><h3>هذا الأسبوع</h3></div>${weekly()}</div><div class="panel" style="margin-top:17px"><div class="panel-heading"><h3>أحداث التقويم المستوردة</h3><span class="pill">${state.events.length}</span></div>${
+  const g = groupTasks(state.tasks);
+  const group = (key, title, hint = '') =>
+    g[key].length
+      ? `<section class="task-group task-group-${key}"><div class="panel-heading"><h3>${title}</h3><span class="pill ${DUE_PILL[key]}">${g[key].length}</span></div>${hint ? `<p class="muted tiny">${hint}</p>` : ''}<div class="card-stack">${g[key].map(t => taskRow(t, key)).join('')}</div></section>`
+      : '';
+  const open = state.tasks.length - g.done.length;
+  return `${intro('التكليفات والمواعيد', 'الأقرب موعدًا أولًا، مع تنبيه لما يستحق خلال أسبوعين', `<button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button>`)}<div class="split-layout"><div>${open ? '' : noData('لا توجد تكليفات مفتوحة', 'أضف تكليفًا أو زامن مساقاتك من صفحة Moodle UCAS', 'calendar')}${group('overdue', 'متأخرة: فات موعدها', 'إن كنت سلّمتها، زامن من صفحة Moodle UCAS أو ضع علامة مكتمل.')}${group('urgent', 'خلال يومين')}${group('soon', 'خلال أسبوعين')}${group('later', 'لاحقًا')}${group('undated', 'بدون موعد تسليم', 'زامن من صفحة Moodle UCAS لجلب الموعد، أو احذف ما لم يعد مطلوبًا.')}${g.done.length ? `<details class="task-done"><summary>المكتملة والمسلّمة (${g.done.length})</summary><div class="card-stack">${g.done.map(t => taskRow(t, 'done')).join('')}</div></details>` : ''}</div><div><div class="panel"><div class="panel-heading"><h3>هذا الأسبوع</h3></div>${weekly()}</div><div class="panel" style="margin-top:17px"><div class="panel-heading"><h3>أحداث التقويم المستوردة</h3><span class="pill">${state.events.length}</span></div>${
     state.events.length
       ? state.events
           .slice()
@@ -1358,12 +1404,8 @@ async function copyStudyPrompt() {
 
 function dueNotifications() {
   let now = Date.now();
-  let due = pending().filter(
-    t =>
-      t.due &&
-      new Date(t.due).getTime() - now >= 0 &&
-      new Date(t.due).getTime() - now < 7 * 86400000,
-  );
+  const g = groupTasks(state.tasks);
+  let due = [...g.overdue, ...g.urgent, ...g.soon];
   let events = state.events.filter(
     e =>
       e.date &&
@@ -1579,7 +1621,7 @@ async function handleClick(e) {
           throw Error('لا يوجد فحص محفوظ بعد. استخدم «مزامنة من Moodle» أولًا.');
         const result = await importCompanionSnapshot(response.snapshot);
         state.companionAuto = response.autoEnabled === true || state.companionAuto;
-        state.companionStatus = `تم فحص ${result.scanned} مساق، أُضيف ${result.courses} مساق وربط ${result.linked} مساق، واستيراد ${result.resources} نشاط و${result.tasks} تكليف. ${result.failures ? `تعذر فحص ${result.failures} مساق بالكامل.` : ''}`;
+        state.companionStatus = `تم فحص ${result.scanned} مساق، أُضيف ${result.courses} مساق وربط ${result.linked} مساق، واستيراد ${result.resources} نشاط و${result.tasks} تكليف${result.tasksUpdated ? `، وتحديث موعد أو حالة ${result.tasksUpdated} تكليف` : ''}. ${result.failures ? `تعذر فحص ${result.failures} مساق بالكامل.` : ''}`;
         await refresh();
       } catch (error) {
         state.companionStatus = error?.message || 'تعذرت المزامنة';

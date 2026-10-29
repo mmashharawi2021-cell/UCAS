@@ -45,6 +45,7 @@ const SHELL = [
   `./js/lib/pack.js?v=${VERSION}`,
   `./js/lib/zip.js?v=${VERSION}`,
   `./js/lib/moodle-diagnostics.js?v=${VERSION}`,
+  `./js/lib/deadlines.js?v=${VERSION}`,
   `./js/lib/question-import.js?v=${VERSION}`,
   `./js/lib/report.js?v=${VERSION}`,
   `./js/lib/review.js?v=${VERSION}`,

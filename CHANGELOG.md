@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Assignments and navigation:
+  - Companion 0.5.0 reads each assignment's due date and the student's own submitted state during sync. UCAS updates existing Moodle tasks and marks submitted ones done.
+  - The tasks page groups work as overdue, within 2 days, within 2 weeks, later, undated, and completed (collapsed).
+  - A home-page banner, the bell and a sidebar badge warn about overdue work and work due within two weeks.
+  - The sidebar is redesigned: grouped sections, icon tiles, the deadline badge, and settings pinned at the bottom.
+  - Removed in-page buttons that duplicated sidebar pages: hero and quick-action bar, "add lecture", import links, and the Moodle panels and tab in the import center. Moodle tools now live only on the Moodle page.
 - Moodle Companion 0.4.0:
   - The per-file limit rises from 35 MiB to 200 MiB, with 512 KiB transfer chunks and a 40-minute download timeout.
   - Larger files, or files the browser has no room for, are saved as a link to their Moodle activity or course page. That page address is the only Moodle address the site receives.

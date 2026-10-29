@@ -72,6 +72,8 @@ async function scan() {
       const courses = snapshot.courses.slice(0, 80);
       const details = [],
         failures = [];
+      // At most 120 assignment pages per sync, across all courses.
+      let assignmentsRead = 0;
       for (const course of courses) {
         try {
           await navigate(tabId, course.url);
@@ -79,7 +81,28 @@ async function scan() {
           if (page.kind === 'login') throw sessionExpired();
           if (page.kind !== 'course' || page.data?.id !== course.id)
             throw Error('لم تُفتح صفحة المساق المتوقعة');
-          details.push({ ...course, activities: page.data.activities });
+          const activities = page.data.activities;
+          // Due dates and submitted state for this course's assignments (student's own view).
+          const assigns = activities
+            .filter(a => a.type === 'assign')
+            .map(a => a.id)
+            .slice(0, Math.max(0, 120 - assignmentsRead));
+          assignmentsRead += assigns.length;
+          if (assigns.length) {
+            const info = await ask(
+              tabId,
+              { type: 'UCAS_MOODLE_ASSIGN', ids: assigns },
+              'تعذرت قراءة مواعيد التكليفات',
+            ).catch(() => null);
+            if (info?.code === 'login') throw sessionExpired();
+            for (const a of info?.assignments || []) {
+              const activity = activities.find(x => x.type === 'assign' && x.id === a.id);
+              if (!activity) continue;
+              if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(a.due || '')) activity.due = a.due;
+              activity.submitted = a.submitted === true;
+            }
+          }
+          details.push({ ...course, activities });
         } catch (e) {
           // Every later course would fail the same way: stop and ask for a new sign-in.
           if (e.code === 'login') throw e;
