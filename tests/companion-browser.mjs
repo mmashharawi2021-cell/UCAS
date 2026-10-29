@@ -100,6 +100,15 @@ try {
         mime: 'text/plain',
       },
       {
+        id: '32345678-1234-4123-8123-123456789012',
+        courseId: '821',
+        courseTitle: 'ادارة مشاريع نظم المعلومات الجغرافية',
+        name: 'Lecture recording.mp4',
+        module: 'الأسبوع الأول',
+        sourceKey: 'c'.repeat(64),
+        tooLarge: 'https://moodle.ucas.edu.ps/mod/resource/view.php?id=55',
+      },
+      {
         id: '22345678-1234-4123-8123-123456789012',
         courseId: '821',
         courseTitle: 'ادارة مشاريع نظم المعلومات الجغرافية',
@@ -129,9 +138,16 @@ try {
         result = {
           ok: true,
           version: '0.3.0',
-          files: files.map(({ bytes: _b, mime: _m, ...meta }) => meta),
+          files: files.map(({ bytes: _b, mime: _m, tooLarge: _t, ...meta }) => meta),
           failures: [],
           report,
+        };
+      else if (d.type === 'FILE_OPEN' && file.tooLarge)
+        result = {
+          ok: false,
+          error: 'حجم الملف أكبر من 200 MB',
+          code: 'too_large',
+          link: file.tooLarge,
         };
       else if (d.type === 'FILE_OPEN' && file.name === 'broken.pdf' && !window.__signedInAgain)
         result = {
@@ -179,6 +195,11 @@ try {
     /broken\.pdf: تعذر النقل/,
   );
   assert.equal(await page.locator('[data-action="companion-files-retry"]').count(), 1);
+  assert.match(firstRun, /1 حُفظ كرابط/);
+  assert.match(
+    await page.locator('.companion-file-results').innerText(),
+    /Lecture recording\.mp4: حُفظ كرابط — أكبر من 200 MB/,
+  );
   const files = await page.evaluate(async () => {
     const store = await import('./js/store.js?v=1.7.0');
     const rows = (await store.all('resources')).filter(x => x.origin === 'moodle-companion-file');
@@ -208,13 +229,18 @@ try {
     const store = await import('./js/store.js?v=1.7.0');
     const rows = (await store.all('resources')).filter(x => x.origin === 'moodle-companion-file');
     const pdf = rows.find(x => x.name === 'broken.pdf');
+    const links = (await store.all('resources')).filter(x => x.origin === 'moodle-companion-link');
     return {
+      links: links.map(x => [x.name, x.url, x.kind]),
       names: rows.map(x => x.name).sort(),
       type: pdf?.type,
       blobType: (await store.getFile(pdf.id))?.type,
     };
   });
   assert.deepEqual(retried.names, ['broken.pdf', 'intro.txt']);
+  assert.deepEqual(retried.links, [
+    ['Lecture recording.mp4', 'https://moodle.ucas.edu.ps/mod/resource/view.php?id=55', 'link'],
+  ]);
   assert.equal(retried.type, 'application/pdf');
   assert.equal(retried.blobType, 'application/pdf');
   assert.equal(await page.locator('[data-action="companion-files-retry"]').count(), 0);

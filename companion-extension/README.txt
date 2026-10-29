@@ -1,4 +1,4 @@
-# UCAS Moodle Companion 0.3.0
+# UCAS Moodle Companion 0.4.0
 
 Desktop Chrome extension for user-authorized import of their own Moodle UCAS course attachments.
 
@@ -9,6 +9,10 @@ Desktop Chrome extension for user-authorized import of their own Moodle UCAS cou
 4. Open `https://mmashharawi2021-cell.github.io/UCAS/`, visit **ربط Moodle**, then click **مزامنة من Moodle** to link course IDs.
 5. Click **فحص ملفات المساقات** to see a preview and the per-course scan report, choose which files you want, then click **استيراد الملفات المحددة**.
 6. Leave the UCAS tab open until the transfer completes. All downloaded files are stored in the local IndexedDB study library of **that desktop browser**, not in the public GitHub repository. Optional account cloud sync may later upload records to a user-authorized private backend; review its separate settings first.
+
+## What's new in 0.4.0
+- The per-file limit is 200 MiB (was 35 MiB). Bigger files, or files that don't fit in the browser's storage, are saved as a link to their Moodle page; the site receives that page address only in this case. Chunks are 512 KiB.
+- Rescan the course files after updating: catalogs from 0.3.0 have no Moodle page for the link fallback.
 
 ## What's new in 0.3.0
 - Per-course scan report (counts only): which activity types the course page shows, how many content pages were opened, and which links were skipped (unsupported formats, untrusted links, pages that could not be opened). UCAS uses it to explain courses that show no files.
@@ -26,9 +30,9 @@ Desktop Chrome extension for user-authorized import of their own Moodle UCAS cou
 - The file type UCAS stores comes from the file's extension, never from Moodle's response header; a header declaring HTML, SVG, XML, XSL or script refuses the file.
 - Opening folders, pages and books to look for files, and downloading a resource, are ordinary visits for Moodle: they appear in its logs and can mark "view" activity completion, as if the student opened them. Page requests are paced and stop when Moodle answers 429/503.
 - Never downloads without an explicit import click. The periodic schedule only refreshes *course metadata*, not files.
-- Supported: PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, TXT/MD/CSV, ZIP, PNG/JPG/WEBP; maximum 35 MiB/file. Maximum 1200 indexed attachments per discovery. Space quotas on the user's browser can also limit imports.
+- Supported: PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, TXT/MD/CSV, ZIP, PNG/JPG/WEBP; up to 200 MiB per file; a larger file (or one the browser has no room for) is saved in UCAS as a link to its Moodle page instead of a copy. Maximum 1200 indexed attachments per discovery. Space quotas on the user's browser can also limit imports.
 - Moodle page or server changes may affect discovery, authorization or downloads. Some files may require additional clicks or permission not accessible to the extension.
 - Chrome for Android does not support ordinary Chrome extensions. A desktop session is necessary; files imported locally on desktop will not appear automatically on Android unless the existing optional account cloud sync is separately configured.
 - The user must have permission to download the materials. Do not redistribute copyright-protected lecture files.
 
-Version: 0.3.0 · UCAS app: 1.7.0
+Version: 0.4.0 · UCAS app: 1.7.0

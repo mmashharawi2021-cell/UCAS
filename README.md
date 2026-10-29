@@ -55,7 +55,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 
 - Desktop Chrome extension can now **discover attachments** in the student's visible Moodle resource activities and folder/page/book materials after official login. It does not read submissions, grades, cookies, passwords or HTML source.
 - In the Moodle page, click **فحص ملفات المساقات** to inspect the catalog and select files; then **استيراد الملفات المحددة إلى UCAS** to transfer bytes in bounded chunks directly to local IndexedDB. No Moodle files are published to GitHub.
-- Supports PDF/DOC/DOCX/PPT/PPTX/XLS/XLSX/TXT/MD/CSV/ZIP/PNG/JPG/WEBP up to 35 MiB per file, browser quota permitting; uses SHA-256 to deduplicate content and update matching sources without losing study completion.
+- Supports PDF/DOC/DOCX/PPT/PPTX/XLS/XLSX/TXT/MD/CSV/ZIP/PNG/JPG/WEBP up to 200 MiB per file (larger files, or files the browser has no room for, are saved as a link to their Moodle page); uses SHA-256 to deduplicate content and update matching sources without losing study completion.
 - Downloads are always explicit; opt-in hourly course metadata scan does **not** download files. Chrome must remain open with an authenticated Moodle session; available materials depend on the university site's normal access rules. Files are local to the desktop unless optional account sync is separately configured.
 - The companion extension version must be updated to 0.2.0; the old 0.1.0 does not support file transfer.
 

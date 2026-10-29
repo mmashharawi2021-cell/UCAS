@@ -125,7 +125,9 @@ chrome.runtime.onMessage.addListener((request, sender, respond) => {
       return { ok: true, enabled };
     }
     return { ok: true, snapshot: await scan() };
-  })().then(respond, error => respond({ ok: false, error: message(error), code: error?.code }));
+  })().then(respond, error =>
+    respond({ ok: false, error: message(error), code: error?.code, link: error?.link }),
+  );
   return true;
 });
 chrome.alarms.onAlarm.addListener(async alarm => {
@@ -144,7 +146,14 @@ chrome.alarms.onAlarm.addListener(async alarm => {
 const fileSessions = new Map();
 let discovering = null;
 const MAX_FILE_ITEMS = 1200;
-const MAX_FILE_BYTES = 35 * 1024 * 1024;
+const MAX_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_CHUNK = 512 * 1024;
+// The page a student opens to reach a file; the only Moodle address ever given to the site,
+// and only when a file is too large to copy.
+const safeHome = s =>
+  /^https:\/\/moodle\.ucas\.edu\.ps\/(?:mod\/[a-z][a-z0-9_]{0,29}|course)\/view\.php\?id=\d{1,12}$/.test(
+    String(s || ''),
+  );
 async function shaText(s) {
   const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
   return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -243,6 +252,7 @@ async function fileCatalog() {
               module: String(f.section || 'مصادر المساق').slice(0, 120),
               sourceKey,
               url: f.url,
+              home: safeHome(f.home) ? f.home : course.url,
             });
             files++;
           }
@@ -264,7 +274,7 @@ async function fileCatalog() {
     return {
       ok: true,
       version: VERSION,
-      files: catalog.map(({ url, ...meta }) => meta),
+      files: catalog.map(({ url: _url, home: _home, ...meta }) => meta),
       failures,
       report,
     };
@@ -305,6 +315,11 @@ async function openTransfer(fileId) {
       name: file.name,
     });
     if (opened?.code === 'login') throw sessionExpired();
+    if (opened?.code === 'too_large')
+      throw Object.assign(Error('حجم الملف أكبر من 200 MB'), {
+        code: 'too_large',
+        link: file.home,
+      });
     if (!opened || opened.error || !opened.handle || opened.size > MAX_FILE_BYTES)
       throw Error(opened?.error || 'تعذر تنزيل الملف');
     const sessionId = crypto.randomUUID();
@@ -318,6 +333,7 @@ async function openTransfer(fileId) {
       sourceKey: file.sourceKey,
       courseId: file.courseId,
       module: file.module,
+      home: file.home,
     };
   } catch (error) {
     if (tabId !== undefined) {
@@ -339,7 +355,7 @@ async function readChunk(request) {
     handle: session.handle,
     offset: request.offset,
   });
-  if (!result || result.error || !Number.isInteger(result.count) || result.count > 96 * 1024)
+  if (!result || result.error || !Number.isInteger(result.count) || result.count > MAX_CHUNK)
     throw Error(result?.error || 'تعذر نقل أحد أجزاء الملف');
   return { ok: true, ...result };
 }
@@ -380,7 +396,7 @@ chrome.runtime.onMessage.addListener((request, sender, respond) => {
       return {
         ok: true,
         version: VERSION,
-        files: (saved?.files || []).map(({ url, ...meta }) => meta),
+        files: (saved?.files || []).map(({ url: _url, home: _home, ...meta }) => meta),
         failures: saved?.failures || [],
         report: saved?.report || [],
       };
@@ -388,6 +404,8 @@ chrome.runtime.onMessage.addListener((request, sender, respond) => {
     if (request.type === 'UCAS_COMPANION_FILE_OPEN') return openTransfer(request.fileId);
     if (request.type === 'UCAS_COMPANION_FILE_CHUNK') return readChunk(request);
     return closeTransfer(request);
-  })().then(respond, error => respond({ ok: false, error: message(error), code: error?.code }));
+  })().then(respond, error =>
+    respond({ ok: false, error: message(error), code: error?.code, link: error?.link }),
+  );
   return true;
 });

@@ -12,7 +12,7 @@ You are the UCAS Moodle Integration engineer. This is a project-specific role; t
   - Never read, store or forward passwords, cookies, session tokens, `sesskey`, `wstoken` or raw HTML.
   - Never send Moodle file URLs to the site. The site gets opaque IDs only.
   - Don't widen the manifest's host or API permissions without a security review.
-- Download only after the student explicitly chooses the files. Keep the 35 MiB per-file limit and the browser quota checks. Report each file's outcome with its reason, not a generic message.
+- Download only after the student explicitly chooses the files. Keep the 200 MiB per-file limit with its link fallback, and the browser quota checks. Report each file's outcome with its reason, not a generic message.
 - Keep the site compatible with older extension versions. Bump the version in `companion-extension/manifest.json` and its README together.
 - Pace requests politely. Never run agents or tests against the live Moodle. Tests use routed fixtures or fake extension messages, and that only proves the logic. Only the student's own run on real Moodle verifies the live integration.
 - Have `ucas-security` review any change to messaging, sender or origin checks, URL validation or permissions.

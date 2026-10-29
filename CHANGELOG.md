@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Moodle Companion 0.4.0:
+  - The per-file limit rises from 35 MiB to 200 MiB, with 512 KiB transfer chunks and a 40-minute download timeout.
+  - Larger files, or files the browser has no room for, are saved as a link to their Moodle activity or course page. That page address is the only Moodle address the site receives.
 - Moodle Companion 0.3.0 (source added in `companion-extension/`):
   - Accepts Office Open XML files that 0.2.0 refused because their MIME type contains "xml". Markup and script types are matched exactly and still refused.
   - Waits for each course page to load before reading it, retries while the page script loads, and stops the whole scan with one message when the Moodle session has expired.

@@ -130,9 +130,10 @@
 // shows no files.
 (() => {
   const ORIGIN = 'https://moodle.ucas.edu.ps';
-  const MAX_BYTES = 35 * 1024 * 1024;
+  // Larger files are offered to UCAS as a Moodle link instead of a download.
+  const MAX_BYTES = 200 * 1024 * 1024;
   const MAX_PAGE_BYTES = 2 * 1024 * 1024;
-  const CHUNK_BYTES = 96 * 1024;
+  const CHUNK_BYTES = 512 * 1024;
   // Characters not allowed in saved file names (path separators, reserved, control).
   // eslint-disable-next-line no-control-regex
   const UNSAFE_NAME = /[\\/:*?"<>|\x00-\x1f]/g;
@@ -170,6 +171,7 @@
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, n);
+  const tooLarge = () => Object.assign(Error('حجم الملف أكبر من 200 MB'), { code: 'too_large' });
   const loginError = () =>
     Object.assign(Error('انتهت جلسة Moodle. سجّل الدخول من جديد ثم أعد المحاولة.'), {
       code: 'login',
@@ -271,7 +273,9 @@
     };
     const found = new Map();
     const skipped = new Set();
-    const add = (url, name, section, source) => {
+    const course = `${ORIGIN}/course/view.php?id=${courseId}`;
+    // `home` is the Moodle page the student opens to reach the file (activity or course page).
+    const add = (url, name, section, source, home = course) => {
       const clean = trusted(url);
       const key = clean || String(url);
       if (found.has(key) || skipped.has(key)) return;
@@ -292,14 +296,15 @@
       }
       found.set(clean, {
         url: clean,
+        home: clean.includes('/mod/resource/') ? clean : home,
         name: basename(clean, name),
         section: title(section || 'مصادر المساق', 110),
         source: title(source || 'مواد المساق', 140),
       });
     };
-    const collect = (root, sectionFor, source) => {
+    const collect = (root, sectionFor, source, home) => {
       for (const el of root.querySelectorAll(`a[href*="/pluginfile.php/"],${EMBEDDED}`))
-        add(sourceOf(el), el.textContent || el.getAttribute('title'), sectionFor(el), source);
+        add(sourceOf(el), el.textContent || el.getAttribute('title'), sectionFor(el), source, home);
     };
     collect(
       document,
@@ -375,7 +380,7 @@
         const dom = new DOMParser().parseFromString(await body.text(), 'text/html');
         if (onLoginPage(dom)) throw loginError();
         report.pages++;
-        collect(dom, () => activity.section, activity.source);
+        collect(dom, () => activity.section, activity.source, activity.url);
       } catch (error) {
         // An expired session stops the scan; a single unavailable page doesn't.
         if (error?.code === 'login') throw error;
@@ -422,12 +427,12 @@
       response = await get(link);
     }
     const length = Number(response.headers.get('content-length') || 0);
-    if (length > MAX_BYTES) throw Error('يتجاوز الملف حد 35 MB');
+    if (length > MAX_BYTES) throw tooLarge();
     const type = mimeOf(response);
     if (isHTML(type)) throw Error('استجاب Moodle بصفحة HTML بدل الملف');
     const blob = await readLimited(response, MAX_BYTES);
-    if (!blob) throw Error('يتجاوز الملف حد 35 MB');
-    if (!blob.size) throw Error('حجم الملف غير مدعوم (الحد 35 MB)');
+    if (!blob) throw tooLarge();
+    if (!blob.size) throw Error('الملف فارغ');
     const disposition = response.headers.get('content-disposition') || '';
     const encoded = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(disposition);
     const quoted = /filename\s*=\s*"([^"]+)"/i.exec(disposition);

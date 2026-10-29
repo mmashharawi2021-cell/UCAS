@@ -619,6 +619,7 @@ const TRANSFER_STATUS = {
   added: 'أُضيف',
   updated: 'حُدّث',
   unchanged: 'بدون تغيير',
+  linked: 'حُفظ كرابط',
   failed: 'تعذر النقل',
   skipped: 'لم يُنقل',
 };
@@ -648,7 +649,7 @@ async function importCompanionFiles(chosen) {
       () => state.companionFileCancel,
     );
     state.companionFileResults = result.results;
-    state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.sessionExpired ? ' انتهت جلسة Moodle: سجّل الدخول في Chrome ثم اضغط إعادة المحاولة.' : ''}`;
+    state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله${result.linked ? `، ${result.linked} حُفظ كرابط` : ''}.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.sessionExpired ? ' انتهت جلسة Moodle: سجّل الدخول في Chrome ثم اضغط إعادة المحاولة.' : ''}`;
     await refresh();
   } catch (error) {
     state.companionFileResult = error.message || 'تعذر نقل الملفات';
@@ -669,7 +670,7 @@ function companionFilesPanel() {
   }
   return `<section class="panel companion-file-panel" aria-labelledby="companion-file-title">
     <div class="panel-heading"><h3 id="companion-file-title">ملفات المساقات — نقل مباشر إلى مكتبة UCAS</h3><span class="pill">${list.length} ملف</span></div>
-    <p class="muted tiny">ابدأ بفحص ملفات المساقات المتاحة لحسابك، وراجع القائمة ثم اختر الملفات التي تريد حفظها. التنزيل يتم بموافقتك وبحد 35 MB لكل ملف؛ لا تُجمع العلامات أو واجبات الطلاب أو بيانات الجلسة.</p>
+    <p class="muted tiny">ابدأ بفحص ملفات المساقات المتاحة لحسابك، وراجع القائمة ثم اختر الملفات التي تريد حفظها. التنزيل يتم بموافقتك حتى 200 MB لكل ملف، والأكبر يُحفظ رابطه في Moodle؛ لا تُجمع العلامات أو واجبات الطلاب أو بيانات الجلسة.</p>
     <div class="row-actions">
       <button class="primary-btn" data-action="companion-files-discover" ${state.companionFileBusy ? 'disabled' : ''}>فحص ملفات المساقات</button>
       ${list.length ? `<button class="outline-btn" data-action="companion-files-select-all" ${state.companionFileBusy ? 'disabled' : ''}>تحديد الكل</button><button class="outline-btn" data-action="companion-files-deselect-all" ${state.companionFileBusy ? 'disabled' : ''}>إلغاء التحديد</button><button class="primary-btn" data-action="companion-files-import" ${state.companionFileBusy ? 'disabled' : ''}>استيراد الملفات المحددة إلى UCAS</button>` : ''}

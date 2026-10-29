@@ -3,7 +3,7 @@ import { all, put, makeId } from './store.js?v=1.7.0';
 import { safeMoodleActivityURL } from './moodle.js?v=1.7.0';
 
 // Long Moodle operations get room for slow connections; quick ones double as a presence check.
-const TIMEOUTS = { SCAN: 190000, FILE_SCAN: 600000, FILE_OPEN: 480000, FILE_CHUNK: 30000 };
+const TIMEOUTS = { SCAN: 190000, FILE_SCAN: 600000, FILE_OPEN: 2400000, FILE_CHUNK: 30000 };
 const TIMEOUT_ERRORS = {
   SCAN: 'تعذر إكمال فحص Moodle، تأكد من اتصال الإنترنت وجلسة الجامعة.',
   FILE_SCAN: 'انتهت مهلة فحص ملفات Moodle. تحقق من الاتصال وجلسة الجامعة ثم أعد المحاولة.',
@@ -49,7 +49,8 @@ export function companionRequest(type, options = false) {
       if (!result?.ok)
         finish(
           Object.assign(Error(result?.error || 'تعذر الاتصال بإضافة Chrome'), {
-            code: result?.code === 'login' ? 'login' : undefined,
+            code: ['login', 'too_large'].includes(result?.code) ? result.code : undefined,
+            link: typeof result?.link === 'string' ? result.link.slice(0, 200) : undefined,
           }),
         );
       else finish(null, result);

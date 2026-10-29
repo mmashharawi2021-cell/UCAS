@@ -2,8 +2,11 @@
 // Extension fetches are done in the logged-in Moodle tab, never by this page.
 import { all, getFile, put, makeId, storageStatus, requestPersistence } from './store.js?v=1.7.0';
 import { companionRequest } from './companion.js?v=1.7.0';
+import { safeMoodleActivityURL } from './moodle.js?v=1.7.0';
 
-export const MAX_COMPANION_FILE_BYTES = 35 * 1024 * 1024;
+// Larger files, or files the browser has no room for, are saved as a link to their Moodle page.
+export const MAX_COMPANION_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_CHUNK_BYTES = 512 * 1024;
 const EXT = /\.(?:pdf|docx?|pptx?|xlsx?|txt|md|csv|zip|png|jpe?g|webp)$/i;
 const UUID = /^[a-f0-9-]{36}$/;
 const SHA = /^[a-f0-9]{64}$/;
@@ -59,7 +62,7 @@ export function validateFileCatalog(files) {
 }
 
 function fromBase64(raw) {
-  if (typeof raw !== 'string' || raw.length > 140000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(raw))
+  if (typeof raw !== 'string' || raw.length > 700000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(raw))
     throw Error('جزء ملف غير صالح');
   const bytes = atob(raw);
   return Uint8Array.from(bytes, char => char.charCodeAt(0));
@@ -73,7 +76,6 @@ export async function downloadCompanionFile(file, onProgress = () => {}, cancell
     opened = await companionRequest('FILE_OPEN', { fileId: file.id });
     if (
       opened.size < 1 ||
-      opened.size > MAX_COMPANION_FILE_BYTES ||
       !Number.isSafeInteger(opened.size) ||
       opened.sourceKey !== file.sourceKey ||
       opened.courseId !== file.courseId
@@ -81,6 +83,17 @@ export async function downloadCompanionFile(file, onProgress = () => {}, cancell
       throw Error('بيانات الملف مختلفة عن القائمة، أعد فحص المساق');
     const name = String(opened.name || file.name).trim();
     if (!EXT.test(name)) throw Error('صيغة الملف غير مدعومة');
+    if (opened.size > MAX_COMPANION_FILE_BYTES)
+      throw Object.assign(Error('حجم الملف أكبر من 200 MB'), {
+        code: 'too_large',
+        link: opened.home,
+      });
+    const used = await storageStatus();
+    if (used.quota && used.usage != null && used.usage + opened.size > used.quota * 0.95)
+      throw Object.assign(Error('المساحة المتاحة في المتصفح غير كافية'), {
+        code: 'no_space',
+        link: opened.home,
+      });
     const chunks = [];
     let offset = 0;
     while (offset < opened.size) {
@@ -95,7 +108,7 @@ export async function downloadCompanionFile(file, onProgress = () => {}, cancell
         packet.offset !== offset ||
         !chunk.byteLength ||
         chunk.byteLength !== packet.count ||
-        chunk.byteLength > 96 * 1024 ||
+        chunk.byteLength > MAX_CHUNK_BYTES ||
         offset + chunk.byteLength > opened.size
       )
         throw Error('بيانات جزء الملف غير متطابقة');
@@ -114,6 +127,35 @@ export async function downloadCompanionFile(file, onProgress = () => {}, cancell
   }
 }
 
+// Save (once) a link to the Moodle page of a file that is not copied into the browser.
+async function saveLink(file, course, link, resources) {
+  const url = safeMoodleActivityURL(link);
+  if (!url) return false;
+  const known = resources.some(
+    r =>
+      r.courseId === course.id &&
+      r.origin === 'moodle-companion-link' &&
+      r.sourceKey === file.sourceKey,
+  );
+  if (!known) {
+    const row = {
+      id: makeId(),
+      kind: 'link',
+      origin: 'moodle-companion-link',
+      sourceKey: file.sourceKey,
+      name: file.name,
+      courseId: course.id,
+      module: file.module,
+      url,
+      addedAt: new Date().toISOString(),
+      completed: false,
+    };
+    await put('resources', row);
+    resources.push(row);
+  }
+  return true;
+}
+
 export async function transferCompanionFiles(files, onProgress, cancelled = () => false) {
   const list = validateFileCatalog(files);
   if (!list.length) throw Error('اختر الملفات التي تريد استيرادها');
@@ -128,8 +170,9 @@ export async function transferCompanionFiles(files, onProgress, cancelled = () =
     failed: 0,
     stopped: false,
     sessionExpired: false,
+    linked: 0,
     errors: [],
-    // One entry per selected file: added, updated, unchanged, failed or skipped, with a reason.
+    // One entry per selected file: added, updated, unchanged, linked, failed or skipped.
     results: [],
   };
   const record = (file, status, reason = '') =>
@@ -166,9 +209,6 @@ export async function transferCompanionFiles(files, onProgress, cancelled = () =
         },
         cancelled,
       );
-      const used = await storageStatus();
-      if (used.quota && used.usage != null && used.usage + received.size > used.quota * 0.95)
-        throw Error('المساحة المتاحة في المتصفح غير كافية؛ احتفظ بنسخة احتياطية أولًا');
       const buf = await received.blob.arrayBuffer();
       const digest = await crypto.subtle.digest('SHA-256', buf);
       const hash = [...new Uint8Array(digest)].map(v => v.toString(16).padStart(2, '0')).join('');
@@ -214,6 +254,20 @@ export async function transferCompanionFiles(files, onProgress, cancelled = () =
         summary.stopped = true;
         skipRest(i, 'أُوقف النقل قبل اكتمال هذا الملف');
         break;
+      }
+      if (
+        (err?.code === 'too_large' || err?.code === 'no_space') &&
+        (await saveLink(file, course, err.link, resources))
+      ) {
+        summary.linked++;
+        record(
+          file,
+          'linked',
+          err.code === 'too_large'
+            ? 'أكبر من 200 MB؛ حُفظ رابطه في Moodle بدل الملف'
+            : 'مساحة المتصفح لا تكفي؛ حُفظ رابطه في Moodle بدل الملف',
+        );
+        continue;
       }
       const reason = err?.message || 'تعذر التحميل';
       summary.failed++;

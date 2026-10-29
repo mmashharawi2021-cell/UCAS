@@ -230,3 +230,41 @@ test('requests from other pages, origins or frames are ignored', async () => {
   }
   assert.equal(ext.sent.length, 0);
 });
+
+test('files over 200 MB come back as their Moodle page link only', async () => {
+  const base = student();
+  const ext = load({
+    courses: ['11'],
+    answer: (url, message) =>
+      message.type === 'UCAS_MOODLE_FILE_OPEN'
+        ? { error: 'حجم الملف أكبر من 200 MB', code: 'too_large' }
+        : message.type === 'UCAS_MOODLE_FILES'
+          ? {
+              ...base(url, message),
+              files: [
+                {
+                  url: `${MOODLE}/pluginfile.php/7/mod_folder/content/0/big.pdf`,
+                  home: `${MOODLE}/mod/folder/view.php?id=70`,
+                },
+                {
+                  url: `${MOODLE}/pluginfile.php/8/mod_folder/content/0/odd.pdf`,
+                  home: 'https://evil.example/mod/folder/view.php?id=1',
+                },
+              ],
+            }
+          : base(url, message),
+  });
+  const { files } = await ext.call({ type: 'UCAS_COMPANION_FILE_SCAN' });
+  assert.ok(
+    files.every(f => !('home' in f) && !('url' in f)),
+    'no Moodle address in the catalog',
+  );
+  const big = await ext.call({ type: 'UCAS_COMPANION_FILE_OPEN', fileId: files[0].id });
+  assert.deepEqual(
+    [big.ok, big.code, big.link],
+    [false, 'too_large', `${MOODLE}/mod/folder/view.php?id=70`],
+  );
+  const odd = await ext.call({ type: 'UCAS_COMPANION_FILE_OPEN', fileId: files[1].id });
+  assert.equal(odd.link, courseURL('11'), 'an unsafe page falls back to the course page');
+  assert.equal(ext.tabs.size, 0);
+});
