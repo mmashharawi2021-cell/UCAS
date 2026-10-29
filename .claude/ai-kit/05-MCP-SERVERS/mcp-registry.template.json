@@ -1,0 +1,26 @@
+{
+  "enabled": false,
+  "purpose": "Documentation only. Never auto-enable.",
+  "servers": [
+    {
+      "name": "github",
+      "source": "https://github.com/github/github-mcp-server",
+      "mode": "read_only",
+      "credentials": "external_secure_store",
+      "connected": false
+    },
+    {
+      "name": "supabase",
+      "source": "https://github.com/supabase/mcp",
+      "mode": "read_only",
+      "project_ref": "REPLACE_WITH_STAGING_PROJECT_REF",
+      "connected": false
+    },
+    {
+      "name": "playwright",
+      "source": "https://github.com/microsoft/playwright-mcp",
+      "mode": "local_only",
+      "connected": false
+    }
+  ]
+}

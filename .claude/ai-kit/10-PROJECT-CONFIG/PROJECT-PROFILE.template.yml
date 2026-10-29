@@ -1,0 +1,29 @@
+# انسخ هذا القالب إلى ملف آخر واملأه؛ لا تضع أسرارًا أو بيانات شخصية
+project:
+  name: "PROJECT_NAME"
+  purpose_ar: "وصف الهدف"
+  audience: "public"
+  status: "planning"
+constraints:
+  target_monthly_cost_usd: 0
+  hosting: "free_tier_if_possible"
+  needs_approval_before_external_actions: true
+  production_write_access_for_agents: false
+features:
+  manager_dashboard: false
+  public_accounts: false
+  database: false
+  file_uploads: false
+  map_gis: false
+  realtime: false
+  analytics: false
+security:
+  data_classification: "to_define"
+  mfa_for_admin: true
+  rls_if_using_supabase: true
+quality:
+  automated_tests_required: true
+  load_test_allowed: false
+  load_test_target: "local_or_authorized_staging_only"
+external_services:
+  - "NONE_APPROVED_YET"

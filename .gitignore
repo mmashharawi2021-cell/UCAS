@@ -4,6 +4,9 @@ node_modules/
 # Never commit personal study data or backups
 ucas-bridge-backup-*.json
 ucas-bridge-backup-*.zip
+# Personal Claude Code settings and notes
+.claude/settings.local.json
+CLAUDE.local.md
 *.mht
 *.mhtml
 .env*

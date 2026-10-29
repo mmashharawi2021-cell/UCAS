@@ -23,7 +23,7 @@ This project is an Arabic RTL, local-first academic PWA. Existing student data m
 - QA: unit/mobile/browser/offline coverage, actual pass/fail and reproduction steps.
 - DevOps: release checklist, CI, staged rollout and recovery.
 
-Custom Copilot agents live under .github/agents. Agent Skills live under .agents/skills and are loaded by compatible clients when selected. Do not claim agents or MCP integrations run autonomously merely because these files exist.
+Custom Copilot agents live under .github/agents. Agent Skills live under .agents/skills and are loaded by compatible clients when selected. Claude Code uses CLAUDE.md, .claude/agents, .claude/rules, .claude/skills (a mirror of .agents/skills plus pinned AI-DEVELOPMENT-KIT skills; refresh with npm run sync:claude) and .claude/ai-kit. Do not claim agents or MCP integrations run autonomously merely because these files exist.
 
 ## Output standard
 

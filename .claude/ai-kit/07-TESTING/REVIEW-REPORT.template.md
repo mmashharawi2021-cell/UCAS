@@ -1,0 +1,12 @@
+# تقرير اختبار / مراجعة
+- ID: TODO
+- Commit / build: TODO
+- Environment: TODO
+- Date: TODO
+- Owner: TODO
+- Check: TODO
+- Result: NOT_RUN / PASS / FAIL / NOT_APPLICABLE
+- Evidence (no secrets): TODO
+- Findings & severity: TODO
+- Required fix: TODO
+- Reviewer approval: TODO

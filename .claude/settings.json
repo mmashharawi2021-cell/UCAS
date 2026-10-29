@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(ucas-bridge-backup-*)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.ssh/**)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git tag *)",
+      "Bash(gh *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(npm ci *)",
+      "Bash(npm publish *)",
+      "Bash(npx supabase *)",
+      "Bash(supabase *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push *)",
+      "PowerShell(git merge *)",
+      "PowerShell(git rebase *)",
+      "PowerShell(git reset *)",
+      "PowerShell(git tag *)",
+      "PowerShell(gh *)",
+      "PowerShell(npm install *)",
+      "PowerShell(npm i *)",
+      "PowerShell(npm ci *)",
+      "PowerShell(npm publish *)",
+      "PowerShell(npx supabase *)",
+      "PowerShell(supabase *)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}
