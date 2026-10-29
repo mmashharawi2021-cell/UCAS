@@ -14,3 +14,6 @@ CLAUDE.local.md
 .env*
 .next/
 .cache/
+
+# Local Moodle trial copy of the extension (points at 127.0.0.1); never commit or ship it
+companion-local*/

@@ -13,6 +13,16 @@ The student must install the updated extension and explicitly choose the files t
 
 Backups are now a ZIP (format v2). Older app versions cannot restore v2 backups, while v1 JSON backups still restore.
 
+## Upgrade test (the most important check)
+
+`npm run test:upgrade` runs `tests/upgrade-browser.mjs` with one command:
+
+- It serves the old release straight from git on `127.0.0.1:8098`. The default is `main`; set `UPGRADE_FROM=<ref>` for another release.
+- It saves a file with that release, switches the same address to the working tree, and checks that the new release opens with the file intact and the IndexedDB schema at version 4.
+- Set `CHROME_PATH` to the local Chrome on Windows and macOS. Port 8098 must be free.
+
+It is not in CI yet, which is planned after 2.0.
+
 ## Not verified yet
 
 - No live UCAS Moodle account has been used end to end. All Moodle tests use simulated pages and messages.

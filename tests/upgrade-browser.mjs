@@ -54,7 +54,13 @@ try {
   await page.waitForTimeout(1500);
   const broken = await page.locator('.initial-loader h2').count();
   assert.equal(broken, 0, 'new release must not show the storage error after an upgrade');
-  await page.waitForSelector('.home-widgets');
+  // On a phone the home widgets sit in the collapsed "more tools" section: they must be
+  // rendered there, and become visible once the student opens it.
+  await page.waitForSelector('.premium-home-extras:not([open]) .home-widgets', {
+    state: 'attached',
+  });
+  await page.click('.premium-home-extras > summary');
+  await page.waitForSelector('.premium-home-extras[open] .home-widgets', { state: 'visible' });
   const result = await page.evaluate(async v => {
     const s = await import(`./js/store.js?v=${v}`);
     const r = await s.get('resources', 'old-file');
