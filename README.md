@@ -48,7 +48,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - A separate Chrome Manifest V3 extension scans the student's own Moodle dashboard and visible course activity links after **official Moodle sign-in**. No Moodle API credentials, passwords, cookie access or OAuth authorization are used.
 - Moodle page snapshots are sanitized to course names/IDs and allowlisted activity links. An opt-in hourly scan runs only when desktop Chrome is running with an authenticated Moodle session.
 - From the Moodle UCAS page, click **مزامنة من Moodle** to import course/activity metadata into local UCAS IndexedDB. New courses are matched to existing study courses without overwriting study materials.
-- No automatic protected PDF downloads or grade collection in this release. Moodle may require reauthentication, and a page-theme change may break extraction.
+- Metadata sync never downloads files; attachments are transferred only on explicit selection (Companion 0.2, above). No grade collection. Moodle may require reauthentication, and a page-theme change may break extraction.
 - **Chrome on Android does not support regular extensions**; desktop Chrome is required. Installing the unpacked extension is a one-time action per computer (updating an unpacked extension requires updating its folder).
 - The ZIP of the extension is distributed to the site owner separately; it must not contain personal MHT data or login tokens.
 
@@ -76,7 +76,8 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 
 ## Not included (by design or not built yet)
 
-- No Moodle login, API access or scraping; no Google Drive OAuth/auto-sync.
+- UCAS itself never asks for Moodle credentials and has no active Moodle API access (Moodle Connect is gated); Moodle data arrives only via the optional desktop Companion or manual MHT/text import. No Google Drive OAuth/auto-sync.
+- Companion file import has not yet been verified end-to-end against a live UCAS Moodle account.
 - No guaranteed source-grounded AI citations or multi-file retrieval yet; existing Gemini function requires deployment verification and a security review — see [docs/SECURE_AI_GATEWAY.md](docs/SECURE_AI_GATEWAY.md).
 - No recurring ICS *import*.
 

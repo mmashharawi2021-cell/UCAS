@@ -39,4 +39,12 @@ const app = readFileSync('js/app.js', 'utf8').replace(
   `const APP_VERSION = '${version}';`,
 );
 writeFileSync('js/app.js', app);
+// Keep the lockfile's root version in step so `npm ci` stays reproducible.
+const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+if (lock.version !== version) {
+  lock.version = version;
+  if (lock.packages?.['']) lock.packages[''].version = version;
+  writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+  changed++;
+}
 console.log(`stamped v${version} into ${changed} file(s)`);

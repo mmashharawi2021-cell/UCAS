@@ -17,8 +17,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install dev tools
-        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Install dev tools (locked versions)
+        run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Check JavaScript syntax
         run: |
           for file in js/*.js sw.js; do node --check "$file"; done

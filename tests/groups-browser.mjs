@@ -21,6 +21,12 @@ try {
     hasTouch: true,
     reducedMotion: 'reduce',
   });
+  // Chrome on Windows/macOS exposes the Web Share API, which would open the OS share
+  // sheet instead of the invite modal checked below; hide it so every platform
+  // exercises the same fallback path.
+  await context.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, 'share', { value: undefined, configurable: true });
+  });
   await context.route(SUPABASE_JS, route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: fake }),
   );

@@ -18,6 +18,23 @@ test('repository agent instructions and custom profiles are present', () => {
   }
 });
 
+test('Claude Code sub-agents wrap existing role profiles and skills', () => {
+  assert.match(read('CLAUDE.md'), /^@AGENTS\.md\n/);
+  for (const role of ['frontend', 'academic-ai', 'security', 'qa', 'release']) {
+    const content = read('.claude/agents/ucas-' + role + '.md');
+    assert.ok(content.startsWith('---\nname: ucas-' + role + '\n'));
+    assert.match(content, /\ndescription: /);
+    assert.match(content, /\ntools: /);
+    const profile = content.match(/`(\.github\/agents\/[^`]+)`/)[1];
+    assert.equal(profile, '.github/agents/ucas-' + role + '.agent.md');
+    assert.ok(existsSync(resolve(root, profile)));
+    const skills = content.match(/\.agents\/skills\/`: (.+)\./)[1].split(', ');
+    for (const skill of skills)
+      assert.ok(existsSync(resolve(root, '.agents/skills', skill, 'SKILL.md')), skill);
+  }
+  assert.doesNotMatch(read('.claude/agents/ucas-security.md'), /\ntools: .*(Edit|Write|Bash)/);
+});
+
 test('all Premium skill definitions have compatible metadata and safety rules', () => {
   const names = [
     'ucas-design-system',

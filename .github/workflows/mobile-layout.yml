@@ -4,29 +4,6 @@ on:
     branches: [main]
   push:
     branches: [main]
-    paths:
-      - 'styles.css'
-      - 'index.html'
-      - 'js/app.js'
-      - 'js/companion.js'
-      - 'tests/companion-browser.mjs'
-      - 'tests/mobile-layout.mjs'
-      - 'tests/study-browser.mjs'
-      - 'tests/pdf-browser.mjs'
-      - 'js/pdf-text.js'
-      - 'js/study.js'
-      - 'js/store.js'
-      - 'sw.js'
-      - 'tests/storage-browser.mjs'
-      - 'tests/features-browser.mjs'
-      - 'tests/groups-browser.mjs'
-      - 'tests/personal-browser.mjs'
-      - 'tests/fixtures/**'
-      - 'js/cloud/**'
-      - 'js/features/**'
-      - 'js/lib/**'
-      - 'js/ui.js'
-      - '.github/workflows/mobile-layout.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,8 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install headless Chrome controller
-        run: npm install --no-save --ignore-scripts playwright-core@1.56.1
+      - name: Install headless Chrome controller (locked versions)
+        run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Check available browser
         run: |
           which google-chrome || which chromium
@@ -50,12 +27,4 @@ jobs:
           python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/ucas-http.log 2>&1 &
           sleep 2
       - name: Validate mobile layout and offline study workflow
-        run: |
-          node tests/mobile-layout.mjs
-          node tests/companion-browser.mjs
-          node tests/storage-browser.mjs
-          node tests/features-browser.mjs
-          node tests/groups-browser.mjs
-          node tests/personal-browser.mjs
-          node tests/study-browser.mjs
-          node tests/pdf-browser.mjs
+        run: npm run test:browser
