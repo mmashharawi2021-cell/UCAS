@@ -17,6 +17,19 @@ export default [
     },
   },
   {
+    // Chrome extension: classic scripts (content scripts and MV3 service worker).
+    files: ['companion-extension/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'script',
+      globals: { ...globals.browser, ...globals.serviceworker, ...globals.webextensions },
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
     files: ['tests/**/*.mjs', 'scripts/**/*.mjs', 'eslint.config.js'],
     languageOptions: {
       ecmaVersion: 2023,

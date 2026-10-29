@@ -1,5 +1,6 @@
 ---
 paths:
+  - "companion-extension/**"
   - "js/companion.js"
   - "js/companion-files.js"
   - "js/moodle.js"
