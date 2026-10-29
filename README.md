@@ -35,6 +35,16 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - A redesigned study home with a real completion ring and practical navigation, redesigned course library with instant filtering, and a Gemini study workspace inside each course.
 - Styles in `premium-v2.css` are versioned, cached for offline use and layered above the original `styles.css`.
 
+## Moodle Companion 0.5 — Assignment deadlines (unreleased, branch only)
+
+- During sync the extension reads each assignment's due date and the student's own submitted state. UCAS updates existing Moodle tasks and marks submitted ones done.
+- The tasks page, a home-page banner, the bell and a sidebar badge warn about overdue work and work due within two weeks.
+
+## Moodle Companion 0.4 — 200 MiB per file (unreleased, branch only)
+
+- The per-file limit rises from 35 MiB to 200 MiB, with 512 KiB transfer chunks and a 40-minute download timeout.
+- Larger files, or files the browser has no room for, are saved as a link to their Moodle activity or course page.
+
 ## Moodle Companion 0.3 — Scan report, Office files and retry
 
 - After **فحص ملفات المساقات**, a per-course report explains courses without files. It is built from counts only and lists:
@@ -57,7 +67,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before your first change and **[docs
 - In the Moodle page, click **فحص ملفات المساقات** to inspect the catalog and select files; then **استيراد الملفات المحددة إلى UCAS** to transfer bytes in bounded chunks directly to local IndexedDB. No Moodle files are published to GitHub.
 - Supports PDF/DOC/DOCX/PPT/PPTX/XLS/XLSX/TXT/MD/CSV/ZIP/PNG/JPG/WEBP up to 200 MiB per file (larger files, or files the browser has no room for, are saved as a link to their Moodle page); uses SHA-256 to deduplicate content and update matching sources without losing study completion.
 - Downloads are always explicit; opt-in hourly course metadata scan does **not** download files. Chrome must remain open with an authenticated Moodle session; available materials depend on the university site's normal access rules. Files are local to the desktop unless optional account sync is separately configured.
-- The companion extension version must be updated to 0.2.0; the old 0.1.0 does not support file transfer.
+- The current extension is 0.5.0 (on this branch; 0.2.0 on `main`). The old 0.1.0 does not support file transfer.
 
 ## UCAS Moodle Companion (optional desktop Chrome extension)
 
