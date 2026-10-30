@@ -1,5 +1,5 @@
-import { extractMoodleHTMLFromMHTML, MAX_MHTML } from './mhtml.js?v=1.7.0';
-export { extractMoodleHTMLFromMHTML } from './mhtml.js?v=1.7.0';
+import { extractMoodleHTMLFromMHTML, MAX_MHTML } from './mhtml.js?v=2.0.0';
+export { extractMoodleHTMLFromMHTML } from './mhtml.js?v=2.0.0';
 // Student-owned Moodle exports only. Runs offline in the browser; no login, cookies or tokens.
 const UCAS = 'moodle.ucas.edu.ps';
 const MAX_HTML = 4 * 1024 * 1024;

@@ -1,8 +1,8 @@
 // Read-only, explicit Moodle file transfers into UCAS IndexedDB.
 // Extension fetches are done in the logged-in Moodle tab, never by this page.
-import { all, getFile, put, makeId, storageStatus, requestPersistence } from './store.js?v=1.7.0';
-import { companionRequest } from './companion.js?v=1.7.0';
-import { safeMoodleActivityURL } from './moodle.js?v=1.7.0';
+import { all, getFile, put, makeId, storageStatus, requestPersistence } from './store.js?v=2.0.0';
+import { companionRequest } from './companion.js?v=2.0.0';
+import { safeMoodleActivityURL } from './moodle.js?v=2.0.0';
 
 // Larger files, or files the browser has no room for, are saved as a link to their Moodle page.
 export const MAX_COMPANION_FILE_BYTES = 200 * 1024 * 1024;

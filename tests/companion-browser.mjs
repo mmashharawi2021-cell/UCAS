@@ -62,7 +62,7 @@ try {
     { timeout: 15000 },
   );
   const results = await page.evaluate(async () => {
-    const s = await import('./js/store.js?v=1.7.0');
+    const s = await import('./js/store.js?v=2.0.0');
     const resources = await s.all('resources');
     const tasks = await s.all('tasks');
     const courses = await s.all('courses');
@@ -201,7 +201,7 @@ try {
     /Lecture recording\.mp4: حُفظ كرابط — أكبر من 200 MB/,
   );
   const files = await page.evaluate(async () => {
-    const store = await import('./js/store.js?v=1.7.0');
+    const store = await import('./js/store.js?v=2.0.0');
     const rows = (await store.all('resources')).filter(x => x.origin === 'moodle-companion-file');
     return { names: rows.map(x => x.name), data: await (await store.getFile(rows[0].id)).text() };
   });
@@ -226,7 +226,7 @@ try {
     { timeout: 15000 },
   );
   const retried = await page.evaluate(async () => {
-    const store = await import('./js/store.js?v=1.7.0');
+    const store = await import('./js/store.js?v=2.0.0');
     const rows = (await store.all('resources')).filter(x => x.origin === 'moodle-companion-file');
     const pdf = rows.find(x => x.name === 'broken.pdf');
     const links = (await store.all('resources')).filter(x => x.origin === 'moodle-companion-link');
@@ -247,8 +247,8 @@ try {
 
   // A later sync brings Moodle's due date and the student's submission for the same task.
   const synced = await page.evaluate(async () => {
-    const { importCompanionSnapshot } = await import('./js/companion.js?v=1.7.0');
-    const store = await import('./js/store.js?v=1.7.0');
+    const { importCompanionSnapshot } = await import('./js/companion.js?v=2.0.0');
+    const store = await import('./js/store.js?v=2.0.0');
     const stats = await importCompanionSnapshot({
       version: 1,
       courses: [
@@ -276,8 +276,8 @@ try {
   assert.deepEqual(synced, { updated: 1, due: '2026-11-03T23:59', done: true });
   // Impossible dates are ignored, and tasks the student created by hand are never changed.
   const guarded = await page.evaluate(async () => {
-    const { importCompanionSnapshot } = await import('./js/companion.js?v=1.7.0');
-    const store = await import('./js/store.js?v=1.7.0');
+    const { importCompanionSnapshot } = await import('./js/companion.js?v=2.0.0');
+    const store = await import('./js/store.js?v=2.0.0');
     const course = (await store.all('courses')).find(c => c.moodleId === '821');
     await store.put('tasks', {
       id: 'manual-1',

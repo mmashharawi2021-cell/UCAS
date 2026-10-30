@@ -1,8 +1,8 @@
 // AI lecture assistant (course tab "مساعد AI"). Runs through the `ai` edge function, so
 // the Gemini key never reaches the browser. Only the selected lecture's text is sent.
-import { getClient } from '../cloud/client.js?v=1.7.0';
-import { accountUser } from './account.js?v=1.7.0';
-import { formatNote } from './notes.js?v=1.7.0';
+import { getClient } from '../cloud/client.js?v=2.0.0';
+import { accountUser } from './account.js?v=2.0.0';
+import { formatNote } from './notes.js?v=2.0.0';
 
 const READABLE = /\.(txt|md|docx|pptx|pdf)$/i;
 const ERRORS = {

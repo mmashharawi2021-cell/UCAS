@@ -43,6 +43,42 @@ try {
   });
   console.log('✓ old release running under its service worker, data saved');
 
+  // What the old release seeded on its own (1.7.0: seven sample courses, then a
+  // semester plan from the grades feature). Wait for the plan, then read everything it wrote.
+  const readSeeded = () =>
+    page.evaluate(async () => {
+      const { all, get } = await import('./js/store.js');
+      const byId = list => list.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      const value = async id => (await get('settings', id))?.value ?? null;
+      return {
+        courses: byId(await all('courses')).map(c => ({ id: c.id, title: c.title, code: c.code })),
+        grades: byId(await all('grades')).map(g => ({ id: g.id, hours: g.hours })),
+        gpaSettings: await value('gpa-settings'),
+        semester: await value('current-semester'),
+        seeded: await value('seeded'),
+        planSeeded: await value('seed-ucas-fall-2026'),
+      };
+    });
+  await page
+    .waitForFunction(
+      async () => {
+        const { get } = await import('./js/store.js');
+        return !!(await get('settings', 'seed-ucas-fall-2026'));
+      },
+      null,
+      { timeout: 15000 },
+    )
+    .catch(() => {}); // releases before the plan only seeded courses
+  await page.waitForTimeout(1000);
+  const seededBefore = await readSeeded();
+  // Prove the check is real: the old release must have seeded something to compare.
+  assert.ok(seededBefore.courses.length > 0, 'old release seeded no courses');
+  if (seededBefore.planSeeded)
+    assert.ok(seededBefore.gpaSettings?.previousHours, 'old release seeded the plan');
+  console.log(
+    `✓ old release data read: ${seededBefore.courses.length} courses, ${seededBefore.grades.length} grade rows, previousHours=${seededBefore.gpaSettings?.previousHours ?? '-'}`,
+  );
+
   execSync(SWITCH);
   await page.reload({ waitUntil: 'domcontentloaded' });
   // The app may reload itself once to drop stale caches.
@@ -69,6 +105,19 @@ try {
   assert.equal(result.version, 4);
   assert.equal(result.text, 'from the old release');
   console.log('✓ new release opened, schema migrated, old data intact');
+
+  // The new release seeds nothing, but must keep what the old one seeded exactly as it was.
+  await page.waitForTimeout(1500);
+  const seededAfter = await readSeeded();
+  assert.deepEqual(
+    seededAfter,
+    seededBefore,
+    'courses and grade settings unchanged by the upgrade',
+  );
+  assert.equal(await page.locator('.first-run').count(), 0, 'no first-run panel after an upgrade');
+  console.log(
+    `✓ old courses (titles, codes), grade rows and grade settings identical after the upgrade (${seededAfter.courses.length} courses)`,
+  );
   console.log('upgrade-browser: ok');
 } finally {
   await browser.close();

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
+import { seedLegacy } from './fixtures/legacy-seed.mjs';
 
 const browserPath = process.env.CHROME_PATH || '/usr/bin/google-chrome';
 const browser = await chromium.launch({
@@ -21,7 +22,27 @@ try {
       null,
       { timeout: 15000 },
     );
+    // A new install starts empty: the first-run panel fits the phone without overflow.
+    await page.waitForSelector('.first-run');
+    const firstRun = await page.evaluate(() => {
+      const r = document.querySelector('.first-run').getBoundingClientRect();
+      const buttons = [...document.querySelectorAll('.first-run button')].map(b => {
+        const br = b.getBoundingClientRect();
+        return [br.left, br.right];
+      });
+      return {
+        left: r.left,
+        right: r.right,
+        buttons,
+        scrollWidth: document.documentElement.scrollWidth,
+      };
+    });
+    assert.ok(firstRun.left >= -1 && firstRun.right <= width + 1, `first-run panel at ${width}`);
+    assert.ok(firstRun.buttons.every(([l, r]) => l >= -1 && r <= width + 1));
+    assert.ok(firstRun.scrollWidth <= width + 2, `first-run overflow at ${width}`);
+    await seedLegacy(page);
     await page.waitForSelector('.premium-hero');
+    assert.equal(await page.locator('.first-run').count(), 0);
     assert.equal(await page.locator('.premium-hero-score').count(), 1);
     await page.waitForSelector('.premium-focus');
     assert.ok(await page.locator('.premium-home-extras').count());

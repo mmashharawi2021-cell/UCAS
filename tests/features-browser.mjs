@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
+import { seedLegacy } from './fixtures/legacy-seed.mjs';
 
 const browser = await chromium.launch({
   headless: true,
@@ -35,6 +36,8 @@ try {
   };
 
   await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.topbar');
+  await seedLegacy(page); // a new install is empty; these tests use the 1.7.0 sample courses
   await page.waitForSelector('.premium-hero');
   await page.locator('.premium-home-extras summary').click();
   await page.waitForSelector('.home-widgets');
@@ -51,10 +54,7 @@ try {
   await page.fill('#slot-room', 'B204');
   await page.click('#slot-form button[type="submit"]');
   await page.waitForSelector('.slot-card');
-  assert.match(
-    await page.locator('.day-column.is-today').innerText(),
-    /بناء قواعد البيانات الجغرافية/,
-  );
+  assert.match(await page.locator('.day-column.is-today').innerText(), /أساسيات الفيزياء العامة/);
   await noOverflow('schedule');
   step('timetable: add lecture, shown on today');
 

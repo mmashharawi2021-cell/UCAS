@@ -11,26 +11,26 @@ import {
   requestPersistence,
   storageStatus,
   exportStores,
-} from './store.js?v=1.7.0';
-import { features } from './features/index.js?v=1.7.0';
-import { normalizeCode } from './lib/semester.js?v=1.7.0';
-import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.7.0';
-import { attentionCount, dueLabel, groupTasks } from './lib/deadlines.js?v=1.7.0';
+} from './store.js?v=2.0.0';
+import { features } from './features/index.js?v=2.0.0';
+import { normalizeCode } from './lib/semester.js?v=2.0.0';
+import { DEFAULT_COMPONENTS } from './lib/grades.js?v=2.0.0';
+import { attentionCount, dueLabel, groupTasks } from './lib/deadlines.js?v=2.0.0';
 
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '2.0.0';
 const BACKUP_REMINDER_DAYS = 7;
-import { esc, ic } from './ui.js?v=1.7.0';
-import { parseICS } from './ics.js?v=1.7.0';
-import { previewOffice } from './office.js?v=1.7.0';
-import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.7.0';
-import { companionRequest, importCompanionSnapshot } from './companion.js?v=1.7.0';
-import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=1.7.0';
+import { esc, ic } from './ui.js?v=2.0.0';
+import { parseICS } from './ics.js?v=2.0.0';
+import { previewOffice } from './office.js?v=2.0.0';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=2.0.0';
+import { companionRequest, importCompanionSnapshot } from './companion.js?v=2.0.0';
+import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=2.0.0';
 import {
   activityTypesFromLinks,
   describeCourseScan,
   normalizeScanReport,
-} from './lib/moodle-diagnostics.js?v=1.7.0';
-import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.7.0';
+} from './lib/moodle-diagnostics.js?v=2.0.0';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=2.0.0';
 import {
   loadCourseText,
   searchStudySources,
@@ -38,9 +38,9 @@ import {
   extractPassageCards,
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
-} from './study.js?v=1.7.0';
-import { extractPdfText } from './pdf-text.js?v=1.7.0';
-import { readPDFWithOCR } from './ocr.js?v=1.7.0';
+} from './study.js?v=2.0.0';
+import { extractPdfText } from './pdf-text.js?v=2.0.0';
+import { readPDFWithOCR } from './ocr.js?v=2.0.0';
 
 const titles = {
   home: 'الرئيسية',
@@ -490,6 +490,17 @@ function premiumOverview() {
     <div class="premium-progress"><div><strong>إنجاز المصادر الدراسية</strong><span>${complete} من ${total} · ${completion}%</span></div><div class="progress-track" role="progressbar" aria-label="إنجاز المصادر الدراسية" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${completion}"><div style="width:${completion}%"></div></div></div>
   </section>`;
 }
+/** First run: no courses yet. Two ways to start; it disappears once a course exists. */
+function firstRunPanel() {
+  if (state.courses.length) return '';
+  return `<section class="panel first-run" aria-labelledby="first-run-title">
+    <div class="first-run-head"><h2 id="first-run-title">أهلًا بك، لنبدأ بمساقاتك</h2><p>التطبيق فارغ ولا يحتوي أي مساق بعد. اختر طريقة لإضافة مساقات فصلك الحالي، وتبقى بياناتك على جهازك.</p></div>
+    <div class="first-run-options">
+      <div class="first-run-option"><h3>${ic('cloud', 18)} المزامنة من Moodle UCAS</h3><p>تجلب مساقاتك وأنشطتها من حسابك في Moodle. تحتاج إضافة <bdi dir="ltr">UCAS Moodle Companion</bdi> على متصفح <bdi dir="ltr">Chrome</bdi> في جهاز كمبيوتر؛ لا تعمل على Chrome للهاتف.</p><button type="button" class="primary-btn" data-go="moodle">${ic('cloud')} الانتقال إلى صفحة Moodle UCAS</button></div>
+      <div class="first-run-option"><h3>${ic('plus', 18)} إضافة مساق يدويًا</h3><p>اكتب اسم المساق ورمزه وساعاته المعتمدة. يعمل على الهاتف والكمبيوتر ودون اتصال.</p><button type="button" class="outline-btn" data-action="add-course">${ic('plus')} إضافة مساق</button></div>
+    </div>
+  </section>`;
+}
 function homePage() {
   const upcoming = pending()
     .filter(t => t.due)
@@ -507,7 +518,7 @@ function homePage() {
   const total = state.resources.length;
   const done = state.resources.filter(r => r.completed).length;
   const percentage = total ? Math.round((done / total) * 100) : 0;
-  return `${deadlineAlert()}<section class="hero premium-hero" aria-labelledby="premium-hero-title">
+  return `${deadlineAlert()}${firstRunPanel()}<section class="hero premium-hero" aria-labelledby="premium-hero-title">
     <div class="premium-hero-copy"><div class="premium-hero-date">${ic('calendar', 15)} ${esc(date)} <span class="premium-hero-divider" aria-hidden="true"></span> مساحة دراستك</div><div class="premium-hero-eyebrow">UCAS · YOUR ACADEMIC SPACE</div><h1 id="premium-hero-title">كل خطوة اليوم<br><em>تقرّبك من هدفك</em></h1><p>مساقاتك ومحاضراتك وتكليفاتك في مساحة هادئة، مصممة للتركيز والإنجاز</p></div>
     <div class="premium-hero-score" aria-label="إنجاز المصادر ${percentage}%"><div class="premium-score-ring" style="--score:${percentage}%"><div><strong>${percentage}%</strong><span>إنجاز المصادر</span></div></div><p>${done} من ${total} مصدر مكتمل</p><span>تقدمك محسوب من بياناتك</span></div>
   </section>
@@ -1068,7 +1079,7 @@ function addTaskModal() {
 function addCourseModal() {
   modal(
     'إضافة مساق',
-    `<form id="course-form"><div class="field"><label for="course-title">اسم المساق</label><input id="course-title" class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><div class="form-grid"><div class="field"><label for="course-code">رمز المساق</label><input id="course-code" class="input" name="code" maxlength="12" placeholder="GISS 3301" dir="ltr"/></div><div class="field"><label for="course-hours">الساعات المعتمدة</label><input id="course-hours" class="input" type="number" name="hours" min="0" max="12" value="3"/></div></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
+    `<form id="course-form"><div class="field"><label for="course-title">اسم المساق</label><input id="course-title" class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><div class="form-grid"><div class="field"><label for="course-code">رمز المساق</label><input id="course-code" class="input" name="code" maxlength="12" placeholder="ABC 1234" dir="ltr"/></div><div class="field"><label for="course-hours">الساعات المعتمدة</label><input id="course-hours" class="input" type="number" name="hours" min="0" max="12" value="3"/></div></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
   );
 }
 
@@ -1874,7 +1885,7 @@ async function handleClick(e) {
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
         const names = exportStores;
-        const { replaceAll } = await import('./store.js?v=1.7.0');
+        const { replaceAll } = await import('./store.js?v=2.0.0');
         for (const s of names) await replaceAll(s, []);
         await initialize();
         await refresh();

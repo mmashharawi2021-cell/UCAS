@@ -1,6 +1,6 @@
 // UCAS Moodle Companion bridge. Only imports the student's visible course metadata.
-import { all, put, makeId } from './store.js?v=1.7.0';
-import { safeMoodleActivityURL } from './moodle.js?v=1.7.0';
+import { all, put, makeId } from './store.js?v=2.0.0';
+import { safeMoodleActivityURL } from './moodle.js?v=2.0.0';
 
 // Long Moodle operations get room for slow connections; quick ones double as a presence check.
 const TIMEOUTS = { SCAN: 190000, FILE_SCAN: 600000, FILE_OPEN: 2400000, FILE_CHUNK: 30000 };

@@ -7,15 +7,13 @@ import {
   gpa,
   neededForTarget,
   rating,
-} from '../lib/grades.js?v=1.7.0';
+} from '../lib/grades.js?v=2.0.0';
 import {
-  UCAS_FALL_2026,
-  matchCourse,
   semesterSummary,
   combinedPrevious,
   passedHours,
   suggestNextSemester,
-} from '../lib/semester.js?v=1.7.0';
+} from '../lib/semester.js?v=2.0.0';
 
 const SETTINGS_KEY = 'gpa-settings';
 const SEMESTER_KEY = 'current-semester';
@@ -136,29 +134,6 @@ function historyPanel(ctx) {
           .join('')}</div></details>`,
     )
     .join('')}</div>`;
-}
-
-/** One-time: fill the Fall 2026/2027 plan (codes, credit hours, passed hours). */
-async function seedPlan(ctx) {
-  const plan = UCAS_FALL_2026;
-  if (ctx.setting(`seed-${plan.key}`)) return;
-  for (const c of plan.courses) {
-    const course = matchCourse(ctx.state.courses, c.title);
-    if (!course) continue;
-    if (!course.code) await ctx.putDefault('courses', { ...course, code: c.code });
-    const e = entry(ctx, course.id);
-    if (!e.hours) await ctx.putDefault('grades', { ...e, hours: String(c.hours) });
-  }
-  const s = settings(ctx);
-  if (!s.previousHours)
-    await ctx.saveDefaultSetting(SETTINGS_KEY, { ...s, previousHours: String(plan.previousHours) });
-  if (!ctx.setting(SEMESTER_KEY)) await ctx.saveDefaultSetting(SEMESTER_KEY, plan.name);
-  await ctx.saveDefaultSetting(`seed-${plan.key}`, true);
-  await ctx.refresh();
-}
-
-export function start(ctx) {
-  seedPlan(ctx).catch(err => console.warn('seed', err));
 }
 
 async function update(ctx, courseId, change) {

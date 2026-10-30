@@ -3,7 +3,7 @@
 // Schema v2: file contents live in a separate `files` store keyed by resource id,
 // so listing resources never touches file blobs. Callers keep using the same
 // `get/put/remove('resources', …)` API; this module joins/splits blobs transparently.
-import { crc32, readZip, zipBlobs } from './lib/zip.js?v=1.7.0';
+import { crc32, readZip, zipBlobs } from './lib/zip.js?v=2.0.0';
 
 const NAME = 'ucas-academic-bridge';
 const VERSION = 4;
@@ -27,15 +27,6 @@ const INDEXES = {
   reviews: ['courseId'],
 };
 let openPromise;
-export const initialCourses = [
-  'إدارة مشاريع نظم المعلومات الجغرافية',
-  'بناء قواعد البيانات الجغرافية',
-  'تطبيقات الاستشعار عن بعد',
-  'تخطيط الخدمات المجتمعية والبنية التحتية',
-  'ريادة الأعمال',
-  'العمل الحر',
-  'مقدمة في لغة البرمجة',
-];
 function txDone(tx) {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
@@ -247,26 +238,20 @@ export async function replaceAll(store, entries) {
   await txDone(tx);
 }
 
+/**
+ * First-run bookkeeping only. Since 2.0.0 a new install starts empty: no sample courses and no
+ * pre-filled semester. Existing databases are never changed here; the flags below are written
+ * only when they are missing, so a profile created by an older release keeps every row.
+ * The flags also stop an older release (rollback or a stale cache) from seeding its sample
+ * courses (`seeded`) or its built-in semester plan (`seed-ucas-fall-2026`) into a new
+ * profile.
+ */
 export async function initialize() {
-  const db = await openDB();
-  const count = await request(db.transaction('courses', 'readonly').objectStore('courses').count());
-  const initialized = await get('settings', 'seeded');
-  if (!initialized) {
-    if (!count) {
-      for (let i = 0; i < initialCourses.length; i++) {
-        await put(
-          'courses',
-          {
-            id: `course-${i + 1}`,
-            title: initialCourses[i],
-            code: '',
-            createdAt: new Date().toISOString(),
-          },
-          { mtime: 0 },
-        );
-      }
-    }
+  await openDB();
+  if (!(await get('settings', 'seeded'))) {
     await put('settings', { id: 'seeded', value: true }, { mtime: 0 });
+    if (!(await get('settings', 'seed-ucas-fall-2026')))
+      await put('settings', { id: 'seed-ucas-fall-2026', value: true }, { mtime: 0 });
   }
 }
 export function makeId() {

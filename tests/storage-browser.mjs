@@ -38,7 +38,9 @@ try {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    const tx = db.transaction('resources', 'readwrite');
+    const tx = db.transaction(['resources', 'courses'], 'readwrite');
+    // A new install has no courses (2.0.0), so the legacy profile brings its own.
+    tx.objectStore('courses').put({ id: 'course-1', title: 'مساق قديم', code: '' });
     tx.objectStore('resources').put({
       id: 'legacy-1',
       kind: 'file',

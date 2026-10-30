@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
+import { seedLegacy } from './fixtures/legacy-seed.mjs';
 
 function makePDF() {
   const text = 'UCAS GIS geospatial database indexing';
@@ -41,6 +42,7 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.topbar');
+  await seedLegacy(page, { reload: false }); // a new install has no course-1
   await page.evaluate(async pdfBase64 => {
     const { put } = await import('./js/store.js');
     const raw = atob(pdfBase64);

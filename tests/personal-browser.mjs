@@ -1,4 +1,4 @@
-// v1.1 personal features end-to-end: semester pre-fill, archive, code notes, two-device sync
+// v1.1 personal features end-to-end: a pre-filled semester (as 1.7.0 left it), archive, code notes, two-device sync
 // (with a file), and the AI tab. Two browser contexts share one simulated Supabase server
 // that lives in this Node process (exposed to the pages as __fakeRemote).
 // Run with a local server on 127.0.0.1:8099.
@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 import { SUPABASE_JS } from '../js/cloud/config.js';
+import { LEGACY_PLAN, LEGACY_TITLES, seedLegacy } from './fixtures/legacy-seed.mjs';
 
 const fake = await readFile(new URL('./fixtures/fake-supabase.mjs', import.meta.url), 'utf8');
 const BASE = 'http://127.0.0.1:8099/';
@@ -91,6 +92,10 @@ async function device(name) {
   page.on('pageerror', e => page.errors.push(`${name}: ${e.message}`));
   page.on('dialog', d => d.accept());
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.topbar');
+  // 2.0.0 no longer pre-fills anything: each device starts from the rows 1.7.0 wrote
+  // (sample courses + an invented plan, all defaults with mtime 0).
+  await seedLegacy(page, { plan: true });
   await page.waitForSelector('.premium-hero');
   return page;
 }
@@ -134,23 +139,25 @@ async function signIn(page, email) {
 try {
   const phone = await device('phone');
 
-  // ---- 1. pre-filled plan ----
-  await page_wait(phone);
+  // ---- 1. pre-filled plan (legacy data) ----
   const courses = await store(phone, s => s.all('courses'));
   const grades = await store(phone, s => s.all('grades'));
-  assert.equal(courses.find(c => c.id === 'course-2').code, 'GISS 2307');
+  assert.equal(
+    courses.find(c => c.id === 'course-2').code,
+    LEGACY_PLAN.courses.find(c => c.title === LEGACY_TITLES[1]).code,
+  );
   assert.equal(
     grades.reduce((sum, g) => sum + Number(g.hours || 0), 0),
-    19,
+    LEGACY_PLAN.courses.reduce((s, c) => s + c.hours, 0),
   );
   await go(phone, 'grades');
   await phone.waitForSelector('.semester-panel');
   assert.match(
     await phone.locator('.semester-panel').innerText(),
-    /الفصل الأول 2026\/2027[\s\S]*19 ساعة[\s\S]*55 ساعة/,
+    /الفصل الأول 2030\/2031[\s\S]*17 ساعة[\s\S]*42 ساعة/,
   );
   assert.match(await phone.locator('.grade-card').first().innerText(), /[A-Z]{4} \d{4}/);
-  step('Fall 2026/2027 pre-filled: codes, 19 hours, 55 passed');
+  step('legacy plan pre-filled: codes, 17 hours, 42 passed');
 
   // ---- 2. code notes ----
   await go(phone, 'courses');
@@ -228,7 +235,7 @@ try {
   assert.equal(onLaptop.task.title, 'تقرير الاستشعار');
   assert.equal(onLaptop.file, 'الفهرس المكاني يسرّع الاستعلام');
   assert.equal(onLaptop.note, 'حلقة for');
-  assert.equal(onLaptop.code, 'GISS 2307');
+  assert.equal(onLaptop.code, LEGACY_PLAN.courses.find(c => c.title === LEGACY_TITLES[1]).code);
   step('laptop received task, note and lecture file');
 
   // Laptop edits + deletes; phone gets both. Last write wins.
@@ -297,7 +304,7 @@ try {
   await phone.waitForSelector('[data-act="semester-archive"]');
   await click(phone, '[data-act="semester-archive"]');
   await phone.waitForSelector('#semester-archive-form');
-  assert.equal(await phone.inputValue('#next-sem'), 'الفصل الثاني 2026/2027');
+  assert.equal(await phone.inputValue('#next-sem'), 'الفصل الثاني 2030/2031');
   await phone.click('#semester-archive-form button[type="submit"]');
   await phone.waitForFunction(() =>
     document.querySelector('.semester-panel h3')?.textContent.includes('الفصل الثاني'),
@@ -305,15 +312,18 @@ try {
   assert.equal(await phone.locator('.grade-card').count(), 0, 'archived courses hidden');
   assert.match(
     await phone.locator('.panel', { hasText: 'الفصول السابقة' }).innerText(),
-    /الفصل الأول 2026\/2027/,
+    new RegExp(LEGACY_PLAN.name),
   );
   await click(phone, '.semester-panel [data-action="add-course"]');
-  await phone.fill('#course-title', 'تحليل مكاني متقدم');
-  await phone.fill('#course-code', 'giss3401');
+  await phone.fill('#course-title', 'موضوعات متقدمة في الإحصاء');
+  await phone.fill('#course-code', 'test4401');
   await phone.fill('#course-hours', '3');
   await phone.click('#course-form button[type="submit"]');
   await phone.waitForSelector('.grade-card');
-  assert.match(await phone.locator('.grade-card').innerText(), /GISS 3401[\s\S]*تحليل مكاني متقدم/);
+  assert.match(
+    await phone.locator('.grade-card').innerText(),
+    /TEST 4401[\s\S]*موضوعات متقدمة في الإحصاء/,
+  );
   step('semester archived; new course added with code and hours');
 
   const errors = [...phone.errors, ...laptop.errors];
@@ -321,17 +331,4 @@ try {
   console.log('personal-browser: ok');
 } finally {
   await browser.close();
-}
-
-async function page_wait(page) {
-  // The plan is seeded right after start; give it a moment.
-  await page.waitForFunction(
-    async () => {
-      const v = JSON.parse(await (await fetch('package.json')).text()).version;
-      const s = await import(`./js/store.js?v=${v}`);
-      return !!(await s.getRow('settings', 'seed-ucas-fall-2026'));
-    },
-    null,
-    { timeout: 10000 },
-  );
 }
