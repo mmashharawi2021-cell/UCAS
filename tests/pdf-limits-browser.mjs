@@ -430,8 +430,55 @@ try {
   assert.deepEqual(body, { task: 'ask', question: 'سؤال بعد حذف الملف' });
   step('selected file deleted: consent cancelled, back to "' + FREE + '"; no lecture text sent');
 
-  // 4i. Changing the course cancels consent.
+  // 4h'. Same, but the file vanishes while the AI tab stays on screen (as a sync pull would do):
+  // the app's own delete path runs from inside the tab, then the page re-renders.
   await selectSource('lim-txt');
+  await page.check('#ai-cloud-consent');
+  delayNext = 5000;
+  const syncBefore = aiCalls.length;
+  await TRIGGER.summarize();
+  await page.waitForSelector('[data-act="ai-cancel"]');
+  page.once('dialog', d => d.accept());
+  await page.evaluate(() => {
+    const b = document.createElement('button');
+    b.dataset.deleteResource = 'lim-txt';
+    document.querySelector('.ai-studio-main').append(b);
+    b.click();
+  });
+  await page.waitForSelector('.ai-status');
+  assert.equal((await page.locator('.ai-status').innerText()).trim(), missingStatus);
+  assert.equal(await page.locator('.ai-status').getAttribute('role'), 'status');
+  const recovered = await page.evaluate(() => ({
+    source: document.querySelector('#ai-source').value,
+    sourceDisabled: document.querySelector('#ai-source').disabled,
+    consentDisabled: document.querySelector('#ai-cloud-consent').disabled,
+    consentChecked: document.querySelector('#ai-cloud-consent').checked,
+    summarize: document.querySelector('[data-act="ai-summarize"]').disabled,
+    ask: document.querySelector('#ai-ask-form button[type="submit"]').disabled,
+    pending: !!document.querySelector('[data-act="ai-cancel"]'),
+    result: !!document.querySelector('.ai-result'),
+  }));
+  assert.deepEqual(recovered, {
+    source: '',
+    sourceDisabled: false,
+    consentDisabled: false,
+    consentChecked: false,
+    summarize: false,
+    ask: false,
+    pending: false,
+    result: false,
+  });
+  await page.waitForTimeout(5500); // the late reply arrives now and must change nothing
+  assert.equal(aiCalls.length, syncBefore + 1, 'the request had been sent');
+  assert.equal(await page.locator('.ai-result').count(), 0, 'late reply not shown');
+  assert.equal((await page.locator('.ai-status').innerText()).trim(), missingStatus);
+  assert.equal(await page.isDisabled('#ai-source'), false);
+  step(
+    'file vanishes with the AI tab open during a request: controls enabled at once, status shown, late reply ignored',
+  );
+
+  // 4i. Changing the course cancels consent.
+  await selectSource('lim-3b');
   await page.check('#ai-cloud-consent');
 
   // ---- 5. Another course; a 250-page low-text PDF read to page 200, under the AI cap ----

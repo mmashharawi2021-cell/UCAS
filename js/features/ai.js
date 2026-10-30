@@ -204,6 +204,12 @@ async function runTask(ctx, task, extra = {}) {
   try {
     const data = await call(ctx, body, abort?.signal);
     if (seq !== s.seq) return; // cancelled, or course/file changed: ignore this reply
+    // The file went away while the AI tab was not on screen (e.g. deleted from another tab).
+    if (sent.source && !readableFiles(ctx, sent.courseId).some(r => r.id === sent.source)) {
+      dropSelection();
+      ctx.render();
+      return;
+    }
     const plan = sent.plan;
     s.sent = sent;
     s.kind = task === 'summarize' ? 'summary' : task === 'questions' ? 'questions' : 'answer';
