@@ -1,0 +1,56 @@
+# Deploys the site to GitHub Pages only after "UCAS quality checks" passed for a push to main.
+# Takes effect once Settings -> Pages -> Source is set to "GitHub Actions" (the owner does this
+# by hand). Only the files the app needs at runtime are published.
+name: Deploy to GitHub Pages
+on:
+  workflow_run:
+    workflows: [UCAS quality checks]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout the commit that passed the checks
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Collect the runtime files only
+        run: |
+          mkdir _site
+          cp index.html moodle-connect.html manifest.webmanifest sw.js ./*.css _site/
+          cp -r assets js _site/
+      - name: Check the offline shell is complete
+        run: |
+          node -e "
+            const fs = require('fs');
+            const sw = fs.readFileSync('_site/sw.js', 'utf8');
+            const files = [...sw.matchAll(/[\`']\.\/([^\`'?]*)(?:\?[^\`']*)?[\`']/g)].map(m => m[1]).filter(Boolean);
+            const missing = files.filter(f => f && !fs.existsSync('_site/' + f));
+            if (!files.length || missing.length) { console.error('missing:', missing); process.exit(1); }
+            console.log(files.length + ' shell files present');
+          "
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
