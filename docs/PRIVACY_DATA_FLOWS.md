@@ -12,7 +12,7 @@ Courses, files, tasks, notes, quizzes, exams, grades and progress are held in In
 | --- | --- | --- |
 | Groups | User accepts group activation, creates or joins a group | Nickname, group metadata, messages and optional push subscriptions in Supabase |
 | Sync | User signs in with email link and initiates/schedules sync | Academic records and files in an account-scoped Supabase database and private bucket |
-| Gemini assistant | User selects a lecture, checks explicit consent, clicks an AI task | Question, course name and selected lecture text (up to 60,000 characters on gateway) sent to Supabase, then Gemini |
+| Gemini assistant | User selects a lecture, checks explicit consent, clicks an AI task | Task type or question, actual course name, file name and selected lecture text (up to 60,000 characters) sent to Supabase, then Gemini; a free question without a file sends only task type and question |
 | Push | User grants browser permission and enables service | Push endpoints and limited message/reminder metadata |
 | PDF/OCR | User triggers a relevant parser for first time | Third-party scripts load from pinned CDNs; local parsing does not inherently upload documents |
 

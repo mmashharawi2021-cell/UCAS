@@ -1,7 +1,15 @@
 // Email account for syncing the student's own devices (phone ↔ laptop).
 // Sign-in is a magic link sent by Supabase; nothing else is needed on the device.
 import { getClient, hasStoredSession, CloudError } from '../cloud/client.js?v=2.0.0';
-import { syncNow, syncUser, lastSyncedAt } from '../cloud/sync.js?v=2.0.0';
+import {
+  syncNow,
+  syncUser,
+  lastSyncedAt,
+  owedDeleteCount,
+  flushPendingDeletes,
+  forgetSyncAccount,
+  pendingDeletePhrase,
+} from '../cloud/sync.js?v=2.0.0';
 import { friendlyError } from '../lib/cloud.js?v=2.0.0';
 
 const s = { user: null, checked: false, busy: false, progress: '', sentTo: '', lastResult: null };
@@ -42,11 +50,8 @@ async function runSync(ctx, { quiet = false } = {}) {
     s.lastResult = stats;
     s.busy = false;
     if (stats.pulled || stats.filesDown) await ctx.refresh();
-    else if (!quiet) ctx.render();
-    if (!quiet)
-      ctx.toast(
-        `تمت المزامنة: ${stats.pulled} وارد · ${stats.pushed} صادر${stats.filesUp || stats.filesDown ? ` · ملفات ${stats.filesUp}↑ ${stats.filesDown}↓` : ''}`,
-      );
+    else if (!quiet || document.querySelector('.sync-panel')) ctx.render();
+    if (!quiet) ctx.toast(summary(stats), !!stats.problems?.length);
   } catch (err) {
     s.busy = false;
     console.warn('sync', err);
@@ -55,6 +60,26 @@ async function runSync(ctx, { quiet = false } = {}) {
       ctx.toast(err instanceof CloudError ? err.message : friendlyError(err), true);
     }
   }
+}
+
+/** One line about the last sync. Files that failed are counted apart, never as synced. */
+function summary(stats) {
+  const files =
+    stats.filesUp || stats.filesDown ? ` · ملفات ${stats.filesUp}↑ ${stats.filesDown}↓` : '';
+  const n = stats.problems?.length || 0;
+  if (!n) return `تمت المزامنة: ${stats.pulled} وارد · ${stats.pushed} صادر${files}`;
+  return `مزامنة غير مكتملة: ${stats.pulled} وارد · ${stats.pushed} صادر${files} · ${n === 1 ? 'ملف واحد لم يُزامَن' : `${n} ملفات لم تُزامَن`} (التفاصيل في الإعدادات ← المزامنة)`;
+}
+
+function problemsList(esc) {
+  const r = s.lastResult;
+  if (!r) return '';
+  const list = r.problems || [];
+  return `<p class="muted tiny" id="sync-summary">آخر نتيجة: ${esc(summary(r))}</p>${
+    list.length
+      ? `<ul class="tiny sync-problems" role="list">${list.map(p => `<li class="${p.reason === 'too_large' ? '' : 'wrong-text'}" data-reason="${esc(p.reason)}" data-direction="${esc(p.direction)}">${esc(p.message)}</li>`).join('')}</ul>`
+      : ''
+  }`;
 }
 
 function schedule(ctx, delay = 15000) {
@@ -68,7 +93,7 @@ function panel(ctx) {
   let body;
   if (!s.checked && hasStoredSession()) body = `<p class="muted tiny">جاري التحقق من الحساب…</p>`;
   else if (s.user)
-    body = `<p class="tiny correct-text">${ic('check', 14)} متصل: <bdi>${esc(s.user.email)}</bdi></p><p class="muted tiny">آخر مزامنة: ${esc(when(lastSyncedAt(s.user.id)))}. تتم المزامنة تلقائيًا عند كل تغيير وعند فتح المنصة.</p>${s.busy ? `<p class="tiny" id="sync-progress">${esc(s.progress)}</p>` : ''}<div class="row-actions"><button class="primary-btn" data-act="sync-now" ${s.busy ? 'disabled' : ''}>${ic('rotate', 15)} مزامنة الآن</button><button class="outline-btn" data-act="sync-signout">تسجيل الخروج</button></div>`;
+    body = `<p class="tiny correct-text">${ic('check', 14)} متصل: <bdi>${esc(s.user.email)}</bdi></p><p class="muted tiny">آخر مزامنة: ${esc(when(lastSyncedAt(s.user.id)))}. تتم المزامنة تلقائيًا عند كل تغيير وعند فتح المنصة.</p>${s.busy ? `<p class="tiny" id="sync-progress">${esc(s.progress)}</p>` : problemsList(esc)}<div class="row-actions"><button class="primary-btn" data-act="sync-now" ${s.busy ? 'disabled' : ''}>${ic('rotate', 15)} مزامنة الآن</button><button class="outline-btn" data-act="sync-signout">تسجيل الخروج</button></div>`;
   else if (s.sentTo)
     body = `<div class="notice info">أرسلنا رابط الدخول إلى <bdi>${esc(s.sentTo)}</bdi>. افتح الرابط <strong>على هذا الجهاز</strong> (قد يصل إلى الرسائل غير المرغوبة). كرر ذلك على جهازك الآخر بنفس البريد.</div><button class="link" data-act="sync-reset">بريد آخر</button>`;
   else
@@ -125,9 +150,29 @@ export const actions = {
   },
   'sync-signout': async (el, ctx) => {
     if (!confirm('تسجيل الخروج يوقف المزامنة على هذا الجهاز (بياناتك تبقى عليه). متابعة؟')) return;
+    const uid = s.user?.id;
+    if (owedDeleteCount(uid)) {
+      // Deleted lectures still in the cloud: try once more before leaving.
+      const left = await flushPendingDeletes().catch(() => owedDeleteCount(uid));
+      if (
+        left &&
+        !confirm(
+          `${pendingDeletePhrase(left)}.
+«موافق»: تسجيل الخروج الآن؛ تُحذف من السحابة أولًا عند دخولك التالي بهذا الحساب على هذا الجهاز.
+«إلغاء»: البقاء متصلًا لإعادة المحاولة.`,
+        )
+      ) {
+        ctx.toast(`${pendingDeletePhrase(left)}. ستُعاد المحاولة في المزامنة التالية.`, true);
+        ctx.render();
+        return;
+      }
+    }
     const sb = await getClient();
     await sb.auth.signOut();
+    // Only the sync bookkeeping goes; courses, files and every other local row stay.
+    forgetSyncAccount(uid);
     s.user = null;
+    s.lastResult = null;
     ctx.render();
   },
 };

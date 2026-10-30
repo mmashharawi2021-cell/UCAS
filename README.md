@@ -1,6 +1,19 @@
-# UCAS Academic Bridge — v1.7.0
+# UCAS STUDIO (UCAS Academic Bridge) — v2.0.0
 
-منصة دراسية شخصية عربية (RTL) لطلاب الكلية الجامعية للعلوم التطبيقية: تنظيم المساقات والمحاضرات والتكليفات والاختبارات التدريبية، وتعمل دون إنترنت ودون حساب.
+منصة دراسية عربية لطلاب الكلية الجامعية للعلوم التطبيقية: مساقاتك ومحاضراتك وتكليفاتك ومراجعتك في مكان واحد. تعمل على الجوال والحاسوب، ودون إنترنت بعد أول فتح، ودون حساب.
+
+## للطلاب: ابدأ من هنا
+
+1. **افتح المنصة:** https://mmashharawi2021-cell.github.io/UCAS/
+2. **ثبّتها على جوالك:**
+   - **Android (Chrome):** ⋮ ← **تثبيت التطبيق**.
+   - **iPhone (Safari):** زر المشاركة ⬆ ← **إضافة إلى الشاشة الرئيسية**.
+3. **أضف مساقاتك:** يدويًا، أو بالمزامنة من Moodle عبر إضافة Chrome على الحاسوب: نزّل `UCAS_Moodle_Companion_0.5.0.zip`، وفك ضغطه، ثم `chrome://extensions` ← **Developer mode** ← **Load unpacked**.
+4. **احفظ نسخة احتياطية أسبوعيًا** من الإعدادات، فملفاتك محفوظة في متصفح جهازك فقط.
+
+الدليل الكامل بالعربية: **[دليل_التشغيل.md](دليل_التشغيل.md)**.
+
+## For developers
 
 A local-first, offline-capable Arabic study dashboard. Static HTML/CSS/JS (ES modules), no build step, no tracking. Study data stays in the browser's IndexedDB; optional study groups, push notifications, email-account cloud sync and Gemini AI requests use a Supabase backend ([supabase/README.md](supabase/README.md)).
 

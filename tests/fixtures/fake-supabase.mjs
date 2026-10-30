@@ -197,19 +197,35 @@ const client = {
   from: table => new Query(table),
   storage: {
     from: () => ({
+      // Like Storage: failures come back as { error }, and the bucket's 50 MB limit applies.
       async upload(path, blob) {
-        const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-        await globalThis.__fakeRemote('upload', { path, bytes, type: blob.type });
-        return ok({ path });
+        if (blob.size > 52428800) return fail('The object exceeded the maximum allowed size');
+        try {
+          const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+          await globalThis.__fakeRemote('upload', { path, bytes, type: blob.type });
+          return ok({ path });
+        } catch (err) {
+          return fail(err.message);
+        }
       },
       async download(path) {
-        const file = await globalThis.__fakeRemote('download', { path });
+        let file;
+        try {
+          file = await globalThis.__fakeRemote('download', { path });
+        } catch (err) {
+          return fail(err.message);
+        }
         if (!file) return fail('not found');
         return ok(new Blob([new Uint8Array(file.bytes)], { type: file.type }));
       },
+      // Like Storage: { data: removed objects } (missing paths are simply absent) or { error }.
       async remove(paths) {
-        await globalThis.__fakeRemote('remove', { paths });
-        return ok([]);
+        try {
+          const removed = await globalThis.__fakeRemote('remove', { paths });
+          return ok((removed || []).map(name => ({ name })));
+        } catch (err) {
+          return fail(err.message);
+        }
       },
     }),
   },

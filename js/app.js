@@ -39,7 +39,8 @@ import {
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
 } from './study.js?v=2.0.0';
-import { extractPdfText } from './pdf-text.js?v=2.0.0';
+import { extractPdfText, pdfTruncationNote } from './pdf-text.js?v=2.0.0';
+import { AI_MAX_TEXT_PHRASE } from './lib/ai-limits.js?v=2.0.0';
 import { readPDFWithOCR } from './ocr.js?v=2.0.0';
 
 const titles = {
@@ -200,14 +201,21 @@ const ctx = {
   saveSetting: (id, value) => put('settings', { id, value }),
   // Defaults written with mtime 0 never override a real edit synced from another device.
   putDefault: (store, value) => put(store, value, { mtime: 0 }),
-  /** Readable text of one imported file (TXT/MD/DOCX/PPTX/text PDF), extracted on this device. */
+  /**
+   * Readable text of one imported file (TXT/MD/DOCX/PPTX/text PDF), extracted on this device.
+   * Resolves to { text, pages, pdfExtent }. For a PDF, pages is [{ page, text }] (text is
+   * pages joined with newlines), otherwise null; pdfExtent is null unless a PDF was not read to the
+   * end ({ totalPages, pagesExamined, truncated, cutBy, cutPage }, page numbers only).
+   */
   extractText: async id => {
     const r = await get('resources', id);
     if (!r?.blob) throw new Error('الملف غير محفوظ على هذا الجهاز');
     const data = await loadCourseText([r], r.courseId, previewOffice, {
       pdfPreview: extractPdfText,
     });
-    if (data.documents[0]?.text?.trim()) return data.documents[0].text;
+    const doc = data.documents[0];
+    if (doc?.text?.trim())
+      return { text: doc.text, pages: doc.pages || null, pdfExtent: doc.pdfExtent || null };
     throw new Error(
       data.unsupported.length
         ? 'صيغة هذا الملف غير مدعومة للقراءة'
@@ -386,6 +394,23 @@ function courseCard(c, i) {
     <div class="premium-course-progress"><div class="premium-course-progress-caption"><span>التقدم في المساق</span><strong>${pct}%</strong></div><div class="progress-track" role="progressbar" aria-label="إنجاز ${esc(c.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div></div>
     <button class="premium-course-open" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">فتح مساحة المساق <span aria-hidden="true">${ic('chevron')}</span></button>
   </article>`;
+}
+let pendingCourseFocus = null;
+/** After adding a course, keep keyboard focus on its card (or the page heading), never on BODY. */
+function focusNewCourse(id) {
+  pendingCourseFocus = null;
+  const open = [...document.querySelectorAll('.premium-course-card [data-course]')].find(
+    b => b.dataset.course === id,
+  );
+  if (open) {
+    open.focus();
+    open.closest('.premium-course-card')?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  const heading = document.querySelector('main h1') || document.querySelector('h1');
+  if (!heading) return;
+  if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+  heading.focus();
 }
 function noData(title, subtitle, icon = 'folder') {
   return `<div class="empty-state">${ic(icon, 31)}<strong>${title}</strong><p>${subtitle}</p></div>`;
@@ -1034,7 +1059,7 @@ async function displayResource(id) {
   const isText = r.name.toLowerCase().endsWith('.txt') || r.name.toLowerCase().endsWith('.md');
   let markup = `<div class="row-actions" style="margin-bottom:15px"><button class="outline-btn" data-action="download-resource" data-id="${esc(id)}">${ic('download')} تنزيل الملف</button><button class="outline-btn" data-action="open-resource" data-id="${esc(id)}">${ic('external')} فتح في تبويب جديد</button></div>`;
   if (isPdf)
-    markup += `<iframe class="file-frame" title="${esc(r.name)}" src="${esc(viewURL)}"></iframe>`;
+    markup += `<p class="notice info pdf-extent-note" id="pdf-extent-note" role="status" hidden></p><iframe class="file-frame" title="${esc(r.name)}" src="${esc(viewURL)}"></iframe>`;
   else if (isText)
     markup += `<pre style="white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow:auto;font-family:inherit" id="text-preview"></pre>`;
   else if (/\.(docx|pptx)$/i.test(r.name))
@@ -1042,6 +1067,7 @@ async function displayResource(id) {
   else
     markup += `<div class="notice info">معاينة هذه الصيغة غير مدعومة. يمكنك تنزيل الملف أو فتحه في تطبيق مناسب.</div>`;
   modal(r.name, markup, true);
+  if (isPdf) showPdfExtent(r);
   if (isText)
     document.getElementById('text-preview').textContent = (await r.blob.text()).slice(0, 150000);
   if (/\.(docx|pptx)$/i.test(r.name)) {
@@ -1069,6 +1095,39 @@ async function displayResource(id) {
       }
     }
   }
+}
+// How far study tools read each PDF (page/character limits), per file version, for this session.
+// Holds only page numbers, never text.
+const pdfExtentCache = new Map();
+const pdfExtentKey = r => r.id + ':' + (r.blob?.size ?? r.size ?? '');
+function pdfExtentOf(pdf) {
+  return pdf?.truncated
+    ? {
+        totalPages: pdf.totalPages,
+        pagesExamined: pdf.pagesExamined,
+        truncated: true,
+        cutBy: pdf.cutBy || '',
+        cutPage: pdf.cutPage ?? null,
+      }
+    : { truncated: false };
+}
+/** In the PDF preview, say when study tools read only part of the file. Silent on failure. */
+async function showPdfExtent(r) {
+  const key = pdfExtentKey(r);
+  let info = pdfExtentCache.get(key);
+  if (!info) {
+    try {
+      info = pdfExtentOf(await extractPdfText(r.blob));
+    } catch {
+      return; // offline, scanned or unreadable: the preview itself still works
+    }
+    pdfExtentCache.set(key, info);
+  }
+  const slot = document.getElementById('pdf-extent-note');
+  const note = pdfTruncationNote(info);
+  if (!slot?.isConnected || !note) return;
+  slot.textContent = `${note}، للبحث وبطاقات الدراسة على جهازك. مساعد AI يرسل إلى Gemini أول ${AI_MAX_TEXT_PHRASE} فقط، وبموافقتك. الملف نفسه يُعرض كاملًا أدناه.`;
+  slot.hidden = false;
 }
 function addTaskModal() {
   modal(
@@ -1127,7 +1186,29 @@ async function loadStudyDocumentsForCurrentCourse() {
   });
   studySession.documents = data.documents;
   studySession.lastLoad = data;
+  for (const d of data.documents)
+    if (/\.pdf$/i.test(d.name || '')) {
+      const r = courseFiles.find(f => f?.id === d.id);
+      if (r) pdfExtentCache.set(pdfExtentKey(r), d.pdfExtent || { truncated: false });
+    }
   return data.documents;
+}
+/** One notice per PDF that study tools read only in part; names the file when several are loaded. */
+function appendPdfExtentNotices(slot) {
+  const several = studySession.documents.length > 1;
+  for (const d of studySession.documents) {
+    const note = pdfTruncationNote(d.pdfExtent);
+    if (!note) continue;
+    const element = document.createElement('p');
+    element.className = 'notice info tiny pdf-extent-note';
+    if (several) {
+      const name = document.createElement('bdi');
+      name.textContent = d.name;
+      element.append(name, ': ');
+    }
+    element.append(note + '، وما بعدها غير مشمول في البحث والبطاقات.');
+    slot.appendChild(element);
+  }
 }
 function appendStudyNotice(target, message) {
   const element = document.createElement('p');
@@ -1281,6 +1362,7 @@ async function runStudySearch(query) {
         slot,
         'تم فحص أول ' + data.limit + ' مصدر فقط لتقليل استهلاك الذاكرة على الهاتف.',
       );
+    appendPdfExtentNotices(slot);
     appendOCROptions(slot);
     const copy = document.querySelector('[data-action="study-copy"]');
     if (copy) copy.disabled = !matches.length;
@@ -1324,6 +1406,7 @@ async function renderStudyCards() {
           slot,
           'تعذرت قراءة بعض الملفات: ' + details.errors.slice(0, 2).join('، '),
         );
+      appendPdfExtentNotices(slot);
       appendOCROptions(slot);
       return;
     }
@@ -1362,6 +1445,7 @@ async function renderStudyCards() {
       }
       slot.appendChild(article);
     }
+    appendPdfExtentNotices(slot);
     appendOCROptions(slot);
   } catch (error) {
     slot.textContent = 'تعذر إعداد بطاقات المراجعة: ' + String(error?.message || error);
@@ -1887,9 +1971,11 @@ async function handleClick(e) {
         const names = exportStores;
         const { replaceAll } = await import('./store.js?v=2.0.0');
         for (const s of names) await replaceAll(s, []);
+        // Sync bookkeeping goes too; pending cloud deletions are kept (ids only).
+        (await import('./cloud/sync.js?v=2.0.0')).clearSyncMeta();
         await initialize();
         await refresh();
-        toast('تم حذف بيانات الجهاز وإعادة المساقات الافتراضية');
+        toast('تم حذف بيانات الجهاز');
       }
       break;
   }
@@ -2002,6 +2088,7 @@ async function handleSubmit(e) {
       await refresh();
       document.querySelector('.modal-backdrop')?.remove();
       toast('تمت إضافة المساق');
+      pendingCourseFocus = id; // after the final refresh below, which re-renders the page
     }
     if (form.id === 'task-form') {
       const title = String(fd.get('title') || '').trim();
@@ -2124,6 +2211,7 @@ async function handleSubmit(e) {
       document.querySelector('.modal-backdrop')?.remove();
     }
     await refresh();
+    if (pendingCourseFocus) focusNewCourse(pendingCourseFocus);
   } catch (error) {
     toast(error?.message || 'حدث خطأ أثناء العملية', true);
     console.error(error);
@@ -2293,6 +2381,7 @@ async function init() {
         : mode;
     await refresh();
     window.__ucasBooted = true;
+    window.dispatchEvent(new Event('ucas-ready'));
     try {
       sessionStorage.removeItem('ucas-cache-recovery');
     } catch {
@@ -2330,6 +2419,7 @@ async function init() {
     document.getElementById('app').innerHTML =
       `<div class="initial-loader"><h2>تعذر تشغيل التخزين المحلي</h2><p>تأكد من فتح الموقع في متصفح يدعم IndexedDB وعبر localhost أو HTTPS.</p><p>${esc(err.message)}</p></div>`;
     console.error(err);
+    window.dispatchEvent(new Event('ucas-boot-error'));
   }
 }
 init();

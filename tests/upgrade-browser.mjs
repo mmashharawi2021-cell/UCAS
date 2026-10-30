@@ -70,6 +70,19 @@ try {
     )
     .catch(() => {}); // releases before the plan only seeded courses
   await page.waitForTimeout(1000);
+  // Raw rows exactly as stored (every field, including `_mtime`), read at run time; nothing about
+  // their values is assumed here. js/store.js `all()` returns the stored objects unchanged.
+  const readRaw = () =>
+    page.evaluate(async () => {
+      const { all } = await import('./js/store.js');
+      const byId = list => list.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      return {
+        courses: byId(await all('courses')),
+        grades: byId(await all('grades')),
+        settings: byId(await all('settings')),
+      };
+    });
+  const rawBefore = await readRaw();
   const seededBefore = await readSeeded();
   // Prove the check is real: the old release must have seeded something to compare.
   assert.ok(seededBefore.courses.length > 0, 'old release seeded no courses');
@@ -117,6 +130,19 @@ try {
   assert.equal(await page.locator('.first-run').count(), 0, 'no first-run panel after an upgrade');
   console.log(
     `✓ old courses (titles, codes), grade rows and grade settings identical after the upgrade (${seededAfter.courses.length} courses)`,
+  );
+
+  // Full raw comparison: every field of every course and grade row, and every settings row the
+  // old release wrote, including `_mtime` (a changed `_mtime` would re-sync or override edits).
+  const rawAfter = await readRaw();
+  assert.deepEqual(rawAfter.courses, rawBefore.courses, 'course rows identical, incl. _mtime');
+  assert.deepEqual(rawAfter.grades, rawBefore.grades, 'grade rows identical, incl. _mtime');
+  const afterSettings = new Map(rawAfter.settings.map(r => [r.id, r]));
+  for (const row of rawBefore.settings)
+    assert.deepEqual(afterSettings.get(row.id), row, `settings/${row.id} identical, incl. _mtime`);
+  const added = rawAfter.settings.filter(r => !rawBefore.settings.some(b => b.id === r.id));
+  console.log(
+    `✓ raw rows identical after the upgrade: ${rawBefore.courses.length} courses, ${rawBefore.grades.length} grades, ${rawBefore.settings.length} settings (fields incl. _mtime); settings added by the new release: ${added.map(r => r.id).join(', ') || 'none'}`,
   );
   console.log('upgrade-browser: ok');
 } finally {

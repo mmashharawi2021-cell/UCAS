@@ -108,6 +108,22 @@ try {
     'title shown as text, not markup',
   );
   assert.equal(await page.locator('.home-courses .premium-course-card h3 b').count(), 0);
+  // Focus lands on the new course's card (its open button), never on BODY.
+  await page
+    .waitForFunction(() => document.activeElement?.closest('.premium-course-card'), null, {
+      timeout: 5000,
+    })
+    .catch(() => {});
+  const focused = await page.evaluate(() => ({
+    tag: document.activeElement?.tagName,
+    inCard: !!document.activeElement?.closest('.home-courses .premium-course-card'),
+    title: document.activeElement?.closest('.premium-course-card')?.querySelector('h3')
+      ?.textContent,
+  }));
+  assert.notEqual(focused.tag, 'BODY', 'focus must not fall back to BODY');
+  assert.ok(focused.inCard, 'focus is inside the new course card: ' + JSON.stringify(focused));
+  assert.match(focused.title, /مساق تجريبي/);
+  step('focus after adding the first course: on the new course card');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.premium-hero');
   assert.equal(await page.locator('.first-run').count(), 0, 'still gone after reload');
@@ -172,6 +188,29 @@ try {
   assert.equal(await old.locator('.home-courses .premium-course-card').count(), 6);
   assert.deepEqual(old.errors, []);
   step('legacy profile: courses, grades, previous hours and seed flags unchanged');
+
+  // Adding an 8th course from the courses page also keeps focus on the new card.
+  await old.evaluate(() => document.querySelector('[data-go="courses"]').click());
+  await old.waitForSelector('.premium-library-intro');
+  await old.evaluate(() => document.querySelector('[data-action="add-course"]').click());
+  await old.waitForSelector('#course-form');
+  await old.fill('#course-title', 'مساق تجريبي ثامن');
+  await old.click('#course-form button[type="submit"]');
+  // The page re-renders once more after the modal closes; focus is set after that render.
+  await old
+    .waitForFunction(() => document.activeElement?.closest('.premium-course-card'), null, {
+      timeout: 5000,
+    })
+    .catch(() => {});
+  const focus8 = await old.evaluate(() => ({
+    tag: document.activeElement?.tagName,
+    title: document.activeElement?.closest('.premium-course-card')?.querySelector('h3')
+      ?.textContent,
+  }));
+  assert.notEqual(focus8.tag, 'BODY');
+  assert.equal(focus8.title, 'مساق تجريبي ثامن', JSON.stringify(focus8));
+  assert.deepEqual(old.errors, []);
+  step('focus after adding a course from the courses page: on the new course card');
 
   console.log('first-run-browser: ok');
 } finally {

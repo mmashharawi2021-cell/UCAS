@@ -1,11 +1,14 @@
 // Text-only PDF processing with pinned Mozilla PDF.js, on this device.
 // The library is downloaded on first use; the PDF bytes are not uploaded.
 // This is not OCR and cannot read text from scanned image-only pages.
+import { pagesPhrase } from './lib/ai-limits.js?v=2.0.0';
+
 const PDFJS_VERSION = '4.10.38';
 const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + PDFJS_VERSION + '/';
 const MAX_PDF_BYTES = 35 * 1024 * 1024;
-const MAX_PAGES = 45;
-const MAX_TEXT_CHARS = 120000;
+// Measured by ucas-performance and approved by the owner: a 200-page lecture fits on a phone.
+export const MAX_PAGES = 200;
+export const MAX_TEXT_CHARS = 350000;
 let libraryPromise;
 
 export async function getPdfLibrary() {
@@ -104,18 +107,29 @@ export async function extractPdfText(
     const totalPages = document.numPages;
     const pages = [];
     const limit = Math.min(totalPages, maxPages);
-    let length = 0;
+    let length = 0,
+      cutPage = null;
     for (let n = 1; n <= limit; n++) {
       const page = await document.getPage(n);
       const content = await page.getTextContent();
       const text = normalizePageItems(content.items);
       page.cleanup();
       if (text.trim()) {
-        const remaining = maxChars - length;
-        if (remaining <= 0) break;
+        // Pages are joined with a newline, so every page after the first costs one more character:
+        // the joined text never exceeds maxChars and nothing downstream has to cut it again.
+        const remaining = maxChars - length - (pages.length ? 1 : 0);
+        if (remaining <= 0) {
+          // The character budget ran out on an earlier page; this page has more text.
+          cutPage = pages.length ? pages[pages.length - 1].page : n;
+          break;
+        }
         const clipped = text.slice(0, remaining);
         pages.push({ page: n, text: clipped });
-        length += clipped.length;
+        length += clipped.length + (pages.length > 1 ? 1 : 0);
+        if (clipped.length < text.length) {
+          cutPage = n;
+          break;
+        }
       }
     }
     if (!pages.length)
@@ -134,7 +148,10 @@ export async function extractPdfText(
       pages,
       totalPages,
       pagesExamined: limit,
-      truncated: totalPages > limit || length >= maxChars,
+      truncated: totalPages > limit || cutPage !== null,
+      // 'chars': the text stopped inside page `cutPage`; 'pages': the page limit was reached.
+      cutBy: cutPage !== null ? 'chars' : totalPages > limit ? 'pages' : '',
+      cutPage,
     };
   } catch (error) {
     if (/لا يحتوي على نص/.test(String(error?.message))) throw error;
@@ -143,4 +160,13 @@ export async function extractPdfText(
     if (document) await document.destroy();
     else await task.destroy();
   }
+}
+
+/** Student-facing note for a PDF that was not read to the end, or '' when it was read fully. */
+export function pdfTruncationNote(info) {
+  if (!info?.truncated) return '';
+  const total = Number(info.totalPages) || 0;
+  if (info.cutBy === 'chars' && info.cutPage)
+    return 'اقتُطع النص عند الصفحة ' + info.cutPage + ' من ' + total;
+  return 'قُرئت أول ' + pagesPhrase(info.pagesExamined) + ' من ' + total;
 }

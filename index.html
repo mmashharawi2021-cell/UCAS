@@ -21,15 +21,46 @@
     <link rel="stylesheet" href="premium-v2.css?v=2.0.0" />
     <link rel="stylesheet" href="mobile-ux.css?v=2.0.0" />
     <link rel="stylesheet" href="companion-files.css?v=2.0.0" />
+    <link rel="stylesheet" href="splash.css?v=2.0.0" />
     <title>UCAS Academic Bridge | مركزك الأكاديمي</title>
   </head>
   <body>
     <div id="app" aria-live="polite">
-      <div class="initial-loader">
-        <div class="spinner"></div>
-        <p>جاري تجهيز مركزك الأكاديمي…</p>
+      <div class="initial-loader" role="status">
+        <p>جارٍ فتح مساحة التعلم. إذا طال الانتظار، أعد تحميل الصفحة.</p>
       </div>
     </div>
+    <div id="ucas-splash" class="ucas-splash" role="status" aria-label="جارٍ تحميل UCAS STUDIO">
+      <div class="splash-inner" aria-hidden="true">
+        <svg class="splash-mark" viewBox="0 0 96 96">
+          <rect
+            class="splash-bg"
+            width="96"
+            height="96"
+            rx="24"
+            fill="#173a69"
+            stroke="rgba(224,188,119,.35)"
+            stroke-width="1.5"
+          />
+          <path
+            class="splash-cap"
+            pathLength="100"
+            fill="none"
+            stroke="#e0bc77"
+            stroke-width="5"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            d="M15 39 48 23l33 16-33 16-33-16zm13 9v18c10 10 30 10 40 0V48M80 44v25"
+          />
+          <circle class="splash-tassel" cx="80" cy="73" r="4" fill="#e0bc77" />
+        </svg>
+        <div class="splash-name">
+          <div class="splash-title" dir="ltr">UCAS <b>STUDIO</b></div>
+          <div class="splash-sub">مساحة التعلم الأكاديمي</div>
+        </div>
+      </div>
+    </div>
+    <script src="js/splash.js?v=2.0.0"></script>
     <script src="js/boot.js?v=2.0.0"></script>
     <script type="module" src="js/app.js?v=2.0.0"></script>
   </body>

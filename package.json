@@ -12,7 +12,7 @@
     "sync:claude": "node scripts/sync-claude.mjs",
     "pack:companion": "node scripts/pack-companion.mjs",
     "test:upgrade": "node scripts/test-upgrade.mjs",
-    "test:browser": "node tests/mobile-layout.mjs && node tests/first-run-browser.mjs && node tests/companion-browser.mjs && node tests/companion-extension-browser.mjs && node tests/storage-browser.mjs && node tests/features-browser.mjs && node tests/groups-browser.mjs && node tests/personal-browser.mjs && node tests/study-browser.mjs && node tests/pdf-browser.mjs",
+    "test:browser": "node tests/mobile-layout.mjs && node tests/first-run-browser.mjs && node tests/companion-browser.mjs && node tests/companion-extension-browser.mjs && node tests/storage-browser.mjs && node tests/features-browser.mjs && node tests/groups-browser.mjs && node tests/personal-browser.mjs && node tests/study-browser.mjs && node tests/pdf-browser.mjs && node tests/pdf-limits-browser.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

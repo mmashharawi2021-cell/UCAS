@@ -13,9 +13,23 @@ const BASE = 'http://127.0.0.1:8099/';
 const step = name => console.log('✓', name);
 
 // ---- shared fake server ----
-const server = { records: new Map(), files: new Map(), clock: 0, aiCalls: [] };
+const server = {
+  records: new Map(),
+  files: new Map(),
+  clock: 0,
+  aiCalls: [],
+  failUpload: new Set(), // storage paths whose upload fails (simulated network/storage error)
+  failDownload: new Set(),
+  uploads: [], // every path that reached the storage server
+  downloads: [],
+  failRemove: false,
+  ops: [], // order of pulls (select), pushes (upsert) and removes
+  removeCalls: [],
+};
+const realSupabase = []; // any request to the real project fails the test
 function remote(op, args) {
   if (op === 'sync') {
+    server.ops.push(`${args.mode}:${args.user}`);
     const { mode, rows, gt, limit, user } = args;
     if (!user || user.startsWith('1111'))
       throw new Error('row-level security: email account required');
@@ -37,9 +51,22 @@ function remote(op, args) {
       .slice(0, limit || 1000);
     return { data: list, error: null };
   }
-  if (op === 'upload') return void server.files.set(args.path, args);
-  if (op === 'download') return server.files.get(args.path) || null;
-  if (op === 'remove') return void args.paths.forEach(p => server.files.delete(p));
+  if (op === 'upload') {
+    server.uploads.push(args.path);
+    if (server.failUpload.has(args.path)) throw new Error('simulated upload failure');
+    return void server.files.set(args.path, args);
+  }
+  if (op === 'download') {
+    server.downloads.push(args.path);
+    if (server.failDownload.has(args.path)) throw new Error('simulated download failure');
+    return server.files.get(args.path) || null;
+  }
+  if (op === 'remove') {
+    server.ops.push('remove');
+    server.removeCalls.push(args.paths);
+    if (server.failRemove) throw new Error('simulated delete failure');
+    return args.paths.filter(p => server.files.delete(p));
+  }
   if (op === 'invoke') {
     server.aiCalls.push(args.body);
     if (!args.user?.email) return { error: 'email account required' };
@@ -86,13 +113,23 @@ async function device(name) {
   await context.route(SUPABASE_JS, route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: fake }),
   );
+  await context.route(/supabase\.co/, route => {
+    realSupabase.push(route.request().url());
+    return route.abort();
+  });
   await context.exposeFunction('__fakeRemote', remote);
   const page = await context.newPage();
   page.errors = [];
   page.on('pageerror', e => page.errors.push(`${name}: ${e.message}`));
-  page.on('dialog', d => d.accept());
+  page.dialogs = [];
+  // Accept every dialog, except one whose text matches page.dismissMatch.
+  page.on('dialog', d => {
+    page.dialogs.push(d.message());
+    return page.dismissMatch?.test(d.message()) ? d.dismiss() : d.accept();
+  });
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.topbar');
+  await page.waitForFunction(() => !document.getElementById('app')?.inert);
   // 2.0.0 no longer pre-fills anything: each device starts from the rows 1.7.0 wrote
   // (sample courses + an invented plan, all defaults with mtime 0).
   await seedLegacy(page, { plan: true });
@@ -273,6 +310,8 @@ try {
   await phone.waitForSelector('#ai-source');
   assert.ok(await phone.locator('.ai-studio-layout').count());
   await phone.selectOption('#ai-source', 'lec-1');
+  // The lecture is read on the device first; consent is enabled once what is sent is known.
+  await phone.waitForSelector('#ai-cloud-consent:not([disabled])');
   await click(phone, '[data-act="ai-summarize"]');
   await phone.waitForSelector('.ai-panel .notice.warn');
   assert.equal(server.aiCalls.length, 0, 'AI must not receive lecture text without consent');
@@ -282,6 +321,7 @@ try {
   assert.match(await phone.locator('.ai-result').innerText(), /قاعدة البيانات الجغرافية/);
   assert.match(server.aiCalls.at(-1).text, /الفهرس المكاني/, 'lecture text was sent');
   await click(phone, '[data-act="ai-save-note"]');
+  // One consent per file: the same tick covers the questions request.
   await click(phone, '[data-act="ai-questions"]');
   await phone.waitForSelector('.ai-question');
   await click(phone, '[data-act="ai-save-questions"]');
@@ -325,6 +365,280 @@ try {
     /TEST 4401[\s\S]*موضوعات متقدمة في الإحصاء/,
   );
   step('semester archived; new course added with code and hours');
+
+  // ---- 6. file problems: too large, upload error, download error (all retried or reported) ----
+  const ME_PATH = 'email-mohanad@example.com/';
+  const syncAndWait = async (page, text) => {
+    await go(page, 'settings');
+    await page.waitForSelector('[data-act="sync-now"]:not([disabled])', { timeout: 15000 });
+    await page.evaluate(() => document.querySelector('.toast')?.remove());
+    await click(page, '[data-act="sync-now"]');
+    await page.waitForFunction(
+      t => document.querySelector('.toast')?.textContent.includes(t),
+      text,
+      { timeout: 30000 },
+    );
+    return page.$$eval('.sync-panel .sync-problems li', li => li.map(l => l.textContent));
+  };
+  // A 51 MB lecture (over the 50 MB bucket limit) and two normal ones.
+  await phone.evaluate(
+    `(async () => {
+      const v = (await (await fetch('package.json')).json()).version;
+      const s = await import('./js/store.js?v=' + v);
+      const big = new Blob([new Uint8Array(51 * 1024 * 1024)], { type: 'application/pdf' });
+      const base = { kind: 'file', courseId: 'course-4', module: 'المحاضرة 2', completed: false, addedAt: new Date().toISOString() };
+      await s.put('resources', { ...base, id: 'big-1', name: 'big.pdf', type: 'application/pdf', hash: 'hb', blob: big });
+      await s.put('resources', { ...base, id: 'lec-2', name: 'ok2.txt', type: 'text/plain', hash: 'h2', blob: new Blob(['ملف ثان'], { type: 'text/plain' }) });
+      await s.put('resources', { ...base, id: 'lec-3', name: '<b>flaky</b>.txt', type: 'text/plain', hash: 'h3', blob: new Blob(['ملف ثالث'], { type: 'text/plain' }) });
+    })()`,
+  );
+  server.failUpload.add(ME_PATH + 'lec-3');
+  let list = await syncAndWait(phone, 'مزامنة غير مكتملة');
+  assert.ok(list.includes('«big.pdf» أكبر من 50 MB، بقي على هذا الجهاز فقط'), list.join(' | '));
+  assert.ok(
+    list.includes('تعذر رفع «<b>flaky</b>.txt»، ستُعاد المحاولة في المزامنة التالية'),
+    list.join(' | '),
+  );
+  assert.equal(await phone.locator('.sync-problems b').count(), 0, 'file names are escaped');
+  assert.ok(server.files.has(ME_PATH + 'lec-2'), 'the rest still syncs');
+  assert.ok(!server.files.has(ME_PATH + 'lec-3') && !server.files.has(ME_PATH + 'big-1'));
+  assert.ok(!server.uploads.includes(ME_PATH + 'big-1'), 'too-large file is not sent');
+  const bigRecord = server.records.get('email-mohanad@example.com|resources|big-1');
+  assert.equal(bigRecord.data.fileLocalOnly, true, 'record marks the file as kept on one device');
+  assert.doesNotMatch(await phone.locator('.toast').innerText(), /تمت المزامنة/);
+  step('phone: 51 MB file skipped and named, upload error reported, others uploaded');
+
+  server.failUpload.clear();
+  list = await syncAndWait(phone, 'مزامنة غير مكتملة');
+  assert.ok(server.files.has(ME_PATH + 'lec-3'), 'failed upload retried on the next sync');
+  assert.deepEqual(list, ['«big.pdf» أكبر من 50 MB، بقي على هذا الجهاز فقط']);
+  assert.ok(!server.uploads.includes(ME_PATH + 'big-1'), 'too-large file not retried');
+  step('phone: failed upload retried and succeeded; too-large file still listed, not resent');
+
+  server.failDownload.add(ME_PATH + 'lec-2');
+  list = await syncAndWait(laptop, 'مزامنة غير مكتملة');
+  assert.ok(
+    list.includes('تعذر تنزيل «ok2.txt»، ستُعاد المحاولة في المزامنة التالية'),
+    list.join(' | '),
+  );
+  assert.ok(
+    list.includes('«big.pdf» أكبر من 50 MB، بقي على جهازك الآخر فقط ولم يُنزَّل هنا'),
+    list.join(' | '),
+  );
+  let files = await store(laptop, async s => ({
+    two: await (await s.getFile('lec-2'))?.text(),
+    three: await (await s.getFile('lec-3'))?.text(),
+    big: !!(await s.getFile('big-1')),
+  }));
+  assert.deepEqual(files, { two: undefined, three: 'ملف ثالث', big: false });
+  step('laptop: download error reported, other file downloaded');
+
+  server.failDownload.clear();
+  list = await syncAndWait(laptop, 'مزامنة غير مكتملة');
+  assert.deepEqual(list, ['«big.pdf» أكبر من 50 MB، بقي على جهازك الآخر فقط ولم يُنزَّل هنا']);
+  files = await store(laptop, async s => (await s.getFile('lec-2'))?.text());
+  assert.equal(files, 'ملف ثان', 'failed download retried on the next sync');
+  step('laptop: failed download retried and succeeded');
+
+  // The big file becomes small again (replaced): it syncs and leaves both lists.
+  await store(phone, async s => {
+    const row = await s.getRow('resources', 'big-1');
+    await s.put('resources', {
+      ...row,
+      hash: 'hb2',
+      blob: new Blob(['نسخة مضغوطة'], { type: 'application/pdf' }),
+    });
+  });
+  await syncAndWait(phone, 'تمت المزامنة');
+  assert.ok(server.files.has(ME_PATH + 'big-1'));
+  assert.equal(await phone.locator('.sync-problems li').count(), 0);
+  await syncAndWait(laptop, 'تمت المزامنة');
+  assert.equal(await laptop.locator('.sync-problems li').count(), 0);
+  assert.equal(await store(laptop, async s => (await s.getFile('big-1'))?.text()), 'نسخة مضغوطة');
+  step('replaced file synced');
+
+  // ---- 7. deleting a lecture removes its bucket object, with retry ----
+  const A = 'email-mohanad@example.com';
+  const owedOf = async (page, uid = A) =>
+    page.evaluate(k => JSON.parse(localStorage.getItem(k) || '{}'), `ucas-owed-${uid}`);
+  await store(phone, s => s.remove('resources', 'lec-2'));
+  server.failRemove = true;
+  list = await syncAndWait(phone, 'مزامنة غير مكتملة');
+  assert.deepEqual(list, [
+    'تعذر حذف «ok2.txt» من التخزين السحابي، ستُعاد المحاولة في المزامنة التالية',
+  ]);
+  assert.ok(server.files.has(ME_PATH + 'lec-2'), 'object still there after the failed delete');
+  assert.deepEqual(Object.keys((await owedOf(phone)).del), ['lec-2']);
+  // The tombstone is pruned (as after 90 days): the pending delete does not depend on it.
+  await store(phone, s => s.pruneTombstones(Date.now() + 1000));
+  server.failRemove = false;
+  list = await syncAndWait(phone, 'تمت المزامنة');
+  assert.deepEqual(list, []);
+  assert.ok(!server.files.has(ME_PATH + 'lec-2'), 'bucket is empty for that path');
+  assert.deepEqual(await owedOf(phone), {});
+  assert.deepEqual(server.removeCalls.at(-1), [ME_PATH + 'lec-2'], 'one remove() call');
+  step('failed delete reported, kept pending past tombstone pruning, removed on the next sync');
+
+  // A pending delete is cancelled when a live row with the same id comes back (e.g. a restore).
+  await store(phone, s => s.remove('resources', 'lec-3'));
+  server.failRemove = true;
+  await syncAndWait(phone, 'مزامنة غير مكتملة');
+  assert.deepEqual(Object.keys((await owedOf(phone)).del), ['lec-3']);
+  await store(phone, s =>
+    s.put('resources', {
+      id: 'lec-3',
+      kind: 'file',
+      name: 'flaky-restored.txt',
+      type: 'text/plain',
+      courseId: 'course-4',
+      hash: 'h3b',
+      blob: new Blob(['نسخة مستعادة'], { type: 'text/plain' }),
+      addedAt: new Date().toISOString(),
+      completed: false,
+    }),
+  );
+  server.failRemove = false;
+  let removesBefore = server.removeCalls.length;
+  list = await syncAndWait(phone, 'تمت المزامنة');
+  assert.deepEqual(list, []);
+  assert.deepEqual(await owedOf(phone), {});
+  assert.ok(
+    !server.removeCalls.slice(removesBefore).some(c => c.includes(ME_PATH + 'lec-3')),
+    'the re-created file is never removed',
+  );
+  assert.equal(Buffer.from(server.files.get(ME_PATH + 'lec-3').bytes).toString(), 'نسخة مستعادة');
+  step('pending delete cancelled when the same id is live again; new file kept');
+
+  // ---- 8. crafted record ids never become Storage paths ----
+  for (const rid of ['../x', 'a/b']) {
+    server.clock++;
+    server.records.set(`${A}|resources|${rid}`, {
+      user_id: A,
+      store: 'resources',
+      rid,
+      data: { id: rid, kind: 'file', name: 'evil.pdf', hasFile: true, courseId: 'course-4' },
+      mtime: Date.now(),
+      deleted: false,
+      updated_at: new Date(Date.UTC(2026, 0, 1) + server.clock).toISOString(),
+    });
+  }
+  const downloadsBefore = server.downloads.length;
+  await syncAndWait(laptop, 'تمت المزامنة');
+  assert.ok(
+    !server.downloads.slice(downloadsBefore).some(p => p.includes('..') || p.endsWith('a/b')),
+    server.downloads.join(', '),
+  );
+  assert.deepEqual(
+    await store(laptop, async s => [
+      !!(await s.getRow('resources', '../x')),
+      !!(await s.getRow('resources', 'a/b')),
+    ]),
+    [false, false],
+  );
+  step('records with ids like "../x" and "a/b" ignored');
+
+  // ---- 9. sign out and in again: nothing lost, duplicated, resurrected or re-uploaded ----
+  // A file that starts on the laptop (so a re-upload would be visible).
+  await store(laptop, s =>
+    s.put('resources', {
+      id: 'lap-1',
+      kind: 'file',
+      name: 'laptop-notes.txt',
+      type: 'text/plain',
+      courseId: 'course-4',
+      hash: 'hl1',
+      blob: new Blob(['من اللابتوب'], { type: 'text/plain' }),
+      addedAt: new Date().toISOString(),
+      completed: false,
+    }),
+  );
+  await syncAndWait(laptop, 'تمت المزامنة');
+  assert.ok(server.files.has(ME_PATH + 'lap-1'));
+  // Delete a synced lecture while Storage keeps failing, then sign out anyway.
+  await store(laptop, s => s.remove('resources', 'big-1'));
+  server.failRemove = true;
+  list = await syncAndWait(laptop, 'مزامنة غير مكتملة');
+  assert.deepEqual(list, [
+    'تعذر حذف «big.pdf» من التخزين السحابي، ستُعاد المحاولة في المزامنة التالية',
+  ]);
+  assert.equal(server.records.get(`${A}|resources|big-1`).deleted, true);
+  const snapshot = page =>
+    store(page, async s => {
+      const out = {};
+      for (const name of s.syncedStores)
+        out[name] = (await s.all(name)).map(r => String(r.id)).sort();
+      return out;
+    });
+  const before = await snapshot(laptop);
+  const aRecords = () => [...server.records.keys()].filter(k => k.startsWith(A + '|')).sort();
+  const recordsBefore = aRecords();
+
+  laptop.dismissMatch = /لم يُحذف من السحابة/;
+  await go(laptop, 'settings');
+  await click(laptop, '[data-act="sync-signout"]');
+  await laptop.waitForFunction(() =>
+    document.querySelector('.toast')?.textContent.includes('لم يُحذف من السحابة'),
+  );
+  assert.match(laptop.dialogs.at(-1), /^يوجد ملف واحد محذوف لم يُحذف من السحابة بعد\./);
+  assert.match(await laptop.locator('.sync-panel').innerText(), /متصل/, 'stayed signed in');
+  laptop.dismissMatch = null;
+  await click(laptop, '[data-act="sync-signout"]');
+  await laptop.waitForSelector('#sync-email-form');
+  assert.match(laptop.dialogs.at(-1), /^يوجد ملف واحد محذوف/);
+  const afterOut = await laptop.evaluate(() => ({
+    meta: Object.keys(localStorage).filter(k => k.startsWith('ucas-sync-')),
+    owed: localStorage.getItem('ucas-owed-email-mohanad@example.com'),
+  }));
+  assert.deepEqual(afterOut.meta, [], 'sync meta cleared at sign-out');
+  assert.deepEqual(JSON.parse(afterOut.owed), { del: { 'big-1': { name: '' } }, up: {} });
+  assert.deepEqual(await snapshot(laptop), before, 'local study data untouched by sign-out');
+  step('sign-out warns "يوجد ملف واحد محذوف…", can stay; signing out keeps only the owed delete');
+
+  // A different account on the same laptop never receives the first account's deletions.
+  server.failRemove = false;
+  const B = 'email-other@example.com';
+  const removesBeforeB = server.removeCalls.length;
+  await signIn(laptop, 'other@example.com');
+  await syncAndWait(laptop, 'تمت المزامنة');
+  const removedForB = server.removeCalls.slice(removesBeforeB).flat();
+  assert.ok(!removedForB.some(p => !p.startsWith(B + '/')), 'no remove outside the account');
+  assert.ok(!removedForB.includes(`${B}/big-1`), "first account's delete not run for the second");
+  assert.ok(
+    ![...server.records.values()].some(r => r.user_id === B && r.deleted),
+    "first account's tombstones not pushed to the second",
+  );
+  assert.ok(server.files.has(ME_PATH + 'big-1'), 'still owed by the first account only');
+  assert.deepEqual(Object.keys((await owedOf(laptop)).del), ['big-1']);
+  await go(laptop, 'settings');
+  await click(laptop, '[data-act="sync-signout"]');
+  await laptop.waitForSelector('#sync-email-form');
+  step("a different account signs in: the first account's deletions are not applied to it");
+
+  // Same account again: the owed delete runs first, nothing comes back or is uploaded again.
+  const opsBefore = server.ops.length;
+  const uploadsBefore = server.uploads.length;
+  removesBefore = server.removeCalls.length;
+  await signIn(laptop, 'mohanad@example.com');
+  await syncAndWait(laptop, 'تمت المزامنة');
+  const ops = server.ops.slice(opsBefore);
+  assert.ok(ops.includes('remove'), ops.join(','));
+  assert.ok(ops.indexOf('remove') < ops.indexOf(`select:${A}`), `delete before pull: ${ops}`);
+  assert.deepEqual(server.removeCalls[removesBefore], [ME_PATH + 'big-1']);
+  assert.ok(!server.files.has(ME_PATH + 'big-1'), 'deleted file gone from the cloud');
+  assert.deepEqual(await owedOf(laptop), {});
+  assert.deepEqual(
+    server.uploads.slice(uploadsBefore).filter(p => p.startsWith(ME_PATH)),
+    [],
+    'files already in the cloud are not uploaded again',
+  );
+  assert.deepEqual(await snapshot(laptop), before, 'no duplicates, nothing resurrected');
+  assert.equal(await store(laptop, s => s.getRow('resources', 'big-1')), undefined);
+  assert.deepEqual(aRecords(), recordsBefore, 'no new or duplicate records');
+  assert.equal(await store(laptop, async s => (await s.getFile('lap-1'))?.text()), 'من اللابتوب');
+  step('same account again: owed delete ran before the pull; no duplicate, return or re-upload');
+
+  assert.deepEqual(realSupabase, [], 'no request reached the real Supabase project');
+  step('no request to the real supabase.co');
 
   const errors = [...phone.errors, ...laptop.errors];
   assert.deepEqual(errors, []);

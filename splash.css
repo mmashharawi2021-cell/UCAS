@@ -1,0 +1,171 @@
+/* Local brand assembly: the approved navy/gold preview, without its preview controls. */
+.ucas-splash {
+  --splash-navy: #173a68;
+  --splash-deep: #102a4d;
+  --splash-gold: #e0bc77;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 40%, var(--splash-navy) 0%, var(--splash-deep) 70%);
+  /* Even a missing/failed splash script cannot leave a permanent input-blocking overlay. */
+  animation: splash-safety 0s 9s forwards;
+}
+.ucas-splash[hidden] {
+  display: none;
+}
+.splash-inner {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+}
+.splash-mark {
+  width: 110px;
+  height: 110px;
+  overflow: visible;
+  transform-origin: center;
+}
+.splash-name {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.splash-title {
+  color: #fff;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transform-origin: center;
+}
+.splash-title b {
+  color: var(--splash-gold);
+}
+.splash-sub {
+  color: #b8cce3;
+  font-size: 15px;
+  line-height: 1.5;
+  transform-origin: center;
+}
+.splash-playing .splash-bg {
+  animation: splash-bg-in var(--t-bg) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 48px 48px;
+}
+.splash-playing .splash-cap {
+  stroke-dasharray: 100;
+  animation: splash-draw var(--t-cap) cubic-bezier(0.55, 0.1, 0.25, 1) var(--d-cap) both;
+}
+.splash-playing .splash-tassel {
+  transform-origin: 80px 73px;
+  animation: splash-drop var(--t-tas) cubic-bezier(0.3, 1.6, 0.5, 1) var(--d-tas) both;
+}
+.splash-playing .splash-title {
+  animation: splash-rise var(--t-name) ease-out var(--d-name) both;
+}
+.splash-playing .splash-sub {
+  animation: splash-rise var(--t-sub) ease-out var(--d-sub) both;
+}
+.splash-active [data-brand-part] {
+  visibility: hidden;
+}
+.sidebar .logo-title {
+  font-size: 17px;
+  letter-spacing: 0.04em;
+}
+.sidebar .logo-title b {
+  color: #e0bc77;
+}
+.sidebar .logo-sub {
+  line-height: 1.5;
+}
+.mobile-brand {
+  display: none;
+}
+@media (max-width: 860px) {
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 50px;
+    padding: max(6px, env(safe-area-inset-top)) 16px 6px;
+    background: #173a68;
+    color: #fff;
+  }
+  .mobile-brand img {
+    width: 34px;
+    height: 34px;
+  }
+  .mobile-brand-title {
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+  }
+  .mobile-brand-title b {
+    color: #e0bc77;
+  }
+  .splash-title {
+    font-size: clamp(26px, 8vw, 34px);
+  }
+  .splash-sub {
+    font-size: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-playing .splash-bg,
+  .splash-playing .splash-cap,
+  .splash-playing .splash-tassel,
+  .splash-playing .splash-title,
+  .splash-playing .splash-sub {
+    animation: none;
+  }
+}
+@keyframes splash-bg-in {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes splash-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes splash-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes splash-safety {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}

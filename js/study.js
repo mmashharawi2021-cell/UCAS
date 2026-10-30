@@ -1,7 +1,10 @@
 // Offline course study/search. No AI API, network calls or third-party uploads.
 // Documents are processed on demand and kept in memory during the current session.
+// MAX_TEXT matches MAX_TEXT_CHARS in pdf-text.js, so definition cards (built from `text`)
+// and passage cards (built from `pages`) see the same content. What may be sent to the AI
+// assistant has its own, smaller cap: AI_MAX_TEXT in lib/ai-limits.js.
 const MAX_SOURCES = 18,
-  MAX_TEXT = 100000;
+  MAX_TEXT = 350000;
 const STOP = new Set([
   'على',
   'إلى',
@@ -195,7 +198,8 @@ export async function loadCourseText(
     const name = String(r.name || '');
     try {
       let text = '',
-        pages = null;
+        pages = null,
+        pdfExtent = null;
       if (/\.(txt|md)$/i.test(name)) text = (await r.blob.text()).slice(0, MAX_TEXT);
       else if (/\.(docx|pptx)$/i.test(name)) {
         const file =
@@ -211,12 +215,20 @@ export async function loadCourseText(
         const pdf = await pdfPreview(r.blob);
         text = pdf.text.slice(0, MAX_TEXT);
         pages = pdf.pages;
+        if (pdf.truncated)
+          pdfExtent = {
+            totalPages: pdf.totalPages,
+            pagesExamined: pdf.pagesExamined,
+            truncated: true,
+            cutBy: pdf.cutBy || '',
+            cutPage: pdf.cutPage ?? null,
+          };
       } else {
         unsupported.push(name);
         continue;
       }
       if (text.trim().length >= 16)
-        documents.push({ id: r.id, name, module: r.module, text, pages });
+        documents.push({ id: r.id, name, module: r.module, text, pages, pdfExtent });
       else errors.push(name + ' (بدون نص قابل للبحث)');
     } catch (error) {
       errors.push(name + ' (' + String(error?.message || 'تعذرت القراءة').slice(0, 90) + ')');

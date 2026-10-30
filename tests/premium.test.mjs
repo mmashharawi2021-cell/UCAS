@@ -16,7 +16,9 @@ test('premium dashboard renders real local indicators', () => {
 
 test('AI requests require consent per selected lecture', () => {
   const source = read('js/features/ai.js');
+  // One consent per file: it covers every task while the same file and course stay selected.
   assert.match(source, /if \(!s\.consent\)/);
+  assert.doesNotMatch(source, /consentFor|consentTask/);
   assert.match(source, /data-act-change="ai-consent"/);
   assert.match(source, /s\.consent = false;/);
   assert.match(read('tests/personal-browser.mjs'), /without consent/);

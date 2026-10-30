@@ -38,6 +38,7 @@ try {
 
   await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.topbar');
+  await page.waitForFunction(() => !document.getElementById('app')?.inert);
   await click('[data-go="groups"]');
   await page.waitForSelector('.groups-intro');
   assert.match(await page.locator('.groups-intro').innerText(), /اسمًا مستعارًا/);
