@@ -2,7 +2,8 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/**'] },
+  // companion-local*/: local Moodle-trial copies of the extension (git-ignored, never shipped).
+  { ignores: ['node_modules/**', 'companion-local*/**'] },
   js.configs.recommended,
   {
     files: ['js/**/*.js', 'sw.js'],

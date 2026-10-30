@@ -4,6 +4,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -28,3 +29,39 @@ jobs:
         run: npm run lint
       - name: Run unit tests
         run: npm test
+  # Browser suite and upgrade test: part of the same workflow, so the Pages deploy
+  # (which waits for this workflow) needs both jobs to pass.
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository (with history for the upgrade test)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install headless Chrome controller (locked versions)
+        run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: Check available browser
+        run: |
+          which google-chrome || which chromium
+          google-chrome --version || true
+      - name: Launch local test server
+        run: |
+          python3 -m http.server 8099 --bind 127.0.0.1 >/tmp/ucas-http.log 2>&1 &
+          sleep 2
+      - name: Browser suite (mobile layout, offline study, features)
+        run: npm run test:browser
+      - name: Upgrade test (previous release -> this commit)
+        env:
+          # Push: the commit main pointed at before. Pull request: the base branch.
+          UPGRADE_FROM: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$UPGRADE_FROM" ] || ! git cat-file -e "$UPGRADE_FROM^{commit}" 2>/dev/null; then
+            UPGRADE_FROM=HEAD~1
+          fi
+          echo "upgrade from $UPGRADE_FROM"
+          UPGRADE_FROM="$UPGRADE_FROM" npm run test:upgrade
