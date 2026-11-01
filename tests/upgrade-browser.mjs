@@ -73,6 +73,14 @@ try {
     )
     .catch(() => {}); // releases before the plan only seeded courses
   await page.waitForTimeout(1000);
+  // 2.0.0 and later start empty: add what a student would have, through the old release's store.
+  await page.evaluate(async () => {
+    const { all, put } = await import('./js/store.js');
+    if ((await all('courses')).length) return;
+    await put('courses', { id: 'course-1', title: 'مساق الطالب', code: 'STU101', modules: ['م'] });
+    await put('grades', { id: 'grade-1', courseId: 'course-1', hours: 3 });
+    await put('settings', { id: 'gpa-settings', value: { previousHours: 30, previousGpa: 80 } });
+  });
   // Raw rows exactly as stored (every field, including `_mtime`), read at run time; nothing about
   // their values is assumed here. js/store.js `all()` returns the stored objects unchanged.
   const readRaw = () =>
