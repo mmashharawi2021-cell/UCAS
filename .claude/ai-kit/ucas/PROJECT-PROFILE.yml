@@ -1,0 +1,42 @@
+# UCAS project profile for AI-DEVELOPMENT-KIT 1.0.0 (from 10-PROJECT-CONFIG/PROJECT-PROFILE.template.yml).
+# Filled from repository facts on 2026-10-29. No secrets or personal data.
+project:
+  name: "UCAS Academic Bridge (UCAS Academic Studio)"
+  purpose_ar: "منصة دراسة جامعية شخصية تعمل محليًا أولًا: المساقات والمحاضرات والمراجع والاختبارات التدريبية والتقدم الدراسي، مع استيراد اختياري من Moodle وGoogle Drive"
+  audience: "public" # public static site; each student's data stays in their own browser
+  status: "active_development" # v1.7.0 on main
+stack:
+  frontend: "HTML5, CSS3, Vanilla JavaScript ES modules, no build step"
+  local_data: "IndexedDB (js/store.js is the only owner), service worker PWA"
+  hosting: "GitHub Pages, GitHub Actions CI"
+  optional_backend: "Supabase (Auth, sync_records, private Storage, Edge Functions ai/push)"
+  tests: "node --test, Playwright (playwright-core), ESLint, Prettier"
+  decision: "keep the current stack; no framework or rewrite without measured evidence"
+constraints:
+  target_monthly_cost_usd: 0
+  hosting: "free_tier_if_possible"
+  needs_approval_before_external_actions: true
+  production_write_access_for_agents: false
+features:
+  manager_dashboard: false
+  public_accounts: true # optional Supabase email or nickname accounts for sync, groups, push, AI
+  database: true # IndexedDB locally; optional Supabase Postgres
+  file_uploads: true # local imports; optional private Storage sync
+  map_gis: false # GIS is the student's study field, not an app feature
+  realtime: true # optional study-group chat
+  analytics: false
+security:
+  data_classification: "personal_academic" # lecture files, notes, grades, quiz results
+  mfa_for_admin: true # GitHub and Supabase owner accounts
+  rls_if_using_supabase: true
+quality:
+  automated_tests_required: true
+  load_test_allowed: false
+  load_test_target: "local_or_authorized_staging_only"
+external_services:
+  - "GitHub Pages and GitHub Actions"
+  - "Supabase project xijpnqgaxvyigyrwcqmo (optional features only)"
+  - "Gemini through the Supabase ai Edge Function (optional, consent per lecture)"
+  - "moodle.ucas.edu.ps through the optional desktop Chrome Companion (student session only)"
+  - "cdnjs.cloudflare.com, cdn.jsdelivr.net, tessdata.projectnaptha.com (pinned PDF.js, Tesseract.js, supabase-js)"
+  - "Google Drive links and picker (user-initiated)"

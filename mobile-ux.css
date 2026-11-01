@@ -128,9 +128,12 @@
     padding-bottom: 6px;
   }
   .sidebar .nav-btn {
-    min-height: 42px;
-    padding: 9px 11px;
+    min-height: 36px;
+    padding: 3px 8px;
     font-size: 12px;
+  }
+  .sidebar .nav-group {
+    gap: 7px;
   }
   .sidebar .nav-footer {
     margin-top: 0;

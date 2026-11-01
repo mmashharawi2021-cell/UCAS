@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright-core';
+import { seedLegacy } from './fixtures/legacy-seed.mjs';
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
@@ -11,11 +12,13 @@ try {
     deviceScaleFactor: 1,
     isMobile: true,
     hasTouch: true,
+    reducedMotion: 'reduce',
   });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.topbar');
+  await seedLegacy(page, { reload: false }); // a new install has no course-1
   await page.evaluate(async () => {
     const { put } = await import('./js/store.js');
     const text =

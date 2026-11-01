@@ -1,4 +1,4 @@
-import { MOODLE_CONNECT as config } from './moodle-connect-config.js?v=1.7.0';
+import { MOODLE_CONNECT as config } from './moodle-connect-config.js?v=2.0.0';
 import {
   configReady,
   MOODLE_ORIGIN,
@@ -8,8 +8,8 @@ import {
   authorizationURL,
   normalizeMoodleCourses,
   planCourseImport,
-} from './moodle-connect-core.js?v=1.7.0';
-import { all, put, makeId, initialize } from './store.js?v=1.7.0';
+} from './moodle-connect-core.js?v=2.0.0';
+import { all, put, makeId, initialize } from './store.js?v=2.0.0';
 
 // Tokens are NEVER persisted to IndexedDB/localStorage, a service worker or a URL.
 // The university must approve an OAuth PUBLIC client, PKCE, CORS and read-only scopes.

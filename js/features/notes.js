@@ -1,4 +1,4 @@
-import { highlight, splitFences } from '../lib/code-highlight.js?v=1.7.0';
+import { highlight, splitFences } from '../lib/code-highlight.js?v=2.0.0';
 
 // Phase 1 — lecture notes with highlight colours (course tab "ملاحظاتي").
 // Note text is shown with escaping only; a tiny safe formatter turns **bold** and

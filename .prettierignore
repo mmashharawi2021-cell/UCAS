@@ -1,6 +1,8 @@
 node_modules
 *.md
 package-lock.json
+# Verbatim AI-DEVELOPMENT-KIT copies; their hashes are checked by scripts/sync-claude.mjs.
+.claude/ai-kit/
 
 # Compact standalone integration stylesheet (no third-party fonts/assets).
 moodle-connect.css

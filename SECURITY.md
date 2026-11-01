@@ -4,7 +4,7 @@ Report vulnerabilities privately to the repository maintainer; use GitHub privat
 
 ## Trust boundaries
 
-The frontend and GitHub Pages are public. Never expose Supabase service-role, Gemini or private web-push keys in HTML/JavaScript. IndexedDB and local JSON backups are not encrypted at rest by the application. Supabase RLS and storage policies must be verified on the deployed project, not assumed from migrations.
+The frontend and GitHub Pages are public. Never expose Supabase service-role, Gemini or private web-push keys in HTML/JavaScript. IndexedDB and local backups (ZIP or legacy JSON) are not encrypted at rest by the application. Supabase RLS and storage policies must be verified on the deployed project, not assumed from migrations.
 
 The Gemini Edge Function requires an authenticated allowed email, quota checks and a server-held API key. User consent is an additional UI control and does not replace server authorization.
 

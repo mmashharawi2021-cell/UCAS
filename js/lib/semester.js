@@ -1,22 +1,6 @@
-// Semesters: the student's current UCAS plan, archiving a finished term, and the
-// cumulative average across archived terms. Pure helpers.
-import { courseMark, gpa, round } from './grades.js?v=1.7.0';
-
-/** Fall 2026/2027 registration (19 credit hours) with 55 hours passed before it. */
-export const UCAS_FALL_2026 = {
-  key: 'ucas-fall-2026',
-  name: 'الفصل الأول 2026/2027',
-  previousHours: 55,
-  courses: [
-    { code: 'GISS 2307', title: 'بناء قواعد البيانات الجغرافية', hours: 3 },
-    { code: 'COMP 2319', title: 'مقدمة في لغة البرمجة', hours: 3 },
-    { code: 'GISS 3302', title: 'تخطيط الخدمات المجتمعية والبنية التحتية', hours: 3 },
-    { code: 'GISS 3315', title: 'تطبيقات الاستشعار عن بعد', hours: 3 },
-    { code: 'GISS 4301', title: 'إدارة مشاريع نظم المعلومات الجغرافية', hours: 3 },
-    { code: 'UNIB 1215', title: 'العمل الحر', hours: 2 },
-    { code: 'UNIB 1204', title: 'ريادة الأعمال', hours: 2 },
-  ],
-};
+// Semesters: archiving a finished term and the cumulative average across archived terms.
+// Pure helpers. Since 2.0.0 no personal plan ships with the app; new installs start empty.
+import { courseMark, gpa, round } from './grades.js?v=2.0.0';
 
 const norm = s =>
   String(s || '')

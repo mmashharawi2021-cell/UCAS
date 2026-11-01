@@ -1,6 +1,6 @@
 // Service worker: caches the public app shell only — never user data.
 // Bump VERSION on every release (keep it equal to package.json "version").
-const VERSION = '1.7.0';
+const VERSION = '2.0.0';
 const CACHE = `ucas-bridge-shell-${VERSION}`;
 const SHELL = [
   './',
@@ -11,6 +11,8 @@ const SHELL = [
   `./js/moodle-connect-core.js?v=${VERSION}`,
   `./js/moodle-connect-config.js?v=${VERSION}`,
   `./js/boot.js?v=${VERSION}`,
+  `./js/splash.js?v=${VERSION}`,
+  `./splash.css?v=${VERSION}`,
   `./styles.css?v=${VERSION}`,
   `./mobile-ux.css?v=${VERSION}`,
   `./companion-files.css?v=${VERSION}`,
@@ -32,6 +34,7 @@ const SHELL = [
   `./js/cloud/sync.js?v=${VERSION}`,
   `./js/lib/code-highlight.js?v=${VERSION}`,
   `./js/lib/semester.js?v=${VERSION}`,
+  `./js/lib/ai-limits.js?v=${VERSION}`,
   `./js/lib/cloud.js?v=${VERSION}`,
   `./js/features/push.js?v=${VERSION}`,
   `./js/features/groups.js?v=${VERSION}`,
@@ -43,6 +46,9 @@ const SHELL = [
   `./js/lib/grades.js?v=${VERSION}`,
   `./js/lib/ics-export.js?v=${VERSION}`,
   `./js/lib/pack.js?v=${VERSION}`,
+  `./js/lib/zip.js?v=${VERSION}`,
+  `./js/lib/moodle-diagnostics.js?v=${VERSION}`,
+  `./js/lib/deadlines.js?v=${VERSION}`,
   `./js/lib/question-import.js?v=${VERSION}`,
   `./js/lib/report.js?v=${VERSION}`,
   `./js/lib/review.js?v=${VERSION}`,

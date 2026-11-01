@@ -6,25 +6,31 @@ import {
   put,
   remove,
   makeId,
-  backup,
-  restore,
+  backupArchive,
+  restoreFile,
   requestPersistence,
   storageStatus,
   exportStores,
-} from './store.js?v=1.7.0';
-import { features } from './features/index.js?v=1.7.0';
-import { normalizeCode } from './lib/semester.js?v=1.7.0';
-import { DEFAULT_COMPONENTS } from './lib/grades.js?v=1.7.0';
+} from './store.js?v=2.0.0';
+import { features } from './features/index.js?v=2.0.0';
+import { normalizeCode } from './lib/semester.js?v=2.0.0';
+import { DEFAULT_COMPONENTS } from './lib/grades.js?v=2.0.0';
+import { attentionCount, dueLabel, groupTasks } from './lib/deadlines.js?v=2.0.0';
 
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '2.0.0';
 const BACKUP_REMINDER_DAYS = 7;
-import { esc, ic } from './ui.js?v=1.7.0';
-import { parseICS } from './ics.js?v=1.7.0';
-import { previewOffice } from './office.js?v=1.7.0';
-import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=1.7.0';
-import { companionRequest, importCompanionSnapshot } from './companion.js?v=1.7.0';
-import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=1.7.0';
-import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=1.7.0';
+import { esc, ic } from './ui.js?v=2.0.0';
+import { parseICS } from './ics.js?v=2.0.0';
+import { previewOffice } from './office.js?v=2.0.0';
+import { cleanMoodlePaste, readMoodleCourseFile } from './moodle.js?v=2.0.0';
+import { companionRequest, importCompanionSnapshot } from './companion.js?v=2.0.0';
+import { validateFileCatalog, transferCompanionFiles } from './companion-files.js?v=2.0.0';
+import {
+  activityTypesFromLinks,
+  describeCourseScan,
+  normalizeScanReport,
+} from './lib/moodle-diagnostics.js?v=2.0.0';
+import { validateStudyFiles, parseDriveReference, normalizeDriveTitle } from './drive.js?v=2.0.0';
 import {
   loadCourseText,
   searchStudySources,
@@ -32,9 +38,10 @@ import {
   extractPassageCards,
   buildDefinitionQuiz,
   formatChatGPTStudyPrompt,
-} from './study.js?v=1.7.0';
-import { extractPdfText } from './pdf-text.js?v=1.7.0';
-import { readPDFWithOCR } from './ocr.js?v=1.7.0';
+} from './study.js?v=2.0.0';
+import { extractPdfText, pdfTruncationNote } from './pdf-text.js?v=2.0.0';
+import { AI_MAX_TEXT_PHRASE } from './lib/ai-limits.js?v=2.0.0';
+import { readPDFWithOCR } from './ocr.js?v=2.0.0';
 
 const titles = {
   home: 'الرئيسية',
@@ -121,6 +128,10 @@ const state = {
   companionFileCancel: false,
   companionFileProgress: '',
   companionFileResult: '',
+  companionFileReport: null,
+  companionFileResults: [],
+  companionFileScanned: false,
+  companionVersion: '',
   storage: { usage: null, quota: null, persisted: false, supported: false },
   // v0.9 study features
   schedule: [],
@@ -190,14 +201,21 @@ const ctx = {
   saveSetting: (id, value) => put('settings', { id, value }),
   // Defaults written with mtime 0 never override a real edit synced from another device.
   putDefault: (store, value) => put(store, value, { mtime: 0 }),
-  /** Readable text of one imported file (TXT/MD/DOCX/PPTX/text PDF), extracted on this device. */
+  /**
+   * Readable text of one imported file (TXT/MD/DOCX/PPTX/text PDF), extracted on this device.
+   * Resolves to { text, pages, pdfExtent }. For a PDF, pages is [{ page, text }] (text is
+   * pages joined with newlines), otherwise null; pdfExtent is null unless a PDF was not read to the
+   * end ({ totalPages, pagesExamined, truncated, cutBy, cutPage }, page numbers only).
+   */
   extractText: async id => {
     const r = await get('resources', id);
     if (!r?.blob) throw new Error('الملف غير محفوظ على هذا الجهاز');
     const data = await loadCourseText([r], r.courseId, previewOffice, {
       pdfPreview: extractPdfText,
     });
-    if (data.documents[0]?.text?.trim()) return data.documents[0].text;
+    const doc = data.documents[0];
+    if (doc?.text?.trim())
+      return { text: doc.text, pages: doc.pages || null, pdfExtent: doc.pdfExtent || null };
     throw new Error(
       data.unsupported.length
         ? 'صيغة هذا الملف غير مدعومة للقراءة'
@@ -309,19 +327,39 @@ function navItems() {
     { id: 'settings', icon: 'settings', label: 'الإعدادات' },
   ];
 }
+// Sidebar sections; pages that a feature module doesn't register are skipped.
+const NAV_SECTIONS = [
+  { title: 'الدراسة', ids: ['home', 'courses', 'schedule', 'tasks', 'exams', 'quizzes', 'focus'] },
+  { title: 'التقدم', ids: ['grades', 'progress', 'report'] },
+  { title: 'المصادر والتواصل', ids: ['import', 'moodle', 'groups'] },
+];
+function navButton(n, selected, badge = 0, urgent = false) {
+  return `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}><span class="nav-icon">${ic(n.icon)}</span><span class="nav-label">${n.label}</span>${badge ? `<span class="nav-badge ${urgent ? 'urgent' : ''}" aria-label="${badge} تكليف يحتاج انتباهك">${badge}</span>` : ''}</button>`;
+}
+function sidebarNav(selected) {
+  const items = navItems();
+  const g = groupTasks(state.tasks);
+  const badge = attentionCount(state.tasks);
+  const urgent = g.overdue.length + g.urgent.length > 0;
+  const sections = NAV_SECTIONS.map(section => {
+    const buttons = section.ids
+      .map(id => items.find(n => n.id === id))
+      .filter(Boolean)
+      .map(n => (n.id === 'tasks' ? navButton(n, selected, badge, urgent) : navButton(n, selected)))
+      .join('');
+    return buttons
+      ? `<div class="nav-section"><span class="sidebar-section">${section.title}</span>${buttons}</div>`
+      : '';
+  }).join('');
+  const settings = items.find(n => n.id === 'settings');
+  return `<nav class="nav-group" aria-label="أقسام المنصة">${sections}</nav><div class="sidebar-bottom">${settings ? navButton(settings, selected) : ''}<div class="nav-footer">${ic('shield', 15)}<span>بياناتك الدراسية محفوظة على جهازك، والخدمات السحابية اختيارية</span></div></div>`;
+}
 function layout(content) {
   const selected = state.page === 'course' ? 'courses' : state.page;
   return `<div data-page="${esc(state.page)}" class="shell ${state.collapsed ? 'collapsed' : ''} ${state.mobileMenu ? 'mobile-open' : ''}">
-<aside class="sidebar" aria-label="التنقل الرئيسي" ${state.mobileMenu ? 'data-open="true"' : ''}><div class="logo"><img width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title">UCAS <span class="premium-logo-word">STUDIO</span></div><div class="logo-sub">مساحة التعلم الأكاديمي</div></div><button class="mobile-menu-close" data-action="close-menu" aria-label="إغلاق القائمة">${ic('close', 19)}</button></div><span class="sidebar-section">القائمة الرئيسية</span><nav class="nav-group">${navItems()
-    .map(
-      n =>
-        `<button data-go="${n.id}" title="${n.label}" class="nav-btn ${selected === n.id ? 'active' : ''}" ${selected === n.id ? 'aria-current="page"' : ''}>${ic(n.icon)}<span>${n.label}</span></button>`,
-    )
-    .join(
-      '',
-    )}</nav><div class="nav-footer">${ic('shield', 15)}<br>البيانات الدراسية محليًا افتراضيًا<br>الخدمات السحابية اختيارية</div></aside>
+<aside class="sidebar" aria-label="التنقل الرئيسي" ${state.mobileMenu ? 'data-open="true"' : ''}><div class="logo"><img data-brand-part="mark" width="39" height="39" src="assets/icon.svg" alt=""/><div class="logo-text"><div class="logo-title"><span data-brand-part="title">UCAS <b>STUDIO</b></span></div><div class="logo-sub"><span data-brand-part="subtitle">مساحة التعلم الأكاديمي</span></div></div><button class="mobile-menu-close" data-action="close-menu" aria-label="إغلاق القائمة">${ic('close', 19)}</button></div>${sidebarNav(selected)}</aside>
 ${state.mobileMenu ? `<button class="mobile-menu-overlay" data-action="close-menu" aria-label="إغلاق القائمة"></button>` : ''}
-<div class="main-area"><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS / ACADEMIC STUDIO</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
+<div class="main-area"><div class="mobile-brand"><img data-brand-part="mark" width="34" height="34" src="assets/icon.svg" alt=""/><span class="mobile-brand-title" data-brand-part="title">UCAS <b>STUDIO</b></span></div><header class="topbar"><div class="top-leading"><button class="icon-button" data-action="toggle-menu" aria-label="فتح أو طي القائمة">${ic('menu')}</button><div class="page-head"><div><h2>${state.page === 'course' ? 'تفاصيل المساق' : titles[state.page] || 'المركز الأكاديمي'}</h2><p>UCAS / ACADEMIC STUDIO</p></div></div></div><div class="top-actions"><div class="search-wrap">${ic('search')}<input aria-label="بحث في المصادر والمساقات" id="global-search" placeholder="ابحث عن مساق أو محاضرة..." value="${esc(state.query)}"/></div><button class="icon-button" data-action="search" aria-label="بحث">${ic('search')}</button><button class="icon-button" data-action="notifications" aria-label="التنبيهات">${ic('bell')}</button><button class="icon-button" data-action="theme" aria-label="تبديل المظهر">${ic(state.mode === 'dark' ? 'sun' : 'moon')}</button><span class="avatar desktop-only" aria-label="وضع شخصي">U</span></div></header><main class="content"><div class="page-stage">${content}</div></main></div><nav class="mobile-nav" aria-label="التنقل السفلي">${[
     { id: 'home', icon: 'home', label: 'الرئيسية' },
     { id: 'schedule', icon: 'grid', label: 'جدولي' },
     { id: 'courses', icon: 'book', label: 'مساقاتي' },
@@ -356,6 +394,23 @@ function courseCard(c, i) {
     <div class="premium-course-progress"><div class="premium-course-progress-caption"><span>التقدم في المساق</span><strong>${pct}%</strong></div><div class="progress-track" role="progressbar" aria-label="إنجاز ${esc(c.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div></div>
     <button class="premium-course-open" data-course="${esc(c.id)}" aria-label="فتح ${esc(c.title)}">فتح مساحة المساق <span aria-hidden="true">${ic('chevron')}</span></button>
   </article>`;
+}
+let pendingCourseFocus = null;
+/** After adding a course, keep keyboard focus on its card (or the page heading), never on BODY. */
+function focusNewCourse(id) {
+  pendingCourseFocus = null;
+  const open = [...document.querySelectorAll('.premium-course-card [data-course]')].find(
+    b => b.dataset.course === id,
+  );
+  if (open) {
+    open.focus();
+    open.closest('.premium-course-card')?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  const heading = document.querySelector('main h1') || document.querySelector('h1');
+  if (!heading) return;
+  if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+  heading.focus();
 }
 function noData(title, subtitle, icon = 'folder') {
   return `<div class="empty-state">${ic(icon, 31)}<strong>${title}</strong><p>${subtitle}</p></div>`;
@@ -415,6 +470,26 @@ function storagePanel() {
   const last = lastBackupAt();
   return `<div class="panel storage-panel"><h2>حماية البيانات والمساحة</h2><p class="muted tiny" style="margin:8px 0">${status}</p><div class="progress-track" role="progressbar" aria-label="المساحة المستخدمة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div style="width:${pct}%"></div></div><p class="muted tiny" style="margin:8px 0 14px">المستخدم: <bdi dir="ltr">${formatBytes(st.usage)}</bdi> من <bdi dir="ltr">${formatBytes(st.quota)}</bdi> متاحة للموقع${last ? ` · آخر نسخة احتياطية: ${esc(new Date(last).toLocaleString('ar'))}` : ' · لا توجد نسخة احتياطية بعد'}</p>${st.supported && !st.persisted ? `<button class="outline-btn" data-action="persist-storage">${ic('check')} طلب تخزين دائم</button>` : ''}</div>`;
 }
+function deadlineAlert() {
+  const g = groupTasks(state.tasks);
+  const hot = [...g.overdue, ...g.urgent, ...g.soon];
+  if (!hot.length) return '';
+  const severe = g.overdue.length + g.urgent.length;
+  const parts = [
+    g.overdue.length && `${g.overdue.length} متأخر`,
+    g.urgent.length && `${g.urgent.length} خلال يومين`,
+    g.soon.length && `${g.soon.length} خلال أسبوعين`,
+  ]
+    .filter(Boolean)
+    .join('، ');
+  return `<section class="deadline-alert ${severe ? 'deadline-danger' : 'deadline-warn'}" role="status" aria-label="تنبيه التكليفات"><div class="deadline-alert-head">${ic('bell', 18)}<strong>تكليفات تحتاج انتباهك: ${parts}</strong></div><ul>${hot
+    .slice(0, 4)
+    .map(
+      t =>
+        `<li><span class="deadline-title">${esc(t.title)}</span><small>${esc(courseName(t.courseId))}</small><span class="pill ${g.soon.includes(t) ? 'warn' : 'danger'}">${esc(dueLabel(t.due))}</span></li>`,
+    )
+    .join('')}</ul></section>`;
+}
 function premiumOverview() {
   const nextTask = pending()
     .filter(t => t.due && Number.isFinite(new Date(t.due).getTime()))
@@ -433,11 +508,22 @@ function premiumOverview() {
   return `<section class="premium-focus" aria-labelledby="premium-focus-title">
     <div class="premium-focus-head"><div><span class="premium-kicker">STUDY WORKSPACE</span><h2 id="premium-focus-title">مساحة الدراسة اليوم</h2><p>خطوات عملية من بياناتك المسجلة داخل المنصة</p></div><span class="premium-edition">PREMIUM</span></div>
     <div class="premium-focus-grid">
-      <article class="premium-focus-card"><div class="premium-card-title">${ic('calendar')} <span>التكليف التالي</span></div><h3>${nextTask ? esc(nextTask.title) : 'لا يوجد تكليف مجدول'}</h3><p>${nextTask ? `${esc(courseName(nextTask.courseId))} · ${fmtDate(nextTask.due)}` : 'أضف موعدًا لتظهر أولوياتك هنا'}</p><button class="premium-text-link" data-go="tasks">فتح التكليفات ${ic('chevron', 14)}</button></article>
-      <article class="premium-focus-card"><div class="premium-card-title">${ic('award')} <span>الامتحان القادم</span></div><h3>${nextExam ? esc(nextExam.title) : 'لا يوجد امتحان قادم'}</h3><p>${nextExam ? `${esc(courseName(nextExam.courseId))} · ${fmtDate(nextExam.date)}` : 'أضف مواعيد الامتحانات لتخطيط المراجعة'}</p><button class="premium-text-link" data-go="exams">مركز الامتحانات ${ic('chevron', 14)}</button></article>
+      <article class="premium-focus-card"><div class="premium-card-title">${ic('calendar')} <span>التكليف التالي</span></div><h3>${nextTask ? esc(nextTask.title) : 'لا يوجد تكليف مجدول'}</h3><p>${nextTask ? `${esc(courseName(nextTask.courseId))} · ${fmtDate(nextTask.due)}` : 'أضف موعدًا لتظهر أولوياتك هنا'}</p></article>
+      <article class="premium-focus-card"><div class="premium-card-title">${ic('award')} <span>الامتحان القادم</span></div><h3>${nextExam ? esc(nextExam.title) : 'لا يوجد امتحان قادم'}</h3><p>${nextExam ? `${esc(courseName(nextExam.courseId))} · ${fmtDate(nextExam.date)}` : 'أضف مواعيد الامتحانات لتخطيط المراجعة'}</p></article>
       <article class="premium-focus-card premium-resume"><div class="premium-card-title">${ic('book')} <span>واصل التعلم</span></div><h3>${focusCourse ? esc(focusCourse.title) : 'ابدأ بإضافة مساق'}</h3><p>${focusCourse ? 'افتح المحاضرات والملاحظات والمساعد الدراسي لهذا المساق' : 'نظم مساقاتك ومحاضراتك من مكان واحد'}</p><button class="premium-text-link" ${focusCourse ? `data-course="${esc(focusCourse.id)}"` : 'data-go="courses"'}>متابعة الدراسة ${ic('chevron', 14)}</button></article>
     </div>
     <div class="premium-progress"><div><strong>إنجاز المصادر الدراسية</strong><span>${complete} من ${total} · ${completion}%</span></div><div class="progress-track" role="progressbar" aria-label="إنجاز المصادر الدراسية" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${completion}"><div style="width:${completion}%"></div></div></div>
+  </section>`;
+}
+/** First run: no courses yet. Two ways to start; it disappears once a course exists. */
+function firstRunPanel() {
+  if (state.courses.length) return '';
+  return `<section class="panel first-run" aria-labelledby="first-run-title">
+    <div class="first-run-head"><h2 id="first-run-title">أهلًا بك، لنبدأ بمساقاتك</h2><p>التطبيق فارغ ولا يحتوي أي مساق بعد. اختر طريقة لإضافة مساقات فصلك الحالي، وتبقى بياناتك على جهازك.</p></div>
+    <div class="first-run-options">
+      <div class="first-run-option"><h3>${ic('cloud', 18)} المزامنة من Moodle UCAS</h3><p>تجلب مساقاتك وأنشطتها من حسابك في Moodle. تحتاج إضافة <bdi dir="ltr">UCAS Moodle Companion</bdi> على متصفح <bdi dir="ltr">Chrome</bdi> في جهاز كمبيوتر؛ لا تعمل على Chrome للهاتف.</p><button type="button" class="primary-btn" data-go="moodle">${ic('cloud')} الانتقال إلى صفحة Moodle UCAS</button></div>
+      <div class="first-run-option"><h3>${ic('plus', 18)} إضافة مساق يدويًا</h3><p>اكتب اسم المساق ورمزه وساعاته المعتمدة. يعمل على الهاتف والكمبيوتر ودون اتصال.</p><button type="button" class="outline-btn" data-action="add-course">${ic('plus')} إضافة مساق</button></div>
+    </div>
   </section>`;
 }
 function homePage() {
@@ -457,24 +543,17 @@ function homePage() {
   const total = state.resources.length;
   const done = state.resources.filter(r => r.completed).length;
   const percentage = total ? Math.round((done / total) * 100) : 0;
-  return `<section class="hero premium-hero" aria-labelledby="premium-hero-title">
-    <div class="premium-hero-copy"><div class="premium-hero-date">${ic('calendar', 15)} ${esc(date)} <span class="premium-hero-divider" aria-hidden="true"></span> مساحة دراستك</div><div class="premium-hero-eyebrow">UCAS · YOUR ACADEMIC SPACE</div><h1 id="premium-hero-title">كل خطوة اليوم<br><em>تقرّبك من هدفك</em></h1><p>مساقاتك ومحاضراتك وتكليفاتك في مساحة هادئة، مصممة للتركيز والإنجاز</p>
-    <div class="premium-hero-buttons"><button class="primary-btn" data-go="courses">${ic('book')} متابعة المساقات</button><button class="outline-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div></div>
+  return `${deadlineAlert()}${firstRunPanel()}<section class="hero premium-hero" aria-labelledby="premium-hero-title">
+    <div class="premium-hero-copy"><div class="premium-hero-date">${ic('calendar', 15)} ${esc(date)} <span class="premium-hero-divider" aria-hidden="true"></span> مساحة دراستك</div><div class="premium-hero-eyebrow">UCAS · YOUR ACADEMIC SPACE</div><h1 id="premium-hero-title">كل خطوة اليوم<br><em>تقرّبك من هدفك</em></h1><p>مساقاتك ومحاضراتك وتكليفاتك في مساحة هادئة، مصممة للتركيز والإنجاز</p></div>
     <div class="premium-hero-score" aria-label="إنجاز المصادر ${percentage}%"><div class="premium-score-ring" style="--score:${percentage}%"><div><strong>${percentage}%</strong><span>إنجاز المصادر</span></div></div><p>${done} من ${total} مصدر مكتمل</p><span>تقدمك محسوب من بياناتك</span></div>
   </section>
-  <div class="premium-action-bar" aria-label="إجراءات سريعة">
-    <button data-go="schedule">${ic('calendar')} <span>جدولي</span></button>
-    <button data-go="quizzes">${ic('quiz')} <span>اختبار سريع</span></button>
-    <button data-go="tasks">${ic('check')} <span>التكليفات</span></button>
-    <button data-go="progress">${ic('chart')} <span>إنجازي</span></button>
-  </div>
   ${backupReminder()}
   <div class="stats-grid premium-stats">${stat('book', state.courses.length, 'مساق دراسي')}${stat('file', state.resources.length, 'مصدر ومحاضرة')}${stat('calendar', pending().length, 'تكليف قيد المتابعة')}${stat('quiz', state.attempts.length, 'محاولة اختبار')}</div>
   ${sectionHead('مساحة الأولويات', '<span class="premium-section-hint">ابدأ بالأهم</span>')}${premiumOverview()}
   ${sectionHead('مساقاتي', `<button class="link" data-go="courses">جميع المساقات ${ic('chevron', 14)}</button>`)}
   <div class="course-grid home-courses">${state.courses.slice(0, 6).map(courseCard).join('') || noData('ابدأ مساقك الأول', 'أضف مساقًا لتنظيم محاضراتك', 'book')}</div>
-  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches && !state.homeExtrasOpen ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', `<button class="link" data-go="tasks">التقويم</button>`)}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
-  <div>${sectionHead('أحدث المصادر', `<button class="link" data-go="import">إضافة مصدر</button>`)}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
+  <details class="premium-home-extras" ${matchMedia('(max-width: 860px)').matches && !state.homeExtrasOpen ? '' : 'open'}><summary>${ic('grid', 18)} المزيد من الأدوات والتقارير <span class="premium-extra-hint">المواعيد والمصادر والمذاكرة والتقدم</span></summary><div class="premium-home-extras-body"><div class="premium-home-lower"><div>${sectionHead('المواعيد القريبة', '')}<div class="panel premium-feed">${upcoming.length ? upcoming.map(t => `<div class="item-row"><div><h4>${esc(t.title)}</h4><p>${esc(courseName(t.courseId))}</p></div><span class="pill warn">${fmtDate(t.due)}</span></div>`).join('') : noData('لا توجد مواعيد قريبة', 'أضف التكليفات والمواعيد لتظهر هنا', 'calendar')}</div></div>
+  <div>${sectionHead('أحدث المصادر', '')}<div class="panel premium-feed">${recent.length ? recent.map(r => resourceRow(r, true)).join('') : noData('مكتبتك جاهزة', 'أضف أول محاضرة أو رابط', 'folder')}</div></div></div>
   ${features.homeWidgets(ctx)}
   <div class="premium-footer-grid"><div>${sectionHead('تقويمي الأسبوعي')}<div class="panel">${weekly()}</div></div><div>${sectionHead('نظرة على تقدمي')}<div class="panel">${progressBars()}</div></div></div>
   <div class="moodle-shortcut"><div><strong>${ic('cloud')} Moodle UCAS</strong><p>يمكنك استيراد المصادر يدويًا دون مشاركة كلمة مرور الجامعة.</p></div><button class="outline-btn" data-go="moodle">مركز Moodle ${ic('chevron', 14)}</button></div></div></details>`;
@@ -538,7 +617,7 @@ function coursePage() {
     features.courseTabs.some(t => t.id === tab)
       ? features.courseTabs.find(t => t.id === tab).render(ctx, c)
       : tab === 'lessons'
-        ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div><button class="primary-btn" data-go="import">${ic('plus')} إضافة محاضرة</button></div>${
+        ? `<div class="page-intro"><div><h2>وحدات ومحاضرات المساق</h2><p>الملفات مرتبة بحسب الوحدة أو اسم المحاضرة عند الاستيراد</p></div></div>${
             Object.keys(groups).length
               ? Object.entries(groups)
                   .map(
@@ -570,6 +649,87 @@ function moodleHTMLForm() {
 function moodleImportForm() {
   return `<form id="moodle-form" class="moodle-import-form"><div class="notice info">ألصق نص محاضرة أو تعليمات تكليف تملك صلاحية الاطلاع عليها. تُحفظ نسخة نصية في متصفحك فقط. لا تلصق كلمات مرور أو رموز وصول أو بيانات زملائك.</div><div class="form-grid"><div class="field"><label for="moodle-course">المساق</label><select id="moodle-course" class="select" name="courseId" required><option value="">اختر المساق</option>${courseOption(state.courseId)}</select></div><div class="field"><label for="moodle-title">عنوان المادة</label><input id="moodle-title" class="input" name="title" maxlength="150" required placeholder="مثال: المحاضرة الثانية — مفهوم قواعد البيانات"/></div></div><div class="field"><label for="moodle-text">النص المنسوخ من Moodle</label><textarea id="moodle-text" name="content" class="textarea" maxlength="120000" rows="8" required placeholder="انسخ النص الدراسي من صفحة المساق أو المحاضرة في Moodle ثم ألصقه هنا..."></textarea><p class="muted tiny">لا يُجلب أي محتوى محمي تلقائيًا؛ أنت تحدد ما يُحفظ.</p></div><button class="primary-btn" type="submit">${ic('plus')} حفظ المادة داخل المساق</button></form>`;
 }
+// Why each linked course has (or lacks) files, from the extension's counts-only report or,
+// for extensions older than 0.3, from the activity links the metadata sync saved.
+function companionScanReport() {
+  if (!state.companionFileScanned) return '';
+  const linked = state.courses.filter(c => c.moodleId);
+  const legacy = !Array.isArray(state.companionFileReport);
+  const perCourse = new Map();
+  for (const f of state.companionFiles)
+    perCourse.set(f.courseId, (perCourse.get(f.courseId) || 0) + 1);
+  const entries = legacy
+    ? linked.map(c => ({ courseId: c.moodleId, courseTitle: c.title }))
+    : [...normalizeScanReport(state.companionFileReport).values()];
+  const rows = entries.map(entry => {
+    const course = linked.find(c => c.moodleId === entry.courseId);
+    const files = legacy ? perCourse.get(entry.courseId) || 0 : entry.files;
+    const info = legacy
+      ? {
+          files,
+          legacy: true,
+          activities: activityTypesFromLinks(
+            state.resources
+              .filter(r => r.courseId === course?.id && r.origin === 'moodle-companion')
+              .map(r => r.url),
+          ),
+        }
+      : entry;
+    return {
+      title: course?.title || entry.courseTitle || 'مساق Moodle',
+      files,
+      lines: describeCourseScan(info),
+    };
+  });
+  if (!rows.length) return '';
+  const empty = rows.filter(r => !r.files).length;
+  return `<details class="companion-scan-report" ${empty ? 'open' : ''}><summary>تقرير فحص المساقات: ${rows.length - empty} فيها ملفات، ${empty} بلا ملفات قابلة للنقل</summary><ul class="companion-scan-list">${rows.map(r => `<li><strong>${esc(r.title)}</strong> <span class="pill">${r.files} ملف</span>${r.lines.length ? `<ul>${r.lines.map(line => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul>${state.companionVersion ? `<p class="muted tiny">إصدار الإضافة: ${esc(state.companionVersion)}</p>` : ''}</details>`;
+}
+const TRANSFER_STATUS = {
+  added: 'أُضيف',
+  updated: 'حُدّث',
+  unchanged: 'بدون تغيير',
+  linked: 'حُفظ كرابط',
+  failed: 'تعذر النقل',
+  skipped: 'لم يُنقل',
+};
+const retryable = r => r.status === 'failed' || r.status === 'skipped';
+function companionTransferResults() {
+  const results = state.companionFileResults;
+  if (!results.length) return '';
+  const retry = results.filter(retryable).length;
+  return `<details class="companion-file-results" ${retry ? 'open' : ''}><summary>نتائج نقل الملفات (${results.length})</summary><ul>${results.map(r => `<li class="companion-result-${esc(r.status)}"><strong>${esc(r.name)}</strong>: ${esc(TRANSFER_STATUS[r.status] || r.status)}${r.reason ? ` — ${esc(r.reason)}` : ''}</li>`).join('')}</ul>${retry ? `<button class="outline-btn" data-action="companion-files-retry" ${state.companionFileBusy ? 'disabled' : ''}>إعادة محاولة ${retry} ملف لم يُنقل</button>` : ''}</details>`;
+}
+async function importCompanionFiles(chosen) {
+  state.companionFileBusy = true;
+  state.companionFileCancel = false;
+  state.companionFileResult = '';
+  state.companionFileProgress = 'بدء استيراد الملفات إلى مكتبتك المحلية…';
+  render();
+  try {
+    const result = await transferCompanionFiles(
+      chosen,
+      progress => {
+        state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
+        const label = document.querySelector('.companion-files-status');
+        if (label) label.textContent = state.companionFileProgress;
+        const bar = document.querySelector('.companion-files-progress');
+        if (bar) bar.value = progress.percent;
+      },
+      () => state.companionFileCancel,
+    );
+    state.companionFileResults = result.results;
+    state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله${result.linked ? `، ${result.linked} حُفظ كرابط` : ''}.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.sessionExpired ? ' انتهت جلسة Moodle: سجّل الدخول في Chrome ثم اضغط إعادة المحاولة.' : ''}`;
+    await refresh();
+  } catch (error) {
+    state.companionFileResult = error.message || 'تعذر نقل الملفات';
+    toast(state.companionFileResult, true);
+  } finally {
+    state.companionFileBusy = false;
+    state.companionFileCancel = false;
+    render();
+  }
+}
 function companionFilesPanel() {
   const list = state.companionFiles;
   const groups = new Map();
@@ -580,7 +740,7 @@ function companionFilesPanel() {
   }
   return `<section class="panel companion-file-panel" aria-labelledby="companion-file-title">
     <div class="panel-heading"><h3 id="companion-file-title">ملفات المساقات — نقل مباشر إلى مكتبة UCAS</h3><span class="pill">${list.length} ملف</span></div>
-    <p class="muted tiny">ابدأ بفحص ملفات المساقات المتاحة لحسابك، وراجع القائمة ثم اختر الملفات التي تريد حفظها. التنزيل يتم بموافقتك وبحد 35 MB لكل ملف؛ لا تُجمع العلامات أو واجبات الطلاب أو بيانات الجلسة.</p>
+    <p class="muted tiny">ابدأ بفحص ملفات المساقات المتاحة لحسابك، وراجع القائمة ثم اختر الملفات التي تريد حفظها. التنزيل يتم بموافقتك حتى 200 MB لكل ملف، والأكبر يُحفظ رابطه في Moodle؛ لا تُجمع العلامات أو واجبات الطلاب أو بيانات الجلسة.</p>
     <div class="row-actions">
       <button class="primary-btn" data-action="companion-files-discover" ${state.companionFileBusy ? 'disabled' : ''}>فحص ملفات المساقات</button>
       ${list.length ? `<button class="outline-btn" data-action="companion-files-select-all" ${state.companionFileBusy ? 'disabled' : ''}>تحديد الكل</button><button class="outline-btn" data-action="companion-files-deselect-all" ${state.companionFileBusy ? 'disabled' : ''}>إلغاء التحديد</button><button class="primary-btn" data-action="companion-files-import" ${state.companionFileBusy ? 'disabled' : ''}>استيراد الملفات المحددة إلى UCAS</button>` : ''}
@@ -597,6 +757,8 @@ function companionFilesPanel() {
             .join('')}</ul></details>`
         : ''
     }
+    ${companionScanReport()}
+    ${companionTransferResults()}
     <div class="companion-file-catalog">${[...groups.values()].map(group => `<details class="companion-file-group"><summary><strong>${esc(group.title)}</strong> <span class="pill">${group.items.length} ملف</span></summary><div class="companion-file-list">${group.items.map(file => `<label class="companion-file-item"><input type="checkbox" data-companion-file="${esc(file.id)}" checked ${state.companionFileBusy ? 'disabled' : ''}><span><strong>${esc(file.name)}</strong><small>${esc(file.module)}</small></span></label>`).join('')}</div></details>`).join('')}</div>
     <p class="muted tiny">تُحفظ الملفات في IndexedDB على هذا الكمبيوتر. لا تُرفع إلى مستودع GitHub؛ لن تنتقل تلقائيًا إلى الهاتف دون تفعيل المزامنة السحابية الاختيارية على حسابك.</p>
   </section>`;
@@ -610,7 +772,7 @@ function moodlePage() {
 <div class="row-actions"><button class="primary-btn" data-action="companion-scan">مزامنة من Moodle</button><button class="outline-btn" data-action="companion-last">استيراد آخر فحص</button><button class="outline-btn" data-action="companion-auto">${state.companionAuto ? 'تعطيل' : 'تفعيل'} الفحص كل ساعة</button></div>
 <p class="muted tiny" role="status" aria-live="polite">${esc(state.companionStatus || 'ثبّت إضافة UCAS Moodle Companion مرة واحدة على Chrome للكمبيوتر. لا تدعم نسخة Chrome على Android الإضافات.')}</p>
 <p class="muted tiny">تنزّل النسخة الجديدة ملفات المساق المتاحة بعد فحصها وموافقتك، وتحتفظ بها محليًا؛ لا تستخرج العلامات أو واجبات الطلاب الخاصة.</p>
-</section>${companionFilesPanel()}<div class="panel moodle-connect-intro" style="margin-bottom:18px"><div class="panel-heading"><h3>ربط Moodle الرسمي (OAuth)</h3><span class="pill">يتطلب تفعيل الجامعة</span></div><p class="muted tiny">اتصال قراءة فقط بعد تفويض حسابك على موقع الجامعة، دون تخزين كلمة المرور. لم تؤكد الجامعة بعد توفير صلاحيات API لتطبيق UCAS.</p><a class="primary-btn" href="moodle-connect.html">فتح Moodle Connect</a></div>${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3><button class="link" data-go="import">مركز الاستيراد ${ic('chevron', 14)}</button></div>${moodleImportForm()}</div><div class="quick-actions"><button class="quick-action" data-action="moodle-files">${ic('upload')}<div><strong>ملفات المحاضرات</strong><p class="muted tiny">PDF وDOCX وPPTX</p></div></button><button class="quick-action" data-action="moodle-ics">${ic('calendar')}<div><strong>تقويم Moodle</strong><p class="muted tiny">ملف ICS من بوابة الجامعة</p></div></button><button class="quick-action" data-action="moodle-links">${ic('link')}<div><strong>روابط المواد</strong><p class="muted tiny">روابط مسموح بها</p></div></button></div>`;
+</section>${companionFilesPanel()}<div class="panel moodle-connect-intro" style="margin-bottom:18px"><div class="panel-heading"><h3>ربط Moodle الرسمي (OAuth)</h3><span class="pill">يتطلب تفعيل الجامعة</span></div><p class="muted tiny">اتصال قراءة فقط بعد تفويض حسابك على موقع الجامعة، دون تخزين كلمة المرور. لم تؤكد الجامعة بعد توفير صلاحيات API لتطبيق UCAS.</p><a class="primary-btn" href="moodle-connect.html">فتح Moodle Connect</a></div>${intro('Moodle UCAS', 'استيراد آمن من حساب طالب عادي، دون كلمة مرور داخل منصتنا', `<a class="primary-btn" href="https://moodle.ucas.edu.ps/login/index.php" target="_blank" rel="noopener noreferrer">${ic('external')} فتح Moodle الرسمي</a>`)}<div class="moodle-status"><div class="moodle-status-icon">${ic('shield', 24)}</div><div><strong>الاستيراد من Moodle متاح بإذن المستخدم</strong><p>لا توجد مزامنة API مؤكدة مع حساب UCAS، ولا تصل هذه الواجهة إلى جلسة الجامعة. احتفظ بملفاتك داخل المتصفح بعد اختيارك لها.</p></div><span class="pill">${count} مصدر Moodle</span></div><div class="moodle-steps"><div><span>١</span><strong>الدخول الرسمي</strong><p>افتح مساقك في Moodle UCAS وسجّل الدخول هناك فقط.</p></div><div><span>٢</span><strong>تصدير محتوى مسموح</strong><p>احفظ صفحة المساق MHT من هاتفك أو HTML من الحاسوب أو نزّل المحاضرات أو ملف تقويم ICS.</p></div><div><span>٣</span><strong>المعاينة والاستيراد</strong><p>اختر العناصر التي تريد حفظها محليًا داخل مساقك.</p></div></div><div class="panel"><div class="panel-heading"><h3>استيراد صفحة المساق</h3><span class="pill">جديد</span></div>${moodleHTMLForm()}</div><div class="panel" style="margin-top:18px"><div class="panel-heading"><h3>استيراد نص من Moodle</h3></div>${moodleImportForm()}</div>`;
 }
 function driveImportPanel(options) {
   return (
@@ -626,9 +788,10 @@ function driveImportPanel(options) {
   );
 }
 function importPage() {
-  let tab = state.importTab;
+  // Moodle imports live on the Moodle page only.
+  let tab = state.importTab === 'moodle' ? 'drive' : state.importTab;
   let options = `<option value="">اختر المساق</option>${courseOption()}`;
-  return `${intro('مركز الاستيراد', 'استورد ملفات الدراسة وروابط Google Drive إلى مساقاتك دون تسجيل دخول للمنصة')}<div class="panel moodle-companion-panel" style="margin-bottom:16px"><div class="panel-heading"><h3>مزامنة Moodle من Chrome</h3><span class="pill">بدون API</span></div><p class="muted tiny">استيراد المساقات والأنشطة التي يتيحها حسابك الجامعي من خلال إضافة Chrome للكمبيوتر.</p><button class="primary-btn" data-go="moodle">فتح Moodle Companion</button></div><div class="panel moodle-connect-intro" style="margin-bottom:16px"><div class="panel-heading"><h3>ربط Moodle Connect</h3><span class="pill">ينتظر تفويض الجامعة</span></div><p class="muted tiny">جهزنا اتصال OAuth آمن لمزامنة المساقات. لم يُفعّل بعد دون تسجيل الجامعة لتطبيق UCAS ومنحه صلاحيات القراءة.</p><a class="outline-btn" href="moodle-connect.html">تفاصيل الربط والمتطلبات</a></div><div class="notice info" style="margin-bottom:22px">يمكنك الآن استخدام Chrome Companion لاستيراد ملفات المحاضرات من Moodle على الكمبيوتر، أو اختيار Google Drive وملفات الجهاز كبدائل. استيراد MHT من Moodle مؤجل مؤقتًا. جميع المصادر المستوردة تُحفظ في متصفحك، ولا تتم مزامنة الملفات تلقائيًا مع حساب Google.</div><div class="quick-actions"><button class="quick-action" data-import-tab="drive">${ic('cloud')}<div><strong>Google Drive</strong><p class="muted tiny">اختيار ملفات وحفظ الروابط</p></div></button><button class="quick-action" data-import-tab="files">${ic('upload')}<div><strong>رفع ملفات</strong><p class="muted tiny">PDF وDOCX وPPTX وTXT</p></div></button><button class="quick-action" data-import-tab="links">${ic('link')}<div><strong>روابط المحاضرات</strong><p class="muted tiny">روابط الويب والفيديو</p></div></button><button class="quick-action" data-import-tab="ics">${ic('calendar')}<div><strong>تقويم ICS</strong><p class="muted tiny">استيراد الأحداث والمواعيد</p></div></button></div><div class="tabs" style="margin-top:25px"><button class="tab ${tab === 'drive' ? 'active' : ''}" data-import-tab="drive">Google Drive</button><button class="tab ${tab === 'files' ? 'active' : ''}" data-import-tab="files">الملفات</button><button class="tab ${tab === 'links' ? 'active' : ''}" data-import-tab="links">الروابط</button><button class="tab ${tab === 'ics' ? 'active' : ''}" data-import-tab="ics">تقويم ICS</button><button class="tab ${tab === 'moodle' ? 'active' : ''}" data-import-tab="moodle">Moodle</button></div><div class="panel">${tab === 'moodle' ? `${moodleHTMLForm()}<div class="divider"></div>${moodleImportForm()}` : tab === 'files' ? `<form id="file-form"><div class="upload-zone">${ic('cloud')}<strong>ارفع ملفات المحاضرات والمراجع</strong><p>تظل الملفات محفوظة محليًا في متصفح هذا الجهاز</p><input id="source-files" name="files" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md" required/></div><div class="form-grid"><div class="field"><label for="file-course">المساق</label><select class="select" id="file-course" name="courseId" required>${options}</select></div><div class="field"><label for="file-module">الوحدة / المحاضرة</label><input id="file-module" class="input" name="module" placeholder="مثال: المحاضرة الأولى"/></div></div><button class="primary-btn" type="submit">${ic('upload')} حفظ الملفات في المكتبة</button></form>` : tab === 'links' ? `<form id="link-form"><div class="field"><label>عنوان المحاضرة أو المصدر</label><input class="input" name="name" required maxlength="180"/></div><div class="field"><label>رابط المصدر (HTTPS)</label><input class="input" type="url" name="url" required placeholder="https://..."/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required>${options}</select></div><div class="field"><label>الوحدة / المحاضرة</label><input class="input" name="module"/></div></div><button class="primary-btn" type="submit">${ic('plus')} حفظ الرابط</button></form>` : tab === 'ics' ? `<form id="ics-form"><div class="field"><label>اختر ملف تقويم ICS</label><input class="input" type="file" name="calendar" accept=".ics,text/calendar" required/></div><div class="notice warn" style="margin-bottom:15px">يدعم الاستيراد الحالي الأحداث الفردية. الأحداث المتكررة RRULE والمناطق الزمنية غير القياسية تحتاج معالجة إضافية قبل الاعتماد عليها كمواعيد نهائية.</div><button class="primary-btn" type="submit">${ic('calendar')} استيراد المواعيد</button></form>` : `${driveImportPanel(options)}`}</div>${sectionHead('ملفاتي المستوردة')}<div class="panel">${
+  return `${intro('مركز الاستيراد', 'استورد ملفات الدراسة وروابط Google Drive إلى مساقاتك دون تسجيل دخول للمنصة')}<div class="notice info" style="margin-bottom:22px">يمكنك الآن استخدام Chrome Companion لاستيراد ملفات المحاضرات من Moodle على الكمبيوتر، أو اختيار Google Drive وملفات الجهاز كبدائل. استيراد MHT من Moodle مؤجل مؤقتًا. جميع المصادر المستوردة تُحفظ في متصفحك، ولا تتم مزامنة الملفات تلقائيًا مع حساب Google.</div><div class="quick-actions"><button class="quick-action" data-import-tab="drive">${ic('cloud')}<div><strong>Google Drive</strong><p class="muted tiny">اختيار ملفات وحفظ الروابط</p></div></button><button class="quick-action" data-import-tab="files">${ic('upload')}<div><strong>رفع ملفات</strong><p class="muted tiny">PDF وDOCX وPPTX وTXT</p></div></button><button class="quick-action" data-import-tab="links">${ic('link')}<div><strong>روابط المحاضرات</strong><p class="muted tiny">روابط الويب والفيديو</p></div></button><button class="quick-action" data-import-tab="ics">${ic('calendar')}<div><strong>تقويم ICS</strong><p class="muted tiny">استيراد الأحداث والمواعيد</p></div></button></div><div class="tabs" style="margin-top:25px"><button class="tab ${tab === 'drive' ? 'active' : ''}" data-import-tab="drive">Google Drive</button><button class="tab ${tab === 'files' ? 'active' : ''}" data-import-tab="files">الملفات</button><button class="tab ${tab === 'links' ? 'active' : ''}" data-import-tab="links">الروابط</button><button class="tab ${tab === 'ics' ? 'active' : ''}" data-import-tab="ics">تقويم ICS</button></div><div class="panel">${tab === 'files' ? `<form id="file-form"><div class="upload-zone">${ic('cloud')}<strong>ارفع ملفات المحاضرات والمراجع</strong><p>تظل الملفات محفوظة محليًا في متصفح هذا الجهاز</p><input id="source-files" name="files" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md" required/></div><div class="form-grid"><div class="field"><label for="file-course">المساق</label><select class="select" id="file-course" name="courseId" required>${options}</select></div><div class="field"><label for="file-module">الوحدة / المحاضرة</label><input id="file-module" class="input" name="module" placeholder="مثال: المحاضرة الأولى"/></div></div><button class="primary-btn" type="submit">${ic('upload')} حفظ الملفات في المكتبة</button></form>` : tab === 'links' ? `<form id="link-form"><div class="field"><label>عنوان المحاضرة أو المصدر</label><input class="input" name="name" required maxlength="180"/></div><div class="field"><label>رابط المصدر (HTTPS)</label><input class="input" type="url" name="url" required placeholder="https://..."/></div><div class="form-grid"><div class="field"><label>المساق</label><select class="select" name="courseId" required>${options}</select></div><div class="field"><label>الوحدة / المحاضرة</label><input class="input" name="module"/></div></div><button class="primary-btn" type="submit">${ic('plus')} حفظ الرابط</button></form>` : tab === 'ics' ? `<form id="ics-form"><div class="field"><label>اختر ملف تقويم ICS</label><input class="input" type="file" name="calendar" accept=".ics,text/calendar" required/></div><div class="notice warn" style="margin-bottom:15px">يدعم الاستيراد الحالي الأحداث الفردية. الأحداث المتكررة RRULE والمناطق الزمنية غير القياسية تحتاج معالجة إضافية قبل الاعتماد عليها كمواعيد نهائية.</div><button class="primary-btn" type="submit">${ic('calendar')} استيراد المواعيد</button></form>` : `${driveImportPanel(options)}`}</div>${sectionHead('ملفاتي المستوردة')}<div class="panel">${
     state.resources.length
       ? state.resources
           .slice()
@@ -639,18 +802,29 @@ function importPage() {
       : noData('لا توجد ملفات بعد', 'المكتبة فارغة إلى حين استيراد أول مصدر', 'folder')
   }</div>`;
 }
-function taskRow(t) {
-  return `<article class="task-card"><label><input class="check-task" type="checkbox" data-toggle-task="${esc(t.id)}" ${t.done ? 'checked' : ''} aria-label="وضع مكتمل"/></label><div class="grow"><strong style="${t.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(t.title)}</strong><p>${esc(courseName(t.courseId))} · ${fmtDate(t.due)}</p></div><div class="row-actions"><span class="pill ${t.done ? 'success' : 'warn'}">${t.done ? 'مكتمل' : 'قيد الإنجاز'}</span><button class="btn-mini" data-delete-task="${esc(t.id)}" aria-label="حذف">${ic('trash', 16)}</button></div></article>`;
+const DUE_PILL = {
+  overdue: 'danger',
+  urgent: 'danger',
+  soon: 'warn',
+  later: '',
+  undated: '',
+  done: 'success',
+};
+function taskRow(t, level = 'later') {
+  const badge = level === 'done' ? 'مكتمل' : dueLabel(t.due);
+  const moodle = t.moodleActivityURL
+    ? ` · <a href="${esc(t.moodleActivityURL)}" target="_blank" rel="noopener noreferrer">فتح في Moodle</a>`
+    : '';
+  return `<article class="task-card task-${level}"><label><input class="check-task" type="checkbox" data-toggle-task="${esc(t.id)}" ${t.done ? 'checked' : ''} aria-label="وضع مكتمل"/></label><div class="grow"><strong>${esc(t.title)}</strong><p>${esc(courseName(t.courseId))}${t.due ? ` · ${fmtDate(t.due)}` : ''}${moodle}</p></div><div class="row-actions"><span class="pill ${DUE_PILL[level]}">${esc(badge)}</span><button class="btn-mini" data-delete-task="${esc(t.id)}" aria-label="حذف">${ic('trash', 16)}</button></div></article>`;
 }
 function tasksPage() {
-  const taskList = state.tasks
-    .slice()
-    .sort(
-      (a, b) =>
-        (a.done === b.done ? 0 : a.done ? 1 : -1) ||
-        (a.due || '9999').localeCompare(b.due || '9999'),
-    );
-  return `${intro('التكليفات والمواعيد', 'قائمة منظمة بمهامك ومواعيد التسليم', `<button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button>`)}<div class="split-layout"><div><div class="panel-heading"><h3>قائمة التكليفات</h3><span class="pill">${pending().length} غير مكتمل</span></div><div class="card-stack">${taskList.length ? taskList.map(taskRow).join('') : noData('لا توجد تكليفات', 'أضف مهمة جديدة يدويًا أو استورد تقويم ICS', 'calendar')}</div></div><div><div class="panel"><div class="panel-heading"><h3>هذا الأسبوع</h3></div>${weekly()}</div><div class="panel" style="margin-top:17px"><div class="panel-heading"><h3>أحداث التقويم المستوردة</h3><span class="pill">${state.events.length}</span></div>${
+  const g = groupTasks(state.tasks);
+  const group = (key, title, hint = '') =>
+    g[key].length
+      ? `<section class="task-group task-group-${key}"><div class="panel-heading"><h3>${title}</h3><span class="pill ${DUE_PILL[key]}">${g[key].length}</span></div>${hint ? `<p class="muted tiny">${hint}</p>` : ''}<div class="card-stack">${g[key].map(t => taskRow(t, key)).join('')}</div></section>`
+      : '';
+  const open = state.tasks.length - g.done.length;
+  return `${intro('التكليفات والمواعيد', 'الأقرب موعدًا أولًا، مع تنبيه لما يستحق خلال أسبوعين', `<button class="primary-btn" data-action="add-task">${ic('plus')} تكليف جديد</button>`)}<div class="split-layout"><div>${open ? '' : noData('لا توجد تكليفات مفتوحة', 'أضف تكليفًا أو زامن مساقاتك من صفحة Moodle UCAS', 'calendar')}${group('overdue', 'متأخرة: فات موعدها', 'إن كنت سلّمتها، زامن من صفحة Moodle UCAS أو ضع علامة مكتمل.')}${group('urgent', 'خلال يومين')}${group('soon', 'خلال أسبوعين')}${group('later', 'لاحقًا')}${group('undated', 'بدون موعد تسليم', 'زامن من صفحة Moodle UCAS لجلب الموعد، أو احذف ما لم يعد مطلوبًا.')}${g.done.length ? `<details class="task-done"><summary>المكتملة والمسلّمة (${g.done.length})</summary><div class="card-stack">${g.done.map(t => taskRow(t, 'done')).join('')}</div></details>` : ''}</div><div><div class="panel"><div class="panel-heading"><h3>هذا الأسبوع</h3></div>${weekly()}</div><div class="panel" style="margin-top:17px"><div class="panel-heading"><h3>أحداث التقويم المستوردة</h3><span class="pill">${state.events.length}</span></div>${
     state.events.length
       ? state.events
           .slice()
@@ -789,7 +963,7 @@ function settingsPage() {
     )
     .join(
       '',
-    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في نسخة JSON. قد تكون النسخة كبيرة حسب حجم الملفات المحفوظة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".json,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>تعمل الوظائف الدراسية الأساسية محليًا دون حساب. تحفظ الملفات والملاحظات أولًا في متصفح هذا الجهاز.</li><li>عند تفعيل المزامنة بحساب بريد إلكتروني، تُرفع بيانات الدراسة والملفات إلى مساحة سحابية خاصة بالحساب عبر Supabase.</li><li>عند استخدام مجموعات الدراسة، تُرسل أسماء المجموعات والاسم المستعار والرسائل إلى Supabase لعرضها لأعضاء المجموعة.</li><li>عند استخدام مساعد Gemini وبعد موافقتك، يُرسل نص المحاضرة المحددة وسؤالك إلى الخدمة لمعالجته؛ لا تُرسل الملفات تلقائيًا بمجرد استيرادها.</li><li>لا يطلب الموقع كلمة مرور Moodle ولا ينفذ مزامنة مباشرة معه. النسخ الاحتياطية JSON غير مشفرة حاليًا؛ احفظها بمكان آمن.</li><li>عند مسح بيانات الموقع قد تفقد البيانات المحلية. راجع <a href="https://github.com/mmashharawi2021-cell/UCAS/blob/main/docs/PRIVACY_DATA_FLOWS.md" target="_blank" rel="noopener noreferrer">شرح تدفقات البيانات</a> قبل تفعيل الخدمات السحابية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — الدراسة المحلية افتراضيًا، والمزامنة والمجموعات وميزات AI خدمات سحابية اختيارية.</div></div>`;
+    )}</div></div><div class="panel"><h2>النسخ الاحتياطي</h2><p class="muted tiny" style="margin:8px 0 16px">صدّر ملفاتك وبياناتك ونتائج اختباراتك في ملف ZIP واحد. حجم النسخة يقارب حجم الملفات المحفوظة. يمكن أيضًا استعادة نسخ JSON القديمة.</p><div class="row-actions"><button class="primary-btn" data-action="export">${ic('download')} تنزيل نسخة احتياطية</button><label class="outline-btn" style="cursor:pointer">${ic('upload')} استعادة نسخة <input id="restore-file" type="file" accept=".zip,.json,application/zip,application/json" style="display:none"/></label></div><p class="muted tiny" style="margin-top:10px">الاستعادة تستبدل بيانات النسخة الحالية. احفظ نسخة احتياطية قبل الاستعادة.</p></div><div class="panel"><h2>خصوصية البيانات</h2><ul class="bullet-list"><li>تعمل الوظائف الدراسية الأساسية محليًا دون حساب. تحفظ الملفات والملاحظات أولًا في متصفح هذا الجهاز.</li><li>عند تفعيل المزامنة بحساب بريد إلكتروني، تُرفع بيانات الدراسة والملفات إلى مساحة سحابية خاصة بالحساب عبر Supabase.</li><li>عند استخدام مجموعات الدراسة، تُرسل أسماء المجموعات والاسم المستعار والرسائل إلى Supabase لعرضها لأعضاء المجموعة.</li><li>عند استخدام مساعد Gemini وبعد موافقتك، يُرسل نص المحاضرة المحددة وسؤالك إلى الخدمة لمعالجته؛ لا تُرسل الملفات تلقائيًا بمجرد استيرادها.</li><li>لا يطلب الموقع كلمة مرور Moodle ولا ينفذ مزامنة مباشرة معه. النسخ الاحتياطية غير مشفرة حاليًا؛ احفظها بمكان آمن.</li><li>عند مسح بيانات الموقع قد تفقد البيانات المحلية. راجع <a href="https://github.com/mmashharawi2021-cell/UCAS/blob/main/docs/PRIVACY_DATA_FLOWS.md" target="_blank" rel="noopener noreferrer">شرح تدفقات البيانات</a> قبل تفعيل الخدمات السحابية.</li></ul><button class="danger-btn" data-action="clear-data">${ic('trash')} حذف بيانات المنصة من هذا الجهاز</button></div><div class="notice">الإصدار الحالي: ${APP_VERSION} — الدراسة المحلية افتراضيًا، والمزامنة والمجموعات وميزات AI خدمات سحابية اختيارية.</div></div>`;
 }
 function searchPage() {
   const q = state.query.trim().toLowerCase();
@@ -885,7 +1059,7 @@ async function displayResource(id) {
   const isText = r.name.toLowerCase().endsWith('.txt') || r.name.toLowerCase().endsWith('.md');
   let markup = `<div class="row-actions" style="margin-bottom:15px"><button class="outline-btn" data-action="download-resource" data-id="${esc(id)}">${ic('download')} تنزيل الملف</button><button class="outline-btn" data-action="open-resource" data-id="${esc(id)}">${ic('external')} فتح في تبويب جديد</button></div>`;
   if (isPdf)
-    markup += `<iframe class="file-frame" title="${esc(r.name)}" src="${esc(viewURL)}"></iframe>`;
+    markup += `<p class="notice info pdf-extent-note" id="pdf-extent-note" role="status" hidden></p><iframe class="file-frame" title="${esc(r.name)}" src="${esc(viewURL)}"></iframe>`;
   else if (isText)
     markup += `<pre style="white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow:auto;font-family:inherit" id="text-preview"></pre>`;
   else if (/\.(docx|pptx)$/i.test(r.name))
@@ -893,6 +1067,7 @@ async function displayResource(id) {
   else
     markup += `<div class="notice info">معاينة هذه الصيغة غير مدعومة. يمكنك تنزيل الملف أو فتحه في تطبيق مناسب.</div>`;
   modal(r.name, markup, true);
+  if (isPdf) showPdfExtent(r);
   if (isText)
     document.getElementById('text-preview').textContent = (await r.blob.text()).slice(0, 150000);
   if (/\.(docx|pptx)$/i.test(r.name)) {
@@ -921,6 +1096,39 @@ async function displayResource(id) {
     }
   }
 }
+// How far study tools read each PDF (page/character limits), per file version, for this session.
+// Holds only page numbers, never text.
+const pdfExtentCache = new Map();
+const pdfExtentKey = r => r.id + ':' + (r.blob?.size ?? r.size ?? '');
+function pdfExtentOf(pdf) {
+  return pdf?.truncated
+    ? {
+        totalPages: pdf.totalPages,
+        pagesExamined: pdf.pagesExamined,
+        truncated: true,
+        cutBy: pdf.cutBy || '',
+        cutPage: pdf.cutPage ?? null,
+      }
+    : { truncated: false };
+}
+/** In the PDF preview, say when study tools read only part of the file. Silent on failure. */
+async function showPdfExtent(r) {
+  const key = pdfExtentKey(r);
+  let info = pdfExtentCache.get(key);
+  if (!info) {
+    try {
+      info = pdfExtentOf(await extractPdfText(r.blob));
+    } catch {
+      return; // offline, scanned or unreadable: the preview itself still works
+    }
+    pdfExtentCache.set(key, info);
+  }
+  const slot = document.getElementById('pdf-extent-note');
+  const note = pdfTruncationNote(info);
+  if (!slot?.isConnected || !note) return;
+  slot.textContent = `${note}، للبحث وبطاقات الدراسة على جهازك. مساعد AI يرسل إلى Gemini أول ${AI_MAX_TEXT_PHRASE} فقط، وبموافقتك. الملف نفسه يُعرض كاملًا أدناه.`;
+  slot.hidden = false;
+}
 function addTaskModal() {
   modal(
     'تكليف جديد',
@@ -930,7 +1138,7 @@ function addTaskModal() {
 function addCourseModal() {
   modal(
     'إضافة مساق',
-    `<form id="course-form"><div class="field"><label for="course-title">اسم المساق</label><input id="course-title" class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><div class="form-grid"><div class="field"><label for="course-code">رمز المساق</label><input id="course-code" class="input" name="code" maxlength="12" placeholder="GISS 3301" dir="ltr"/></div><div class="field"><label for="course-hours">الساعات المعتمدة</label><input id="course-hours" class="input" type="number" name="hours" min="0" max="12" value="3"/></div></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
+    `<form id="course-form"><div class="field"><label for="course-title">اسم المساق</label><input id="course-title" class="input" name="title" required maxlength="180" placeholder="اسم المساق الجامعي"/></div><div class="form-grid"><div class="field"><label for="course-code">رمز المساق</label><input id="course-code" class="input" name="code" maxlength="12" placeholder="ABC 1234" dir="ltr"/></div><div class="field"><label for="course-hours">الساعات المعتمدة</label><input id="course-hours" class="input" type="number" name="hours" min="0" max="12" value="3"/></div></div><button class="primary-btn" type="submit">${ic('plus')} إضافة المساق</button></form>`,
   );
 }
 
@@ -978,7 +1186,29 @@ async function loadStudyDocumentsForCurrentCourse() {
   });
   studySession.documents = data.documents;
   studySession.lastLoad = data;
+  for (const d of data.documents)
+    if (/\.pdf$/i.test(d.name || '')) {
+      const r = courseFiles.find(f => f?.id === d.id);
+      if (r) pdfExtentCache.set(pdfExtentKey(r), d.pdfExtent || { truncated: false });
+    }
   return data.documents;
+}
+/** One notice per PDF that study tools read only in part; names the file when several are loaded. */
+function appendPdfExtentNotices(slot) {
+  const several = studySession.documents.length > 1;
+  for (const d of studySession.documents) {
+    const note = pdfTruncationNote(d.pdfExtent);
+    if (!note) continue;
+    const element = document.createElement('p');
+    element.className = 'notice info tiny pdf-extent-note';
+    if (several) {
+      const name = document.createElement('bdi');
+      name.textContent = d.name;
+      element.append(name, ': ');
+    }
+    element.append(note + '، وما بعدها غير مشمول في البحث والبطاقات.');
+    slot.appendChild(element);
+  }
 }
 function appendStudyNotice(target, message) {
   const element = document.createElement('p');
@@ -1132,6 +1362,7 @@ async function runStudySearch(query) {
         slot,
         'تم فحص أول ' + data.limit + ' مصدر فقط لتقليل استهلاك الذاكرة على الهاتف.',
       );
+    appendPdfExtentNotices(slot);
     appendOCROptions(slot);
     const copy = document.querySelector('[data-action="study-copy"]');
     if (copy) copy.disabled = !matches.length;
@@ -1175,6 +1406,7 @@ async function renderStudyCards() {
           slot,
           'تعذرت قراءة بعض الملفات: ' + details.errors.slice(0, 2).join('، '),
         );
+      appendPdfExtentNotices(slot);
       appendOCROptions(slot);
       return;
     }
@@ -1213,6 +1445,7 @@ async function renderStudyCards() {
       }
       slot.appendChild(article);
     }
+    appendPdfExtentNotices(slot);
     appendOCROptions(slot);
   } catch (error) {
     slot.textContent = 'تعذر إعداد بطاقات المراجعة: ' + String(error?.message || error);
@@ -1266,12 +1499,8 @@ async function copyStudyPrompt() {
 
 function dueNotifications() {
   let now = Date.now();
-  let due = pending().filter(
-    t =>
-      t.due &&
-      new Date(t.due).getTime() - now >= 0 &&
-      new Date(t.due).getTime() - now < 7 * 86400000,
-  );
+  const g = groupTasks(state.tasks);
+  let due = [...g.overdue, ...g.urgent, ...g.soon];
   let events = state.events.filter(
     e =>
       e.date &&
@@ -1414,9 +1643,16 @@ async function handleClick(e) {
       state.companionFileResult = '';
       render();
       try {
+        // A quick request first, so a missing extension isn't reported as a slow scan.
+        await companionRequest('LAST');
         const result = await companionRequest('FILE_SCAN');
         state.companionFiles = validateFileCatalog(result.files || []);
         state.companionFileFailures = (result.failures || []).slice(0, 100);
+        state.companionFileReport = Array.isArray(result.report) ? result.report : null;
+        state.companionVersion =
+          typeof result.version === 'string' ? result.version.slice(0, 20) : '';
+        state.companionFileResults = [];
+        state.companionFileScanned = true;
         state.companionFileProgress = `اكتُشف ${state.companionFiles.length} ملف. راجع ما تريد استيراده، ثم اضغط زر الاستيراد.`;
       } catch (error) {
         state.companionFileProgress = error.message || 'تعذر اكتشاف الملفات';
@@ -1451,33 +1687,15 @@ async function handleClick(e) {
       );
       const chosen = state.companionFiles.filter(f => ids.has(f.id));
       if (!chosen.length) return toast('حدد ملفًا واحدًا على الأقل', true);
-      state.companionFileBusy = true;
-      state.companionFileCancel = false;
-      state.companionFileResult = '';
-      state.companionFileProgress = 'بدء استيراد الملفات إلى مكتبتك المحلية…';
-      render();
-      try {
-        const result = await transferCompanionFiles(
-          chosen,
-          progress => {
-            state.companionFileProgress = `ملف ${progress.index} من ${progress.total}: ${progress.name} — ${progress.percent}%`;
-            const label = document.querySelector('.companion-files-status');
-            if (label) label.textContent = state.companionFileProgress;
-            const bar = document.querySelector('.companion-files-progress');
-            if (bar) bar.value = progress.percent;
-          },
-          () => state.companionFileCancel,
-        );
-        state.companionFileResult = `اكتمل النقل: ${result.added} جديد، ${result.updated} محدّث، ${result.unchanged} بدون تغيير، ${result.failed} تعذر نقله.${result.stopped ? ' أُوقف النقل بناءً على طلبك.' : ''}${result.errors.length ? ' أخطاء: ' + result.errors.slice(0, 5).join(' | ') : ''}`;
-        await refresh();
-      } catch (error) {
-        state.companionFileResult = error.message || 'تعذر نقل الملفات';
-        toast(state.companionFileResult, true);
-      } finally {
-        state.companionFileBusy = false;
-        state.companionFileCancel = false;
-        render();
-      }
+      await importCompanionFiles(chosen);
+      break;
+    }
+    case 'companion-files-retry': {
+      if (state.companionFileBusy) break;
+      const again = new Set(state.companionFileResults.filter(retryable).map(r => r.id));
+      const chosen = state.companionFiles.filter(f => again.has(f.id));
+      if (!chosen.length) return toast('لا توجد ملفات لإعادة المحاولة', true);
+      await importCompanionFiles(chosen);
       break;
     }
     case 'companion-scan':
@@ -1498,7 +1716,7 @@ async function handleClick(e) {
           throw Error('لا يوجد فحص محفوظ بعد. استخدم «مزامنة من Moodle» أولًا.');
         const result = await importCompanionSnapshot(response.snapshot);
         state.companionAuto = response.autoEnabled === true || state.companionAuto;
-        state.companionStatus = `تم فحص ${result.scanned} مساق، أُضيف ${result.courses} مساق وربط ${result.linked} مساق، واستيراد ${result.resources} نشاط و${result.tasks} تكليف. ${result.failures ? `تعذر فحص ${result.failures} مساق بالكامل.` : ''}`;
+        state.companionStatus = `تم فحص ${result.scanned} مساق، أُضيف ${result.courses} مساق وربط ${result.linked} مساق، واستيراد ${result.resources} نشاط و${result.tasks} تكليف${result.tasksUpdated ? `، وتحديث موعد أو حالة ${result.tasksUpdated} تكليف` : ''}. ${result.failures ? `تعذر فحص ${result.failures} مساق بالكامل.` : ''}`;
         await refresh();
       } catch (error) {
         state.companionStatus = error?.message || 'تعذرت المزامنة';
@@ -1715,12 +1933,11 @@ async function handleClick(e) {
     }
     case 'export':
       try {
-        const data = await backup();
-        const file = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const file = await backupArchive();
         const url = URL.createObjectURL(file);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `ucas-bridge-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `ucas-bridge-backup-${new Date().toISOString().slice(0, 10)}.zip`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 60000);
         await put('settings', { id: 'last-backup', value: new Date().toISOString() });
@@ -1752,11 +1969,13 @@ async function handleClick(e) {
       if (!confirm('تأكيد نهائي: حذف جميع البيانات المحلية؟')) return;
       {
         const names = exportStores;
-        const { replaceAll } = await import('./store.js?v=1.7.0');
+        const { replaceAll } = await import('./store.js?v=2.0.0');
         for (const s of names) await replaceAll(s, []);
+        // Sync bookkeeping goes too; pending cloud deletions are kept (ids only).
+        (await import('./cloud/sync.js?v=2.0.0')).clearSyncMeta();
         await initialize();
         await refresh();
-        toast('تم حذف بيانات الجهاز وإعادة المساقات الافتراضية');
+        toast('تم حذف بيانات الجهاز');
       }
       break;
   }
@@ -1869,6 +2088,7 @@ async function handleSubmit(e) {
       await refresh();
       document.querySelector('.modal-backdrop')?.remove();
       toast('تمت إضافة المساق');
+      pendingCourseFocus = id; // after the final refresh below, which re-renders the page
     }
     if (form.id === 'task-form') {
       const title = String(fd.get('title') || '').trim();
@@ -1991,6 +2211,7 @@ async function handleSubmit(e) {
       document.querySelector('.modal-backdrop')?.remove();
     }
     await refresh();
+    if (pendingCourseFocus) focusNewCourse(pendingCourseFocus);
   } catch (error) {
     toast(error?.message || 'حدث خطأ أثناء العملية', true);
     console.error(error);
@@ -2055,8 +2276,7 @@ async function handleChange(e) {
     if (!confirm('استعادة النسخة ستستبدل جميع البيانات الموجودة على هذا الجهاز. هل تريد المتابعة؟'))
       return;
     try {
-      const data = JSON.parse(await el.files[0].text());
-      await restore(data);
+      await restoreFile(el.files[0]);
       await refresh();
       toast('تمت استعادة النسخة الاحتياطية');
     } catch (err) {
@@ -2161,6 +2381,7 @@ async function init() {
         : mode;
     await refresh();
     window.__ucasBooted = true;
+    window.dispatchEvent(new Event('ucas-ready'));
     try {
       sessionStorage.removeItem('ucas-cache-recovery');
     } catch {
@@ -2198,6 +2419,7 @@ async function init() {
     document.getElementById('app').innerHTML =
       `<div class="initial-loader"><h2>تعذر تشغيل التخزين المحلي</h2><p>تأكد من فتح الموقع في متصفح يدعم IndexedDB وعبر localhost أو HTTPS.</p><p>${esc(err.message)}</p></div>`;
     console.error(err);
+    window.dispatchEvent(new Event('ucas-boot-error'));
   }
 }
 init();

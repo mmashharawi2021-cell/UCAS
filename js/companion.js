@@ -1,6 +1,17 @@
 // UCAS Moodle Companion bridge. Only imports the student's visible course metadata.
-import { all, put, makeId } from './store.js?v=1.7.0';
-import { safeMoodleActivityURL } from './moodle.js?v=1.7.0';
+import { all, put, makeId } from './store.js?v=2.0.0';
+import { safeMoodleActivityURL } from './moodle.js?v=2.0.0';
+
+// Long Moodle operations get room for slow connections; quick ones double as a presence check.
+const TIMEOUTS = { SCAN: 190000, FILE_SCAN: 600000, FILE_OPEN: 2400000, FILE_CHUNK: 30000 };
+const TIMEOUT_ERRORS = {
+  SCAN: 'تعذر إكمال فحص Moodle، تأكد من اتصال الإنترنت وجلسة الجامعة.',
+  FILE_SCAN: 'انتهت مهلة فحص ملفات Moodle. تحقق من الاتصال وجلسة الجامعة ثم أعد المحاولة.',
+  FILE_OPEN: 'انتهت مهلة تنزيل الملف من Moodle؛ قد يكون الاتصال بطيئًا أو الملف كبيرًا.',
+  FILE_CHUNK: 'توقف نقل أجزاء الملف من الإضافة؛ أعد المحاولة.',
+};
+const NOT_DETECTED =
+  'لم تُكتشف إضافة UCAS Moodle Companion. ثبّتها على Chrome للكمبيوتر ثم حدّث الصفحة.';
 
 export function companionRequest(type, options = false) {
   if (
@@ -17,16 +28,7 @@ export function companionRequest(type, options = false) {
   )
     return Promise.reject(Error('عملية غير مدعومة'));
   const args = options && typeof options === 'object' ? options : { enabled: options };
-  const timeoutMs =
-    type === 'SCAN'
-      ? 190000
-      : type === 'FILE_SCAN'
-        ? 290000
-        : type === 'FILE_OPEN'
-          ? 75000
-          : type === 'FILE_CHUNK'
-            ? 30000
-            : 10000;
+  const timeoutMs = TIMEOUTS[type] || 10000;
   const requestId = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     const finish = (error, value) => {
@@ -43,19 +45,18 @@ export function companionRequest(type, options = false) {
         event.data.requestId !== requestId
       )
         return;
-      if (!event.data.result?.ok)
-        finish(Error(event.data.result?.error || 'تعذر الاتصال بإضافة Chrome'));
-      else finish(null, event.data.result);
+      const result = event.data.result;
+      if (!result?.ok)
+        finish(
+          Object.assign(Error(result?.error || 'تعذر الاتصال بإضافة Chrome'), {
+            code: ['login', 'too_large'].includes(result?.code) ? result.code : undefined,
+            link: typeof result?.link === 'string' ? result.link.slice(0, 200) : undefined,
+          }),
+        );
+      else finish(null, result);
     };
     const timeout = setTimeout(
-      () =>
-        finish(
-          Error(
-            type === 'SCAN'
-              ? 'تعذر إكمال فحص Moodle، تأكد من اتصال الإنترنت وجلسة الجامعة.'
-              : 'لم تُكتشف إضافة UCAS Moodle Companion. ثبّتها على Chrome للكمبيوتر ثم حدّث الصفحة.',
-          ),
-        ),
+      () => finish(Error(TIMEOUT_ERRORS[type] || NOT_DETECTED)),
       timeoutMs,
     );
     window.addEventListener('message', receive);
@@ -94,6 +95,22 @@ function validCourseURL(value, id) {
   } catch {
     return false;
   }
+}
+// "YYYY-MM-DDTHH:mm" that is a real calendar date and time in a plausible range.
+function validDue(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(value || ''));
+  if (!m) return false;
+  const [year, month, day, hour, minute] = m.slice(1).map(Number);
+  const date = new Date(year, month - 1, day, hour, minute);
+  return (
+    year >= 2000 &&
+    year <= 2100 &&
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day &&
+    hour < 24 &&
+    minute < 60
+  );
 }
 export async function importCompanionSnapshot(snapshot) {
   if (
@@ -175,20 +192,22 @@ export async function importCompanionSnapshot(snapshot) {
         resources.push(resource);
         stats.resources++;
       }
-      if (
-        activity.type === 'assign' &&
-        !tasks.some(
-          t =>
-            t.courseId === course.id &&
-            (t.moodleActivityURL === url || clean(t.title) === clean(name)),
-        )
-      ) {
+      if (activity.type !== 'assign') continue;
+      // Due date and submitted state as Moodle shows them to the student (extension 0.5+).
+      const due = validDue(activity.due) ? activity.due : '';
+      const submitted = activity.submitted === true;
+      const existing = tasks.find(
+        t =>
+          t.courseId === course.id &&
+          (t.moodleActivityURL === url || clean(t.title) === clean(name)),
+      );
+      if (!existing) {
         const task = {
           id: makeId(),
           title: name,
           courseId: course.id,
-          due: '',
-          done: false,
+          due,
+          done: submitted,
           moodleActivityURL: url,
           origin: 'moodle-companion',
           createdAt: new Date().toISOString(),
@@ -196,6 +215,18 @@ export async function importCompanionSnapshot(snapshot) {
         await put('tasks', task);
         tasks.push(task);
         stats.tasks++;
+        continue;
+      }
+      // Refresh Moodle's date and mark submitted work done; never reopen a task the
+      // student completed, and leave manually created tasks alone.
+      const updated = { ...existing, moodleActivityURL: existing.moodleActivityURL || url };
+      if (existing.origin === 'moodle-companion' && due && existing.due !== due) updated.due = due;
+      if (existing.origin === 'moodle-companion' && submitted && !existing.done)
+        updated.done = true;
+      if (updated.due !== existing.due || updated.done !== existing.done) {
+        await put('tasks', updated);
+        tasks[tasks.indexOf(existing)] = updated;
+        stats.tasksUpdated = (stats.tasksUpdated || 0) + 1;
       }
     }
   }

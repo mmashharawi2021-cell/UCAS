@@ -1,10 +1,19 @@
 node_modules/
+# Packaged extension builds (npm run pack:companion)
+dist/
 .DS_Store
 *.log
 # Never commit personal study data or backups
 ucas-bridge-backup-*.json
+ucas-bridge-backup-*.zip
+# Personal Claude Code settings and notes
+.claude/settings.local.json
+CLAUDE.local.md
 *.mht
 *.mhtml
 .env*
 .next/
 .cache/
+
+# Local Moodle trial copy of the extension (points at 127.0.0.1); never commit or ship it
+companion-local*/

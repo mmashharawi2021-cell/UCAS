@@ -1,7 +1,7 @@
 // Optional in-browser OCR for PDFs with unreadable embedded Arabic text.
 // User action only. Never sends the PDF or its rendered canvas to a server.
 // Tesseract assets/language packs are downloaded from pinned public CDNs.
-import { getPdfLibrary, pdfTextQuality } from './pdf-text.js?v=1.7.0';
+import { getPdfLibrary, pdfTextQuality } from './pdf-text.js?v=2.0.0';
 
 const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.esm.min.js';
 const MAX_OCR_PAGES = 3,

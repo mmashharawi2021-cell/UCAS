@@ -21,6 +21,12 @@ try {
     hasTouch: true,
     reducedMotion: 'reduce',
   });
+  // Chrome on Windows/macOS exposes the Web Share API, which would open the OS share
+  // sheet instead of the invite modal checked below; hide it so every platform
+  // exercises the same fallback path.
+  await context.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, 'share', { value: undefined, configurable: true });
+  });
   await context.route(SUPABASE_JS, route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: fake }),
   );
@@ -32,6 +38,7 @@ try {
 
   await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.topbar');
+  await page.waitForFunction(() => !document.getElementById('app')?.inert);
   await click('[data-go="groups"]');
   await page.waitForSelector('.groups-intro');
   assert.match(await page.locator('.groups-intro').innerText(), /اسمًا مستعارًا/);
