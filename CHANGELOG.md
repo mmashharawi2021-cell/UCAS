@@ -1,6 +1,9 @@
 # Changelog — UCAS Academic Bridge
 
-## v2.0.0 (unreleased, branch only)
+## v2.0.0 — UCAS STUDIO for students (1 Nov 2026)
+
+- Loading screen: the logo assembles, "UCAS STUDIO" and its subtitle fade in, then both fly to the real brand (the sidebar on desktop, a new top bar on phones). Full animation on the first open of a session, a short version on later opens, a fade only with reduced motion. It never traps the app: it leaves on a storage error, after a maximum wait, and offline. The old spinner is gone. `tests/splash-browser.mjs` covers it.
+- Companion ZIP for this release: `UCAS_Moodle_Companion_0.5.0.zip` (built with `npm run pack:companion`, attached to the GitHub Release).
 
 - New installs start empty: no sample courses, course codes, credit hours, passed hours or semester name. The home page shows a first-run panel with two ways to start: sync from Moodle UCAS (needs the Companion extension on Chrome for a computer) or add a course by hand. It disappears once a course exists. Profiles created by older releases keep every course, grade row and setting unchanged; the IndexedDB schema stays at version 4 with no migration. The built-in semester plan (`UCAS_FALL_2026`) no longer ships in `js/lib/semester.js`. Tests build legacy profiles from invented data of the same shape (`tests/fixtures/legacy-seed.mjs`), and `npm run test:upgrade` checks that the courses and grade settings 1.7.0 wrote survive the upgrade.
 - CI: "UCAS quality checks" also runs the browser suite and the upgrade test (job `browser`; `mobile-layout.yml` is folded into it). The new `pages.yml` deploys to GitHub Pages only after that workflow passes on a push to main, and publishes only the runtime files. It takes effect when Settings → Pages → Source is set to GitHub Actions.

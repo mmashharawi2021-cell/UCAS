@@ -1,6 +1,6 @@
-# UCAS status — 30 Oct 2026
+# UCAS status — 1 Nov 2026
 
-**Deployed (`main`): UCAS 1.7.0 with Chrome Companion 0.2.** The branch `feat/companion-p1` holds the unreleased **2.0.0**: it is not merged or deployed yet.
+**Deployed (`main`): UCAS 1.7.0 with Chrome Companion 0.2.** The branch `feat/companion-p1` holds **2.0.0**, reviewed and ready for release: it is not merged or deployed yet. Update this line after the deploy is verified.
 
 ## What 2.0.0 adds
 
@@ -10,7 +10,7 @@
 - **AI requests stay capped** at the first 60,000 characters, the same limit as the Edge Function, and the consent shows the exact course name, file name and pages that will be sent.
 - **ZIP backups (format v2).** Older app versions cannot restore v2 backups; v1 JSON backups still restore.
 - **CI gate:** "UCAS quality checks" runs unit, browser and upgrade tests; `pages.yml` deploys only after it passes, once Pages is switched to GitHub Actions.
-- Planned in 2.0 before release: the loading screen (logo assembles, name appears, both move into place).
+- **Loading screen:** the logo assembles, the name appears, then both fly to the sidebar (desktop) or a new phone top bar. Full on the first open of a session, short afterwards, a fade with reduced motion; it never traps the app.
 
 ## Upgrade test
 
