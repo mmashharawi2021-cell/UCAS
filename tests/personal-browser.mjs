@@ -134,6 +134,9 @@ async function device(name) {
   // (sample courses + an invented plan, all defaults with mtime 0).
   await seedLegacy(page, { plan: true });
   await page.waitForSelector('.premium-hero');
+  // seedLegacy reloads the page, so the loading screen plays again and #app is inert until it
+  // ends. Typing into an inert input is lost (focus cannot enter it): wait for the app to be live.
+  await page.waitForFunction(() => !document.getElementById('app')?.inert);
   return page;
 }
 const click = (page, sel) => page.evaluate(s => document.querySelector(s).click(), sel);
@@ -151,7 +154,9 @@ const store = (page, fn, arg) =>
 async function signIn(page, email) {
   await go(page, 'settings');
   await page.waitForSelector('#sync-email-form');
+  await page.waitForFunction(() => !document.getElementById('app')?.inert);
   await page.fill('#sync-email-form input[name="email"]', email);
+  assert.equal(await page.inputValue('#sync-email-form input[name="email"]'), email);
   await page.click('#sync-email-form button[type="submit"]');
   await page.waitForSelector('.sync-panel .notice');
   const link = await page.evaluate(() => globalThis.__fakeLastLink);

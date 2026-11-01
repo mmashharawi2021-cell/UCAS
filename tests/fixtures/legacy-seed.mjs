@@ -90,5 +90,8 @@ export async function seedLegacy(page, { plan = false, reload = true } = {}) {
   if (reload) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.topbar');
+    // The reload replays the splash: .topbar is visible while #app is still inert, and
+    // Playwright fill() does not wait for inert, so wait until the app accepts input.
+    await page.waitForFunction(() => !document.getElementById('app')?.inert);
   }
 }

@@ -7,7 +7,10 @@ const browser = await chromium.launch({
   args: ['--no-sandbox'],
 });
 try {
-  const page = await browser.newPage({ viewport: { width: 390, height: 850 } });
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 850 },
+    reducedMotion: 'reduce',
+  });
   await page.goto('http://127.0.0.1:8099/');
   await page.waitForSelector('.premium-hero');
   await page.evaluate(() => {

@@ -113,7 +113,7 @@ const browser = await chromium.launch({
   args: ['--no-sandbox', '--host-resolver-rules=MAP * ~NOTFOUND'],
 });
 try {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
   const requested = [];
   await context.route('**/*', route => {
     const url = new URL(route.request().url());

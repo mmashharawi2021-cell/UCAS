@@ -16,7 +16,10 @@ const browser = await chromium.launch({
   args: ['--no-sandbox'],
 });
 try {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'reduce',
+  });
   const page = await context.newPage();
   await page.goto(SITE, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.topbar');

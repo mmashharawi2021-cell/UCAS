@@ -9,14 +9,34 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 40%, var(--splash-navy) 0%, var(--splash-deep) 70%);
   /* Even a missing/failed splash script cannot leave a permanent input-blocking overlay. */
   animation: splash-safety 0s 9s forwards;
 }
 .ucas-splash[hidden] {
   display: none;
 }
+/* The ground is a layer of its own so it can fade under the flying logo without a colour jump. */
+.ucas-splash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 40%, var(--splash-navy) 0%, var(--splash-deep) 70%);
+}
+.ucas-splash[data-phase='landing']::before {
+  opacity: 0;
+  transition: opacity var(--t-fly, 0ms) ease-in-out;
+}
+.splash-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .splash-inner {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 22px;
@@ -68,6 +88,7 @@
 .splash-playing .splash-sub {
   animation: splash-rise var(--t-sub) ease-out var(--d-sub) both;
 }
+/* The real logo and name stay hidden placeholders until the splash copies land on them. */
 .splash-active [data-brand-part] {
   visibility: hidden;
 }
@@ -85,6 +106,7 @@
   display: none;
 }
 @media (max-width: 860px) {
+  /* Phone brand bar (option A): scrolls away above the sticky .topbar, never overlaps it. */
   .mobile-brand {
     display: flex;
     align-items: center;
@@ -93,12 +115,20 @@
     padding: max(6px, env(safe-area-inset-top)) 16px 6px;
     background: #173a68;
     color: #fff;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  html[data-theme='dark'] .mobile-brand {
+    background: linear-gradient(175deg, #0a1a30 0%, #10243f 55%, #163152 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
   .mobile-brand img {
     width: 34px;
     height: 34px;
+    flex-shrink: 0;
   }
   .mobile-brand-title {
+    white-space: nowrap;
     font-size: 16px;
     font-weight: 800;
     line-height: 1.5;
@@ -167,5 +197,11 @@
   to {
     visibility: hidden;
     pointer-events: none;
+  }
+}
+@media print {
+  .mobile-brand,
+  .ucas-splash {
+    display: none !important;
   }
 }

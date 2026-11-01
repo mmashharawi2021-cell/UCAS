@@ -15,6 +15,7 @@ try {
       deviceScaleFactor: 1,
       isMobile: true,
       hasTouch: true,
+      reducedMotion: 'reduce',
     });
     await page.goto('http://127.0.0.1:8099/', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(

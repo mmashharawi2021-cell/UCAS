@@ -9,7 +9,11 @@ const browser = await chromium.launch({
   args: ['--no-sandbox'],
 });
 try {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true });
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    reducedMotion: 'reduce',
+  });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
 

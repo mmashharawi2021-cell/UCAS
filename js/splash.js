@@ -25,7 +25,7 @@
         dName: 300,
         sub: 220,
         dSub: 380,
-        wait: 620,
+        wait: 720,
         fly: 480,
       }
     : {
@@ -51,6 +51,7 @@
     'd-name': timing.dName,
     't-sub': timing.sub,
     'd-sub': timing.dSub,
+    't-fly': timing.fly,
   };
   for (const [key, value] of Object.entries(vars))
     splash.style.setProperty(`--${key}`, `${value}ms`);
@@ -61,7 +62,8 @@
   let ready = false;
   let flightTimer;
   const animations = [];
-  const deadline = setTimeout(finish, 9000);
+  const MAX_WAIT = 9000;
+  const deadline = setTimeout(finish, MAX_WAIT);
 
   function finish() {
     if (done) return;
@@ -94,58 +96,70 @@
     animations.push(animation);
     return animation;
   }
-  function fly(from, to, duration) {
-    const a = from.getBoundingClientRect();
-    const b = to?.getBoundingClientRect();
-    if (!b?.width || !b.height) return animate(from, [{ opacity: 1 }, { opacity: 0 }], duration);
+  // Lets the splash take its hands off the page: the app is usable while the overlay fades.
+  function release() {
+    splash.style.pointerEvents = 'none';
+    app.inert = false;
+  }
+  function fade(duration) {
+    release();
+    animate(splash, [{ opacity: 1 }, { opacity: 0 }], duration).finished.then(finish, finish);
+  }
+  // FLIP: the splash copy moves from its own box to the real (hidden) part, centre to centre.
+  // Text scales by height (font size) so the landed name matches the sidebar/top-bar text.
+  // Text is measured by its glyph box on both sides (a block line box and an inline span differ).
+  function box(el, text) {
+    if (!el || !text) return el?.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect();
+  }
+  function fly(from, to, duration, byHeight) {
+    const a = box(from, byHeight);
+    const b = box(to, byHeight);
+    if (!a.width || !b?.width || !b.height)
+      return animate(from, [{ opacity: 1 }, { opacity: 0 }], duration / 2);
+    const scale = byHeight ? b.height / a.height : b.width / a.width;
     const dx = b.left + b.width / 2 - a.left - a.width / 2;
     const dy = b.top + b.height / 2 - a.top - a.height / 2;
     return animate(
       from,
-      [
-        { transform: 'none' },
-        {
-          transform: `translate(${dx}px, ${dy}px) scale(${b.width / a.width}, ${b.height / a.height})`,
-        },
-      ],
+      [{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${scale})` }],
       duration,
     );
   }
   function land() {
     if (done) return;
     try {
-      if (reduced.matches || !splash.animate) {
-        if (!splash.animate) return finish();
-        animate(splash, [{ opacity: 1 }, { opacity: 0 }], 200).finished.then(finish, finish);
-        return;
-      }
+      if (!splash.animate) return finish();
+      const phone = matchMedia('(max-width: 860px)').matches;
+      const destination = document.querySelector(phone ? '.mobile-brand' : '.sidebar .logo');
+      const mark = destination?.querySelector('[data-brand-part="mark"]');
+      const left = MAX_WAIT - (performance.now() - started);
+      // Reduced motion, no visible destination, or too late for a full flight: a short fade.
+      if (reduced.matches || !mark?.getBoundingClientRect().width || left < timing.fly + 150)
+        return fade(200);
       splash.dataset.phase = 'landing';
-      const destination = document.querySelector(
-        matchMedia('(max-width: 860px)').matches ? '.mobile-brand' : '.sidebar .logo',
+      const flights = [fly(splash.querySelector('.splash-mark'), mark, timing.fly, false)];
+      flights.push(
+        fly(
+          splash.querySelector('.splash-title'),
+          destination.querySelector('[data-brand-part="title"]'),
+          timing.fly,
+          true,
+        ),
       );
-      if (!destination) return finish();
-      splash.style.background = 'transparent';
-      animate(
-        splash,
-        [{ backgroundColor: '#102a4d' }, { backgroundColor: 'transparent' }],
-        timing.fly,
+      // The phone bar has no subtitle: it fades out instead of flying.
+      flights.push(
+        fly(
+          splash.querySelector('.splash-sub'),
+          destination.querySelector('[data-brand-part="subtitle"]'),
+          timing.fly,
+          true,
+        ),
       );
-      fly(
-        splash.querySelector('.splash-mark'),
-        destination.querySelector('[data-brand-part="mark"]'),
-        timing.fly,
-      );
-      const title = fly(
-        splash.querySelector('.splash-title'),
-        destination.querySelector('[data-brand-part="title"]'),
-        timing.fly,
-      );
-      fly(
-        splash.querySelector('.splash-sub'),
-        destination.querySelector('[data-brand-part="subtitle"]'),
-        timing.fly,
-      );
-      title.finished.then(finish, finish);
+      // Reveal the real parts only when every copy has landed (no double logo, no jump).
+      Promise.all(flights.map(flight => flight.finished)).then(finish, finish);
     } catch {
       finish();
     }

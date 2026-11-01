@@ -37,6 +37,7 @@ try {
     deviceScaleFactor: 1,
     isMobile: true,
     hasTouch: true,
+    reducedMotion: 'reduce',
   });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
