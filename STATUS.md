@@ -1,6 +1,6 @@
 # UCAS status — 1 Nov 2026
 
-**Deployed (`main`): UCAS 1.7.0 with Chrome Companion 0.2.** The branch `feat/companion-p1` holds **2.0.0**, reviewed and ready for release: it is not merged or deployed yet. Update this line after the deploy is verified.
+**Deployed (`main`): UCAS 2.0.0 with Chrome Companion 0.5.0**, live on GitHub Pages since 1 Nov 2026 (merge `25e4975`, deployed by `pages.yml` after "UCAS quality checks" passed). The Companion ZIP is attached to [Release v2.0.0](https://github.com/mmashharawi2021-cell/UCAS/releases/tag/v2.0.0).
 
 ## What 2.0.0 adds
 
@@ -19,7 +19,7 @@
 ## Verified
 
 - Live run on the owner's own UCAS Moodle account, with the owner present and signing in by hand (30 Oct 2026): extension connection, sync (10 courses linked in 111 s), assignment due dates and submitted state (checked by the owner), file scan (15 files), scan report (checked by the owner), import of 4 PDFs, opening a file, and re-import without duplicates all passed.
-- Unit, browser and upgrade tests pass locally on Windows with Chrome.
+- Unit, browser and upgrade tests pass locally on Windows with Chrome and in CI on Ubuntu (PR #13 and `main`).
 
 ## Not verified yet
 

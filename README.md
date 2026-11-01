@@ -8,7 +8,7 @@
 2. **ثبّتها على جوالك:**
    - **Android (Chrome):** ⋮ ← **تثبيت التطبيق**.
    - **iPhone (Safari):** زر المشاركة ⬆ ← **إضافة إلى الشاشة الرئيسية**.
-3. **أضف مساقاتك:** يدويًا، أو بالمزامنة من Moodle عبر إضافة Chrome على الحاسوب: نزّل `UCAS_Moodle_Companion_0.5.0.zip`، وفك ضغطه، ثم `chrome://extensions` ← **Developer mode** ← **Load unpacked**.
+3. **أضف مساقاتك:** يدويًا، أو بالمزامنة من Moodle عبر إضافة Chrome على الحاسوب: نزّل [`UCAS_Moodle_Companion_0.5.0.zip`](https://github.com/mmashharawi2021-cell/UCAS/releases/download/v2.0.0/UCAS_Moodle_Companion_0.5.0.zip)، وفك ضغطه، ثم `chrome://extensions` ← **Developer mode** ← **Load unpacked**.
 4. **احفظ نسخة احتياطية أسبوعيًا** من الإعدادات، فملفاتك محفوظة في متصفح جهازك فقط.
 
 الدليل الكامل بالعربية: **[دليل_التشغيل.md](دليل_التشغيل.md)**.
